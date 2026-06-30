@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Version,
-    [string]$Image = "clustara",
+    [string]$Image = "dataworks",
     [string]$Platform = "linux/amd64"
 )
 

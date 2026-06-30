@@ -55,30 +55,29 @@ if (-not $foundEnd) {
 
 $targetChangelog = $extractedLogs -join "`r`n"
 
-$notes = "## Clustara v" + $cleanVer + "`r`n`r`n"
+$notes = "## Data Works v" + $cleanVer + "`r`n`r`n"
 $notes += [regex]::Unescape("### \uc8fc\uc694 \ubcc0\uacbd \uc0ac\ud56d`r`n")
 $notes += $targetChangelog + "`r`n`r`n"
 
 $notes += [regex]::Unescape("### \ubc30\ud3ec \ud30c\uc77c`r`n")
 $notes += [regex]::Unescape("| \ud30c\uc77c | \uc124\uba85 |`r`n")
 $notes += "|------|------|`r`n"
-$notes += "| clustara-v" + $cleanVer + [regex]::Unescape(".tar.gz | Docker \uc774\ubbf8\uc9c0 \ud328\ud0a4\uc9c0 (linux/amd64) |`r`n")
-$notes += "| clustara-v" + $cleanVer + [regex]::Unescape(".tar.gz.sha256 | SHA256 \uccb4\ud06c\uc12c |`r`n")
+$notes += "| dataworks-v" + $cleanVer + [regex]::Unescape(".tar.gz | Docker \uc774\ubbf8\uc9c0 \ud328\ud0a4\uc9c0 (linux/amd64) |`r`n")
+$notes += "| dataworks-v" + $cleanVer + [regex]::Unescape(".tar.gz.sha256 | SHA256 \uccb4\ud06c\uc12c |`r`n")
 $notes += "| README-offline-v" + $cleanVer + [regex]::Unescape(".md | \uc624\ud504\ub77c\uc778 \ubc30\ud3ec \uac00\uc774\ub4dc |`r`n")
-$notes += [regex]::Unescape("| Clustara_Report.pdf | Clustara \uae30\ub2a5\u00b7\uc5ed\ud560 \ubc0f \ube44\uc988\ub2c8\uc2a4 \uac00\uce58 \uc885\ud569 \ubcf4\uace0\uc11c |`r`n`r`n")
+$notes += [regex]::Unescape("| DataWorks_Report.pdf | Data Works \uae30\ub2a5\u00b7\uc5ed\ud560 \ubc0f \ube44\uc988\ub2c8\uc2a4 \uac00\uce58 \uc885\ud569 \ubcf4\uace0\uc11c |`r`n`r`n")
 
 $notes += [regex]::Unescape("### \ube60\ub978 \uc2dc\uc791`r`n")
 $notes += '```' + "bash`r`n"
 $notes += [regex]::Unescape("# \uc774\ubbf8\uc9c0 \ub85c\ub4dc`r`n")
-$notes += "gunzip -c clustara-" + $Version + ".tar.gz | docker load`r`n`n"
+$notes += "gunzip -c dataworks-" + $Version + ".tar.gz | docker load`r`n`n"
 $notes += [regex]::Unescape("# \uc2e4\ud589`r`n")
-$notes += "docker run -d --name clustara --restart=always \`r`n"
-$notes += "  -p 9090:9090 \`r`n"
-$notes += "  -v /opt/clustara/data:/data \`n"
-$notes += "  -e UPSTREAM_BASE_URL=https://api.openai.com \`n"
-$notes += "  -e UPSTREAM_API_KEY=sk-... \`n"
+$notes += "docker run -d --name dataworks --restart=always \`r`n"
+$notes += "  -p 8080:8080 \`r`n"
+$notes += "  -v /opt/dataworks/data:/data \`n"
+$notes += "  -e GATEWAY_SECRET=change-me \`n"
 $notes += "  -e ADMIN_TOKEN=change-me \`n"
-$notes += "  clustara:" + $Version + "`r`n"
+$notes += "  dataworks:" + $Version + "`r`n"
 $notes += '```'
 
 $notesPath = Join-Path $repoRoot "release\release-notes.txt"
@@ -93,20 +92,20 @@ if (-not (Test-Path $releaseDir)) {
 [System.IO.File]::WriteAllText($notesPath, $notes, (New-Object System.Text.UTF8Encoding($false)))
 
 $assets = @(
-    "release\clustara-$Version.tar.gz",
-    "release\clustara-$Version.tar.gz.sha256",
+    "release\dataworks-$Version.tar.gz",
+    "release\dataworks-$Version.tar.gz.sha256",
     "release\README-offline-$Version.md"
 )
-$reportPath = "release\Clustara_Report.pdf"
+$reportPath = "release\DataWorks_Report.pdf"
 if (Test-Path $reportPath) {
     $assets += $reportPath
 }
 
 if ($Edit) {
     # Re-publish corrected notes for an already-created release (no asset re-upload).
-    gh release edit $Version --repo hkjang/clustara --notes-file $notesPath
+    gh release edit $Version --repo hkjang/dataworks --notes-file $notesPath
 } else {
-    gh release create $Version $assets --repo hkjang/clustara --title "$Version - Clustara" --notes-file $notesPath
+    gh release create $Version $assets --repo hkjang/dataworks --title "$Version - Data Works" --notes-file $notesPath
 }
 
 Remove-Item $notesPath -ErrorAction SilentlyContinue
