@@ -1703,6 +1703,105 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			created_at TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_factory_runs_type_time ON factory_runs(run_type, created_at)`,
+		`CREATE TABLE IF NOT EXISTS dw_asset_quality_scores (
+			asset_key TEXT PRIMARY KEY,
+			quality_score INTEGER NOT NULL DEFAULT 0,
+			freshness_score INTEGER NOT NULL DEFAULT 0,
+			owner_score INTEGER NOT NULL DEFAULT 0,
+			metadata_score INTEGER NOT NULL DEFAULT 0,
+			sensitivity_score INTEGER NOT NULL DEFAULT 0,
+			approval_score INTEGER NOT NULL DEFAULT 0,
+			sample_score INTEGER NOT NULL DEFAULT 0,
+			overall_score INTEGER NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT '',
+			blockers_json TEXT NOT NULL DEFAULT '[]',
+			checked_by TEXT NOT NULL DEFAULT '',
+			last_checked_at TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_canvas (
+			product_key TEXT PRIMARY KEY,
+			customer_problem TEXT NOT NULL DEFAULT '',
+			target_segment TEXT NOT NULL DEFAULT '',
+			value_proposition TEXT NOT NULL DEFAULT '',
+			data_inputs_json TEXT NOT NULL DEFAULT '[]',
+			delivery_model TEXT NOT NULL DEFAULT '',
+			pricing_hypothesis TEXT NOT NULL DEFAULT '',
+			risk_posture TEXT NOT NULL DEFAULT '',
+			poc_success_metric TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_evidence (
+			id TEXT PRIMARY KEY,
+			product_key TEXT NOT NULL DEFAULT '',
+			evidence_type TEXT NOT NULL DEFAULT '',
+			source_ref TEXT NOT NULL DEFAULT '',
+			summary TEXT NOT NULL DEFAULT '',
+			confidence_score INTEGER NOT NULL DEFAULT 0,
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_product_evidence_product ON dw_product_evidence(product_key, evidence_type)`,
+		`CREATE TABLE IF NOT EXISTS dw_regulatory_trace (
+			id TEXT PRIMARY KEY,
+			product_key TEXT NOT NULL DEFAULT '',
+			risk_domain TEXT NOT NULL DEFAULT '',
+			question TEXT NOT NULL DEFAULT '',
+			answer TEXT NOT NULL DEFAULT '',
+			evidence TEXT NOT NULL DEFAULT '',
+			decision TEXT NOT NULL DEFAULT '',
+			reviewer TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_regulatory_trace_product ON dw_regulatory_trace(product_key, risk_domain)`,
+		`CREATE TABLE IF NOT EXISTS dw_api_contracts (
+			id TEXT PRIMARY KEY,
+			product_key TEXT NOT NULL DEFAULT '',
+			openapi_json TEXT NOT NULL DEFAULT '{}',
+			sla_policy TEXT NOT NULL DEFAULT '',
+			rate_limit TEXT NOT NULL DEFAULT '',
+			masking_policy TEXT NOT NULL DEFAULT '',
+			version INTEGER NOT NULL DEFAULT 1,
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_api_contracts_product ON dw_api_contracts(product_key, version)`,
+		`CREATE TABLE IF NOT EXISTS dw_mock_api_logs (
+			id TEXT PRIMARY KEY,
+			product_key TEXT NOT NULL DEFAULT '',
+			customer_type TEXT NOT NULL DEFAULT '',
+			request_hash TEXT NOT NULL DEFAULT '',
+			latency_ms INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_mock_api_logs_product ON dw_mock_api_logs(product_key, created_at)`,
+		`CREATE TABLE IF NOT EXISTS dw_proposal_feedback (
+			id TEXT PRIMARY KEY,
+			proposal_id TEXT NOT NULL DEFAULT '',
+			product_key TEXT NOT NULL DEFAULT '',
+			customer_type TEXT NOT NULL DEFAULT '',
+			customer_name_masked TEXT NOT NULL DEFAULT '',
+			result TEXT NOT NULL DEFAULT '',
+			reason TEXT NOT NULL DEFAULT '',
+			next_action TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_proposal_feedback_product ON dw_proposal_feedback(product_key, created_at)`,
+		`CREATE TABLE IF NOT EXISTS dw_poc_outcomes (
+			id TEXT PRIMARY KEY,
+			poc_id TEXT NOT NULL DEFAULT '',
+			product_key TEXT NOT NULL DEFAULT '',
+			success_yn INTEGER NOT NULL DEFAULT 0,
+			metric_result TEXT NOT NULL DEFAULT '',
+			customer_feedback TEXT NOT NULL DEFAULT '',
+			conversion_status TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_poc_outcomes_product ON dw_poc_outcomes(product_key, created_at)`,
 		`CREATE TABLE IF NOT EXISTS factory_audit_logs (
 			id TEXT PRIMARY KEY,
 			actor TEXT NOT NULL DEFAULT '',
@@ -2805,55 +2904,196 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		},
 		{
 			version: 19,
-			query: `ALTER TABLE data_products ADD COLUMN name_en TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN name_en TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 20,
-			query: `ALTER TABLE data_products ADD COLUMN short_name TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN short_name TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 21,
-			query: `ALTER TABLE data_products ADD COLUMN executive_summary TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN executive_summary TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 22,
-			query: `ALTER TABLE data_products ADD COLUMN sales_pitch TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN sales_pitch TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 23,
-			query: `ALTER TABLE data_products ADD COLUMN target_industries TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN target_industries TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 24,
-			query: `ALTER TABLE data_products ADD COLUMN target_customers TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN target_customers TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 25,
-			query: `ALTER TABLE data_products ADD COLUMN pricing_model TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN pricing_model TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 26,
-			query: `ALTER TABLE data_products ADD COLUMN api_spec TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN api_spec TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 27,
-			query: `ALTER TABLE data_products ADD COLUMN poc_plan TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN poc_plan TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 28,
-			query: `ALTER TABLE data_products ADD COLUMN risk_score INTEGER NOT NULL DEFAULT 0`,
+			query:   `ALTER TABLE data_products ADD COLUMN risk_score INTEGER NOT NULL DEFAULT 0`,
 		},
 		{
 			version: 29,
-			query: `ALTER TABLE data_products ADD COLUMN revenue_score INTEGER NOT NULL DEFAULT 0`,
+			query:   `ALTER TABLE data_products ADD COLUMN revenue_score INTEGER NOT NULL DEFAULT 0`,
 		},
 		{
 			version: 30,
-			query: `ALTER TABLE data_products ADD COLUMN differentiation TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN differentiation TEXT NOT NULL DEFAULT ''`,
 		},
 		{
 			version: 31,
-			query: `ALTER TABLE data_products ADD COLUMN similar_products TEXT NOT NULL DEFAULT ''`,
+			query:   `ALTER TABLE data_products ADD COLUMN similar_products TEXT NOT NULL DEFAULT ''`,
+		},
+		{
+			version: 32,
+			query: `CREATE TABLE IF NOT EXISTS dw_asset_quality_scores (
+				asset_key TEXT PRIMARY KEY,
+				quality_score INTEGER NOT NULL DEFAULT 0,
+				freshness_score INTEGER NOT NULL DEFAULT 0,
+				owner_score INTEGER NOT NULL DEFAULT 0,
+				metadata_score INTEGER NOT NULL DEFAULT 0,
+				sensitivity_score INTEGER NOT NULL DEFAULT 0,
+				approval_score INTEGER NOT NULL DEFAULT 0,
+				sample_score INTEGER NOT NULL DEFAULT 0,
+				overall_score INTEGER NOT NULL DEFAULT 0,
+				status TEXT NOT NULL DEFAULT '',
+				blockers_json TEXT NOT NULL DEFAULT '[]',
+				checked_by TEXT NOT NULL DEFAULT '',
+				last_checked_at TEXT NOT NULL DEFAULT ''
+			)`,
+		},
+		{
+			version: 33,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_canvas (
+				product_key TEXT PRIMARY KEY,
+				customer_problem TEXT NOT NULL DEFAULT '',
+				target_segment TEXT NOT NULL DEFAULT '',
+				value_proposition TEXT NOT NULL DEFAULT '',
+				data_inputs_json TEXT NOT NULL DEFAULT '[]',
+				delivery_model TEXT NOT NULL DEFAULT '',
+				pricing_hypothesis TEXT NOT NULL DEFAULT '',
+				risk_posture TEXT NOT NULL DEFAULT '',
+				poc_success_metric TEXT NOT NULL DEFAULT '',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 34,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_evidence (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				evidence_type TEXT NOT NULL DEFAULT '',
+				source_ref TEXT NOT NULL DEFAULT '',
+				summary TEXT NOT NULL DEFAULT '',
+				confidence_score INTEGER NOT NULL DEFAULT 0,
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 35,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_product_evidence_product ON dw_product_evidence(product_key, evidence_type)`,
+		},
+		{
+			version: 36,
+			query: `CREATE TABLE IF NOT EXISTS dw_regulatory_trace (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				risk_domain TEXT NOT NULL DEFAULT '',
+				question TEXT NOT NULL DEFAULT '',
+				answer TEXT NOT NULL DEFAULT '',
+				evidence TEXT NOT NULL DEFAULT '',
+				decision TEXT NOT NULL DEFAULT '',
+				reviewer TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 37,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_regulatory_trace_product ON dw_regulatory_trace(product_key, risk_domain)`,
+		},
+		{
+			version: 38,
+			query: `CREATE TABLE IF NOT EXISTS dw_api_contracts (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				openapi_json TEXT NOT NULL DEFAULT '{}',
+				sla_policy TEXT NOT NULL DEFAULT '',
+				rate_limit TEXT NOT NULL DEFAULT '',
+				masking_policy TEXT NOT NULL DEFAULT '',
+				version INTEGER NOT NULL DEFAULT 1,
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 39,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_api_contracts_product ON dw_api_contracts(product_key, version)`,
+		},
+		{
+			version: 40,
+			query: `CREATE TABLE IF NOT EXISTS dw_mock_api_logs (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				customer_type TEXT NOT NULL DEFAULT '',
+				request_hash TEXT NOT NULL DEFAULT '',
+				latency_ms INTEGER NOT NULL DEFAULT 0,
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 41,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_mock_api_logs_product ON dw_mock_api_logs(product_key, created_at)`,
+		},
+		{
+			version: 42,
+			query: `CREATE TABLE IF NOT EXISTS dw_proposal_feedback (
+				id TEXT PRIMARY KEY,
+				proposal_id TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				customer_type TEXT NOT NULL DEFAULT '',
+				customer_name_masked TEXT NOT NULL DEFAULT '',
+				result TEXT NOT NULL DEFAULT '',
+				reason TEXT NOT NULL DEFAULT '',
+				next_action TEXT NOT NULL DEFAULT '',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 43,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_proposal_feedback_product ON dw_proposal_feedback(product_key, created_at)`,
+		},
+		{
+			version: 44,
+			query: `CREATE TABLE IF NOT EXISTS dw_poc_outcomes (
+				id TEXT PRIMARY KEY,
+				poc_id TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				success_yn INTEGER NOT NULL DEFAULT 0,
+				metric_result TEXT NOT NULL DEFAULT '',
+				customer_feedback TEXT NOT NULL DEFAULT '',
+				conversion_status TEXT NOT NULL DEFAULT '',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 45,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_poc_outcomes_product ON dw_poc_outcomes(product_key, created_at)`,
 		},
 	}
 

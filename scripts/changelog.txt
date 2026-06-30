@@ -1,3 +1,6 @@
+v0.9.26:
+- **Data Works 운영 플랫폼 고도화 (v0.9.26)**: Data Product Factory MVP에 운영형 백엔드 기능을 추가. 신규 Data Asset Readiness Score, Product Canvas, Product Evidence Pack, Regulatory Trace Matrix, API Contract/OpenAPI 생성, Mock API sandbox 로그, Proposal Feedback Loop, PoC Outcome, 상품/전체 funnel 분석, 포트폴리오 graph API를 제공. 고위험 또는 민감 상품은 자산 준비도와 법무·준법·데이터오너 승인 trace가 없으면 published 전환을 차단하는 Data Works publish gate를 추가. 신규 `dw_asset_quality_scores`, `dw_product_canvas`, `dw_product_evidence`, `dw_regulatory_trace`, `dw_api_contracts`, `dw_mock_api_logs`, `dw_proposal_feedback`, `dw_poc_outcomes` 테이블과 OpenAPI/README 문서, store/HTTP 테스트를 반영.
+
 v0.9.25:
 - **Data Works 전환 MVP (v0.9.25)**: Clustara 기반 프로젝트를 Data Works 데이터 상품 팩토리로 전환. 기본 Admin UI 브랜딩과 홈을 Factory 중심으로 변경하고, K8s 운영 메뉴는 `k8s_ops` 기능 플래그 뒤의 레거시 영역으로 격리. 신규 `/admin/factory/*` API 추가: 아이디어 생성, 상품 정의서 생성, 고객 제안 패키지, 유사 상품 비교, 규제·보안 리스크 점검, PoC 계획, 우선순위/매출 가능성 평가, 상품 승인·출시·보관 라이프사이클. `data_products` 확장 필드(name_en/short_name/executive_summary/sales_pitch/target_customers/pricing_model/api_spec/poc_plan/risk_score/revenue_score 등)와 `data_assets`, `product_ideas`, `product_definitions`, `product_risk_reviews`, `product_poc_plans`, `proposal_packages`, `factory_runs`, `factory_audit_logs` 테이블 추가. OpenAPI와 네비게이션 테스트를 Data Works 정책에 맞춰 갱신.
 

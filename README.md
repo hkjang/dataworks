@@ -22,21 +22,33 @@
 | --- | --- | --- |
 | `GET` | `/admin/dataworks/home` | Data Works Home 지표 |
 | `GET` | `/admin/dataworks/assets` | 데이터 자산 목록 조회 및 업서트 |
+| `POST` | `/admin/dataworks/assets/{key}/readiness/check` | 데이터 자산 상품화 준비도 평가 |
+| `GET` | `/admin/dataworks/assets/{key}/lineage` | 데이터 자산 기반 상품 lineage 조회 |
 | `POST` | `/admin/dataworks/factory/ideas` | 데이터 상품 아이디어 생성 |
 | `POST` | `/admin/dataworks/factory/definitions` | 아이디어 기반 상품 정의서 생성 |
 | `POST` | `/admin/dataworks/factory/api-spec` | API 규격 설계 생성 |
 | `POST` | `/admin/dataworks/factory/report-spec` | 분석 리포트 규격 설계 생성 |
 | `POST` | `/admin/dataworks/risk/check` | 규제·보안 리스크 체크리스트 |
 | `POST` | `/admin/dataworks/poc/plans` | PoC 계획 생성 |
+| `POST` | `/admin/dataworks/poc/{id}/outcome` | PoC 결과 및 계약 후보 전환 상태 기록 |
 | `POST` | `/admin/dataworks/scoring/evaluate` | 우선순위·매출 가능성 평가 |
 | `POST` | `/admin/dataworks/proposals` | 고객군별 제안 패키지 생성 |
+| `POST` | `/admin/dataworks/proposals/{id}/feedback` | 제안 결과, 반응, 거절 사유, 다음 액션 기록 |
 | `POST` | `/admin/dataworks/similarity/check` | 기존 상품과 유사도 비교 |
 | `GET` | `/admin/dataworks/reviews` | 승인 검토 대기 상품 목록 |
 | `POST` | `/admin/dataworks/reviews/{key}/approve\|reject` | 상품 상태 승인/반려 |
 | `GET` | `/admin/dataworks/portfolio` | 상태별 라이프사이클 상품 조회 |
+| `GET` | `/admin/dataworks/portfolio/graph` | 자산·상품·제안·PoC 관계 그래프 조회 |
 | `GET` | `/admin/dataworks/analytics` | 상품 매출/리스크 성과 분석 |
+| `GET` | `/admin/dataworks/analytics/funnel` | 아이디어 → 정의서 → 리스크 → 제안 → PoC → 출시 funnel |
 | `GET` | `/admin/dataworks/factory/runs` | AI 워크런 수행 이력 조회 |
 | `GET` | `/admin/dataworks/products` | 상품 후보·정의서 목록 |
+| `POST` | `/admin/dataworks/products/{key}/canvas/generate` | Product Canvas 생성 및 저장 |
+| `GET` | `/admin/dataworks/products/{key}/evidence` | Product Evidence Pack 조회 |
+| `POST` | `/admin/dataworks/products/{key}/regulatory-trace` | Regulatory Trace Matrix 생성 또는 교체 |
+| `POST` | `/admin/dataworks/products/{key}/api-contract` | OpenAPI 기반 API 상품 계약 생성 |
+| `POST` | `/admin/dataworks/products/{key}/mock` | Mock API 응답 생성 및 호출 로그 기록 |
+| `GET` | `/admin/dataworks/products/{key}/funnel` | 상품별 전환 funnel 조회 |
 
 기존 `/admin/data-products` 카탈로그는 확장 필드(`target_customers`, `pricing_model`, `api_spec`, `poc_plan`, `risk_score`, `revenue_score` 등)를 포함하도록 확장되었습니다.
 

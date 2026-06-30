@@ -31,7 +31,7 @@ import (
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
-const AppVersion = "v0.9.25"
+const AppVersion = "v0.9.26"
 
 type Server struct {
 	cfg            config.Config
@@ -402,20 +402,26 @@ func (s *Server) Routes() http.Handler {
 	// Data Works routes
 	mux.HandleFunc("/admin/dataworks/home", s.handleDataWorksHome)
 	mux.HandleFunc("/admin/dataworks/assets", s.handleDataWorksAssets)
+	mux.HandleFunc("/admin/dataworks/assets/", s.handleDataWorksAssetByKey)
 	mux.HandleFunc("/admin/dataworks/factory/ideas", s.handleDataWorksFactoryIdeas)
 	mux.HandleFunc("/admin/dataworks/factory/definitions", s.handleDataWorksFactoryDefinitions)
 	mux.HandleFunc("/admin/dataworks/factory/api-spec", s.handleDataWorksFactoryAPISpec)
 	mux.HandleFunc("/admin/dataworks/factory/report-spec", s.handleDataWorksFactoryReportSpec)
 	mux.HandleFunc("/admin/dataworks/proposals", s.handleDataWorksProposals)
+	mux.HandleFunc("/admin/dataworks/proposals/", s.handleDataWorksProposalByID)
 	mux.HandleFunc("/admin/dataworks/risk/check", s.handleDataWorksRiskCheck)
 	mux.HandleFunc("/admin/dataworks/similarity/check", s.handleDataWorksSimilarityCheck)
 	mux.HandleFunc("/admin/dataworks/poc/plans", s.handleDataWorksPOCPlans)
+	mux.HandleFunc("/admin/dataworks/poc/", s.handleDataWorksPOCByID)
 	mux.HandleFunc("/admin/dataworks/scoring/evaluate", s.handleDataWorksScoringEvaluate)
 	mux.HandleFunc("/admin/dataworks/reviews", s.handleDataWorksReviews)
 	mux.HandleFunc("/admin/dataworks/reviews/", s.handleDataWorksReviewAction)
+	mux.HandleFunc("/admin/dataworks/portfolio/graph", s.handleDataWorksPortfolioGraph)
 	mux.HandleFunc("/admin/dataworks/portfolio", s.handleDataWorksPortfolio)
+	mux.HandleFunc("/admin/dataworks/analytics/funnel", s.handleDataWorksAnalyticsFunnel)
 	mux.HandleFunc("/admin/dataworks/analytics", s.handleDataWorksAnalytics)
 	mux.HandleFunc("/admin/dataworks/factory/runs", s.handleDataWorksFactoryRuns)
+	mux.HandleFunc("/admin/dataworks/products/", s.handleDataWorksProductByKey)
 	mux.HandleFunc("/admin/dataworks/products", s.handleDataWorksProducts)
 	mux.HandleFunc("/me/onboarding-pack", s.handleMyOnboardingPack)
 	mux.HandleFunc("/me/connection-doctor", s.handleConnectionDoctor)

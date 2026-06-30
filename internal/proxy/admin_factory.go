@@ -141,8 +141,16 @@ func (s *Server) handleFactoryProductByID(w http.ResponseWriter, r *http.Request
 		def, defOK, _ := s.db.LatestProductDefinition(r.Context(), p.ProductKey)
 		risk, riskOK, _ := s.db.LatestProductRiskReview(r.Context(), p.ProductKey)
 		poc, pocOK, _ := s.db.LatestProductPOCPlan(r.Context(), p.ProductKey)
+		canvas, canvasOK, _ := s.db.GetProductCanvas(r.Context(), p.ProductKey)
+		evidence, _ := s.db.ListProductEvidence(r.Context(), p.ProductKey)
+		trace, _ := s.db.ListRegulatoryTrace(r.Context(), p.ProductKey)
+		contract, contractOK, _ := s.db.LatestProductAPIContract(r.Context(), p.ProductKey)
+		feedback, _ := s.db.ListProposalFeedback(r.Context(), p.ProductKey)
+		outcomes, _ := s.db.ListPOCOutcomes(r.Context(), p.ProductKey)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"product": p, "definition": optional(def, defOK), "risk_review": optional(risk, riskOK), "poc_plan": optional(poc, pocOK),
+			"canvas": optional(canvas, canvasOK), "evidence": evidence, "regulatory_trace": trace, "api_contract": optional(contract, contractOK),
+			"proposal_feedback": feedback, "poc_outcomes": outcomes,
 		})
 	case http.MethodPost:
 		if action == "" {
@@ -162,6 +170,20 @@ func (s *Server) handleFactoryProductByID(w http.ResponseWriter, r *http.Request
 		if next == "" {
 			writeOpenAIError(w, http.StatusBadRequest, "action must be approve|publish|archive", "invalid_request_error", "bad_action")
 			return
+		}
+		if action == "publish" {
+			if blockers := s.dataWorksPublishGate(r.Context(), p); len(blockers) > 0 {
+				writeJSON(w, http.StatusConflict, map[string]any{
+					"error": map[string]any{
+						"message": "publish blocked by Data Works readiness/regulatory gate",
+						"type":    "invalid_request_error",
+						"param":   nil,
+						"code":    "dataworks_publish_blocked",
+					},
+					"blockers": blockers,
+				})
+				return
+			}
 		}
 		before := auditJSON(p)
 		p.Status = next
@@ -287,6 +309,8 @@ func (s *Server) handleFactoryDefineProduct(w http.ResponseWriter, r *http.Reque
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "product_failed")
 		return
 	}
+	_ = s.upsertGeneratedProductCanvas(r.Context(), product, adminID(r))
+	_ = s.refreshProductEvidencePack(r.Context(), product, adminID(r))
 	_ = s.db.InsertFactoryRun(r.Context(), store.FactoryRun{ID: newID("frun"), RunType: "products.define", Model: "rules:dataworks-mvp", InputHash: factoryShortHash(req.Title + req.CustomerNeed), OutputRef: key, CreatedBy: adminID(r)})
 	s.auditAdmin(r, "factory.products.define", "", auditJSON(map[string]any{"product_key": key, "version": version}))
 	writeJSON(w, http.StatusOK, map[string]any{"product_key": key, "version": version, "definition": definition, "product": product})
