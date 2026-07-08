@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 const providerHealthWindow = 15 * time.Minute

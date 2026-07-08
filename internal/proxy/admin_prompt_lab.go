@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // ── output contract validation ───────────────────────────────────────────────

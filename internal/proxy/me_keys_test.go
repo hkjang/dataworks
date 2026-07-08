@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func meKeysServer(t *testing.T, selfService bool) (*httptest.Server, *store.SQLStore) {

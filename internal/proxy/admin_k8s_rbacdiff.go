@@ -3,8 +3,8 @@ package proxy
 import (
 	"net/http"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 type rbacDiffEntry struct {

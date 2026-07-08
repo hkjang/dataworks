@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleKnowledge(w http.ResponseWriter, r *http.Request) {

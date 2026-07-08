@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // skillVisibleToTeam reports whether a production skill is usable by a team (allowed_teams empty

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func sandboxPreview(t *testing.T, url string, body map[string]any) map[string]any {

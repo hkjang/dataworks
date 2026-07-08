@@ -3,7 +3,7 @@ package analyzer
 import (
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // IncidentDraft is a candidate incident assembled from a high/critical RCA finding plus its

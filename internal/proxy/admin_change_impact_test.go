@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func TestMatchModelGlob(t *testing.T) {

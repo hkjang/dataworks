@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handleVCSWebhook ingests version-control webhooks (GitLab / Bitbucket / generic),

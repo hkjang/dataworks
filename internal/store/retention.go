@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 type RetentionWorker struct {

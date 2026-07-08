@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 func TestComposeK8sAIPromptGrounding(t *testing.T) {

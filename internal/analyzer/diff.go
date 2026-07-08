@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // FieldChange is one differing field between two resource revisions.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 const mcpPolicyTTL = 5 * time.Second

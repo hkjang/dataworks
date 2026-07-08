@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // authorizeScope reports whether the caller holds a specific scope (legacy admin-token

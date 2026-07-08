@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // This file turns MCP discovery virtual models (vibe/grounded, vibe/research, ...) into a

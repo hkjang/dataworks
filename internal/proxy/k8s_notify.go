@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // requestBaseURL reconstructs the public base URL from the incoming request for deep links.

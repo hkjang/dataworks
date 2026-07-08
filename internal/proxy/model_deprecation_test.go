@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestSunsetReached(t *testing.T) {

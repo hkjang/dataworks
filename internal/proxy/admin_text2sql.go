@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
-	"clustara/internal/text2sql"
+	"dataworks/internal/store"
+	"dataworks/internal/text2sql"
 )
 
 var sqlTokenRe = regexp.MustCompile(`[a-zA-Z_][a-zA-Z0-9_]*`)

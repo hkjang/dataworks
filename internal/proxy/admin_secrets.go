@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/config"
-	"clustara/internal/secret"
+	"dataworks/internal/config"
+	"dataworks/internal/secret"
 )
 
 // handleSecretsRotate re-encrypts every secret column in the database from the

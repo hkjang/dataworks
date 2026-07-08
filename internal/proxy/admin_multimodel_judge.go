@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // judgeCriteria are the rubric dimensions scored 0–100 (higher is better; "safety" is the

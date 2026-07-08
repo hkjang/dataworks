@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sConfigImpact reports which workloads consume a given ConfigMap/Secret and whether a

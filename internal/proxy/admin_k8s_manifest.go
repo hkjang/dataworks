@@ -7,7 +7,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 const maskedValue = "***"

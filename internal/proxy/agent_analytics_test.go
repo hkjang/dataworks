@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // seedAgent logs n chat requests under a user-agent with the given success count

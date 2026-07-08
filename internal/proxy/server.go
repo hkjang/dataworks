@@ -24,10 +24,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"clustara/internal/audit"
-	"clustara/internal/config"
-	"clustara/internal/secret"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/config"
+	"dataworks/internal/secret"
+	"dataworks/internal/store"
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
@@ -401,6 +401,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/me/data-products/", s.handleMeDataProductAccess)
 	// Data Works routes
 	mux.HandleFunc("/admin/dataworks/home", s.handleDataWorksHome)
+	mux.HandleFunc("/admin/dataworks/action-center", s.handleDataWorksActionCenter)
+	mux.HandleFunc("/admin/dataworks/customer-segments", s.handleDataWorksCustomerSegments)
+	mux.HandleFunc("/admin/dataworks/assets/readiness", s.handleDataWorksAssetReadiness)
 	mux.HandleFunc("/admin/dataworks/assets", s.handleDataWorksAssets)
 	mux.HandleFunc("/admin/dataworks/assets/", s.handleDataWorksAssetByKey)
 	mux.HandleFunc("/admin/dataworks/factory/ideas", s.handleDataWorksFactoryIdeas)
@@ -419,15 +422,17 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/dataworks/portfolio/graph", s.handleDataWorksPortfolioGraph)
 	mux.HandleFunc("/admin/dataworks/portfolio", s.handleDataWorksPortfolio)
 	mux.HandleFunc("/admin/dataworks/analytics/funnel", s.handleDataWorksAnalyticsFunnel)
+	mux.HandleFunc("/admin/dataworks/funnel", s.handleDataWorksFunnel)
 	mux.HandleFunc("/admin/dataworks/analytics", s.handleDataWorksAnalytics)
 	mux.HandleFunc("/admin/dataworks/factory/runs", s.handleDataWorksFactoryRuns)
-	mux.HandleFunc("/admin/dataworks/products/", s.handleDataWorksProductByKey)
+	mux.HandleFunc("/admin/dataworks/products/", s.handleDataWorksProductActions)
 	mux.HandleFunc("/admin/dataworks/products", s.handleDataWorksProducts)
 	mux.HandleFunc("/me/onboarding-pack", s.handleMyOnboardingPack)
 	mux.HandleFunc("/me/connection-doctor", s.handleConnectionDoctor)
 	mux.HandleFunc("/me/app-runs", s.handleMyAppRuns)
 	mux.HandleFunc("/v1/app-runs/", s.handleAppRunReceipt)
 	mux.HandleFunc("/v1/workflow-runs/", s.handleWorkflowRunReceipt)
+	mux.HandleFunc("/v1/data-products/", s.handleV1DataProductQuery)
 	mux.HandleFunc("/me/requests", s.handleMyRecentRequests)
 	mux.HandleFunc("/me/requests/", s.handleMyRequestReceipt)
 	mux.HandleFunc("/admin/workflows", s.handleAdminWorkflows)

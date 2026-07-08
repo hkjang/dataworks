@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // rawPromptViewerRoles may view captured prompt/response ORIGINALS. Lower-privilege

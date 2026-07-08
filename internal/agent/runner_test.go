@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/collector"
-	"clustara/internal/kube"
-	"clustara/internal/store"
+	"dataworks/internal/collector"
+	"dataworks/internal/kube"
+	"dataworks/internal/store"
 )
 
 func TestConfigFromEnvBuildsAgentEndpoint(t *testing.T) {

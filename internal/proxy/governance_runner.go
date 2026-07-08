@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
+	"dataworks/internal/audit"
 )
 
 type governanceRunResult struct {

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // doctorCheck is one connection diagnostic result.

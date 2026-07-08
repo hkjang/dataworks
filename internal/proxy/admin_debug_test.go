@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestRequestReplayHitsUpstreamAgain(t *testing.T) {

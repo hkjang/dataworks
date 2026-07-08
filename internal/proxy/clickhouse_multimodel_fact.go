@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // multiModelFactDDL — one table holding multi-model comparison facts, discriminated by

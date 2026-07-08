@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handleK8sGroups lists cluster groups with a per-group cluster roll-up, and creates/updates

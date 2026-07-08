@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // narrativeSection is one prose block of the monthly report (title + narrative + key metrics).

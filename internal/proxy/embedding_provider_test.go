@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // When CACHE_EMBEDDING_BASE_URL is set, embedText must call that endpoint directly

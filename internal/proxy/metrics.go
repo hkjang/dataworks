@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 type Metrics struct {

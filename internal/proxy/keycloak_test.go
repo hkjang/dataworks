@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func TestResolveKeycloakRole(t *testing.T) {

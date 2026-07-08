@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // Inventory Freshness Score (CLU-REQ-01) + Stale Warning (CLU-REQ-10).

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // okfSubjectTable extracts the table name from an OKF subject like "table:orders" or

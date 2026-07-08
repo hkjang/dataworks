@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 // opsStatusWindow is how far back provider health is summarised for the ops view.

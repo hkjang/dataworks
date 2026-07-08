@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handlePolicyRegressionCases manages the policy regression test suite.

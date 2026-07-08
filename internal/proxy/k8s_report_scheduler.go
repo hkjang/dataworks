@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // buildK8sReportDigest assembles the compact operations digest KPIs from local data and renders the

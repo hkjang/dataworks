@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 var blobRegex = regexp.MustCompile(`(?i)\bblob\b`)
@@ -1811,6 +1811,187 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			after_json TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS dw_asset_readiness_scores (
+			asset_key TEXT PRIMARY KEY,
+			schema_score INTEGER NOT NULL DEFAULT 0,
+			freshness_score INTEGER NOT NULL DEFAULT 0,
+			sample_score INTEGER NOT NULL DEFAULT 0,
+			missingness_score INTEGER NOT NULL DEFAULT 0,
+			sensitivity_score INTEGER NOT NULL DEFAULT 0,
+			external_sharing_score INTEGER NOT NULL DEFAULT 0,
+			api_readiness_score INTEGER NOT NULL DEFAULT 0,
+			billing_readiness_score INTEGER NOT NULL DEFAULT 0,
+			overall_score INTEGER NOT NULL DEFAULT 0,
+			notes TEXT NOT NULL DEFAULT '',
+			updated_by TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_canvases (
+			product_key TEXT PRIMARY KEY,
+			customer_problem TEXT NOT NULL DEFAULT '',
+			buyer TEXT NOT NULL DEFAULT '',
+			use_cases TEXT NOT NULL DEFAULT '',
+			provided_data TEXT NOT NULL DEFAULT '',
+			differentiation TEXT NOT NULL DEFAULT '',
+			pricing_model TEXT NOT NULL DEFAULT '',
+			risk_notes TEXT NOT NULL DEFAULT '',
+			poc_success_criteria TEXT NOT NULL DEFAULT '',
+			expected_revenue TEXT NOT NULL DEFAULT '',
+			owner TEXT NOT NULL DEFAULT '',
+			updated_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_approval_traces (
+			id TEXT PRIMARY KEY,
+			product_key TEXT NOT NULL DEFAULT '',
+			step TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'pending',
+			required INTEGER NOT NULL DEFAULT 1,
+			evidence_ref TEXT NOT NULL DEFAULT '',
+			notes TEXT NOT NULL DEFAULT '',
+			decided_by TEXT NOT NULL DEFAULT '',
+			expires_at TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_approval_traces_product ON dw_approval_traces(product_key, step, status)`,
+		`CREATE TABLE IF NOT EXISTS dw_evidence_packs (
+			product_key TEXT PRIMARY KEY,
+			pack_json TEXT NOT NULL DEFAULT '{}',
+			artifact_ref TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_contract_versions (
+			id TEXT PRIMARY KEY,
+			product_key TEXT NOT NULL DEFAULT '',
+			version INTEGER NOT NULL DEFAULT 1,
+			contract_json TEXT NOT NULL DEFAULT '{}',
+			status TEXT NOT NULL DEFAULT 'draft',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_contract_versions_product ON dw_contract_versions(product_key, version)`,
+		`CREATE TABLE IF NOT EXISTS dw_customer_segments (
+			segment_key TEXT PRIMARY KEY,
+			industry TEXT NOT NULL DEFAULT '',
+			buyer_type TEXT NOT NULL DEFAULT '',
+			pain_points TEXT NOT NULL DEFAULT '',
+			budget_level TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_fit_scores (
+			product_key TEXT NOT NULL DEFAULT '',
+			customer_segment TEXT NOT NULL DEFAULT '',
+			fit_score INTEGER NOT NULL DEFAULT 0,
+			reason TEXT NOT NULL DEFAULT '',
+			evidence_refs TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL,
+			PRIMARY KEY(product_key, customer_segment)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_product_fit_scores_product ON dw_product_fit_scores(product_key, fit_score)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_versions (
+			product_key TEXT NOT NULL DEFAULT '',
+			version INTEGER NOT NULL DEFAULT 1,
+			snapshot_json TEXT NOT NULL DEFAULT '{}',
+			diff_summary TEXT NOT NULL DEFAULT '',
+			changed_by TEXT NOT NULL DEFAULT '',
+			changed_at TEXT NOT NULL,
+			PRIMARY KEY(product_key, version)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_product_versions_product ON dw_product_versions(product_key, version)`,
+		`CREATE TABLE IF NOT EXISTS dw_contract_scopes (
+			contract_key TEXT PRIMARY KEY,
+			product_key TEXT NOT NULL DEFAULT '',
+			customer_key TEXT NOT NULL DEFAULT '',
+			allowed_fields TEXT NOT NULL DEFAULT '',
+			rate_limit INTEGER NOT NULL DEFAULT 0,
+			valid_from TEXT NOT NULL DEFAULT '',
+			valid_to TEXT NOT NULL DEFAULT '',
+			purpose TEXT NOT NULL DEFAULT '',
+			restrictions TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'active',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_contract_scopes_product ON dw_contract_scopes(product_key, customer_key, status)`,
+		`CREATE TABLE IF NOT EXISTS dw_api_entitlements (
+			id TEXT PRIMARY KEY,
+			api_key_id TEXT NOT NULL DEFAULT '',
+			api_key_hash TEXT NOT NULL DEFAULT '',
+			customer_key TEXT NOT NULL DEFAULT '',
+			product_key TEXT NOT NULL DEFAULT '',
+			contract_key TEXT NOT NULL DEFAULT '',
+			scope TEXT NOT NULL DEFAULT '',
+			expires_at TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'active',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_api_entitlements_product ON dw_api_entitlements(product_key, status)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_api_entitlements_key ON dw_api_entitlements(api_key_id, api_key_hash, product_key)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_sla (
+			product_key TEXT PRIMARY KEY,
+			refresh_cycle TEXT NOT NULL DEFAULT '',
+			latency_target_ms INTEGER NOT NULL DEFAULT 0,
+			availability_target REAL NOT NULL DEFAULT 0,
+			support_level TEXT NOT NULL DEFAULT '',
+			updated_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_data_watermarks (
+			asset_key TEXT NOT NULL DEFAULT '',
+			product_key TEXT NOT NULL DEFAULT '',
+			last_loaded_at TEXT NOT NULL DEFAULT '',
+			data_as_of TEXT NOT NULL DEFAULT '',
+			delay_status TEXT NOT NULL DEFAULT 'fresh',
+			notes TEXT NOT NULL DEFAULT '',
+			updated_by TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL,
+			PRIMARY KEY(asset_key, product_key)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_data_watermarks_product ON dw_data_watermarks(product_key, delay_status)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_costs (
+			product_key TEXT PRIMARY KEY,
+			query_cost REAL NOT NULL DEFAULT 0,
+			llm_cost REAL NOT NULL DEFAULT 0,
+			ops_cost REAL NOT NULL DEFAULT 0,
+			data_processing_cost REAL NOT NULL DEFAULT 0,
+			estimated_margin REAL NOT NULL DEFAULT 0,
+			currency TEXT NOT NULL DEFAULT 'KRW',
+			updated_by TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS dw_customer_proposal_events (
+			id TEXT PRIMARY KEY,
+			customer_key TEXT NOT NULL DEFAULT '',
+			product_key TEXT NOT NULL DEFAULT '',
+			proposal_id TEXT NOT NULL DEFAULT '',
+			variant TEXT NOT NULL DEFAULT '',
+			event_type TEXT NOT NULL DEFAULT '',
+			feedback TEXT NOT NULL DEFAULT '',
+			next_action_at TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_customer_proposal_events_product ON dw_customer_proposal_events(product_key, customer_key, created_at)`,
+		`CREATE TABLE IF NOT EXISTS dw_retirement_candidates (
+			product_key TEXT PRIMARY KEY,
+			reason TEXT NOT NULL DEFAULT '',
+			risk_score INTEGER NOT NULL DEFAULT 0,
+			usage_count INTEGER NOT NULL DEFAULT 0,
+			last_used_at TEXT NOT NULL DEFAULT '',
+			recommendation TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_retirement_candidates_risk ON dw_retirement_candidates(risk_score, recommendation)`,
 		`CREATE TABLE IF NOT EXISTS workflows (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL DEFAULT '',
@@ -3095,6 +3276,262 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			version: 45,
 			query:   `CREATE INDEX IF NOT EXISTS idx_dw_poc_outcomes_product ON dw_poc_outcomes(product_key, created_at)`,
 		},
+		{
+			version: 46,
+			query: `CREATE TABLE IF NOT EXISTS dw_asset_readiness_scores (
+				asset_key TEXT PRIMARY KEY,
+				schema_score INTEGER NOT NULL DEFAULT 0,
+				freshness_score INTEGER NOT NULL DEFAULT 0,
+				sample_score INTEGER NOT NULL DEFAULT 0,
+				missingness_score INTEGER NOT NULL DEFAULT 0,
+				sensitivity_score INTEGER NOT NULL DEFAULT 0,
+				external_sharing_score INTEGER NOT NULL DEFAULT 0,
+				api_readiness_score INTEGER NOT NULL DEFAULT 0,
+				billing_readiness_score INTEGER NOT NULL DEFAULT 0,
+				overall_score INTEGER NOT NULL DEFAULT 0,
+				notes TEXT NOT NULL DEFAULT '',
+				updated_by TEXT NOT NULL DEFAULT '',
+				updated_at TEXT NOT NULL DEFAULT ''
+			)`,
+		},
+		{
+			version: 47,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_canvases (
+				product_key TEXT PRIMARY KEY,
+				customer_problem TEXT NOT NULL DEFAULT '',
+				buyer TEXT NOT NULL DEFAULT '',
+				use_cases TEXT NOT NULL DEFAULT '',
+				provided_data TEXT NOT NULL DEFAULT '',
+				differentiation TEXT NOT NULL DEFAULT '',
+				pricing_model TEXT NOT NULL DEFAULT '',
+				risk_notes TEXT NOT NULL DEFAULT '',
+				poc_success_criteria TEXT NOT NULL DEFAULT '',
+				expected_revenue TEXT NOT NULL DEFAULT '',
+				owner TEXT NOT NULL DEFAULT '',
+				updated_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 48,
+			query: `CREATE TABLE IF NOT EXISTS dw_approval_traces (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				step TEXT NOT NULL DEFAULT '',
+				status TEXT NOT NULL DEFAULT 'pending',
+				required INTEGER NOT NULL DEFAULT 1,
+				evidence_ref TEXT NOT NULL DEFAULT '',
+				notes TEXT NOT NULL DEFAULT '',
+				decided_by TEXT NOT NULL DEFAULT '',
+				expires_at TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 49,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_approval_traces_product ON dw_approval_traces(product_key, step, status)`,
+		},
+		{
+			version: 50,
+			query: `CREATE TABLE IF NOT EXISTS dw_evidence_packs (
+				product_key TEXT PRIMARY KEY,
+				pack_json TEXT NOT NULL DEFAULT '{}',
+				artifact_ref TEXT NOT NULL DEFAULT '',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 51,
+			query: `CREATE TABLE IF NOT EXISTS dw_contract_versions (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				version INTEGER NOT NULL DEFAULT 1,
+				contract_json TEXT NOT NULL DEFAULT '{}',
+				status TEXT NOT NULL DEFAULT 'draft',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 52,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_contract_versions_product ON dw_contract_versions(product_key, version)`,
+		},
+		{
+			version: 53,
+			query: `CREATE TABLE IF NOT EXISTS dw_customer_segments (
+				segment_key TEXT PRIMARY KEY,
+				industry TEXT NOT NULL DEFAULT '',
+				buyer_type TEXT NOT NULL DEFAULT '',
+				pain_points TEXT NOT NULL DEFAULT '',
+				budget_level TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 54,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_fit_scores (
+				product_key TEXT NOT NULL DEFAULT '',
+				customer_segment TEXT NOT NULL DEFAULT '',
+				fit_score INTEGER NOT NULL DEFAULT 0,
+				reason TEXT NOT NULL DEFAULT '',
+				evidence_refs TEXT NOT NULL DEFAULT '',
+				updated_at TEXT NOT NULL,
+				PRIMARY KEY(product_key, customer_segment)
+			)`,
+		},
+		{
+			version: 55,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_product_fit_scores_product ON dw_product_fit_scores(product_key, fit_score)`,
+		},
+		{
+			version: 56,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_versions (
+				product_key TEXT NOT NULL DEFAULT '',
+				version INTEGER NOT NULL DEFAULT 1,
+				snapshot_json TEXT NOT NULL DEFAULT '{}',
+				diff_summary TEXT NOT NULL DEFAULT '',
+				changed_by TEXT NOT NULL DEFAULT '',
+				changed_at TEXT NOT NULL,
+				PRIMARY KEY(product_key, version)
+			)`,
+		},
+		{
+			version: 57,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_product_versions_product ON dw_product_versions(product_key, version)`,
+		},
+		{
+			version: 58,
+			query: `CREATE TABLE IF NOT EXISTS dw_contract_scopes (
+				contract_key TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				customer_key TEXT NOT NULL DEFAULT '',
+				allowed_fields TEXT NOT NULL DEFAULT '',
+				rate_limit INTEGER NOT NULL DEFAULT 0,
+				valid_from TEXT NOT NULL DEFAULT '',
+				valid_to TEXT NOT NULL DEFAULT '',
+				purpose TEXT NOT NULL DEFAULT '',
+				restrictions TEXT NOT NULL DEFAULT '',
+				status TEXT NOT NULL DEFAULT 'active',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 59,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_contract_scopes_product ON dw_contract_scopes(product_key, customer_key, status)`,
+		},
+		{
+			version: 60,
+			query: `CREATE TABLE IF NOT EXISTS dw_api_entitlements (
+				id TEXT PRIMARY KEY,
+				api_key_id TEXT NOT NULL DEFAULT '',
+				api_key_hash TEXT NOT NULL DEFAULT '',
+				customer_key TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				contract_key TEXT NOT NULL DEFAULT '',
+				scope TEXT NOT NULL DEFAULT '',
+				expires_at TEXT NOT NULL DEFAULT '',
+				status TEXT NOT NULL DEFAULT 'active',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 61,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_api_entitlements_product ON dw_api_entitlements(product_key, status)`,
+		},
+		{
+			version: 62,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_api_entitlements_key ON dw_api_entitlements(api_key_id, api_key_hash, product_key)`,
+		},
+		{
+			version: 63,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_sla (
+				product_key TEXT PRIMARY KEY,
+				refresh_cycle TEXT NOT NULL DEFAULT '',
+				latency_target_ms INTEGER NOT NULL DEFAULT 0,
+				availability_target REAL NOT NULL DEFAULT 0,
+				support_level TEXT NOT NULL DEFAULT '',
+				updated_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 64,
+			query: `CREATE TABLE IF NOT EXISTS dw_data_watermarks (
+				asset_key TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				last_loaded_at TEXT NOT NULL DEFAULT '',
+				data_as_of TEXT NOT NULL DEFAULT '',
+				delay_status TEXT NOT NULL DEFAULT 'fresh',
+				notes TEXT NOT NULL DEFAULT '',
+				updated_by TEXT NOT NULL DEFAULT '',
+				updated_at TEXT NOT NULL,
+				PRIMARY KEY(asset_key, product_key)
+			)`,
+		},
+		{
+			version: 65,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_data_watermarks_product ON dw_data_watermarks(product_key, delay_status)`,
+		},
+		{
+			version: 66,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_costs (
+				product_key TEXT PRIMARY KEY,
+				query_cost REAL NOT NULL DEFAULT 0,
+				llm_cost REAL NOT NULL DEFAULT 0,
+				ops_cost REAL NOT NULL DEFAULT 0,
+				data_processing_cost REAL NOT NULL DEFAULT 0,
+				estimated_margin REAL NOT NULL DEFAULT 0,
+				currency TEXT NOT NULL DEFAULT 'KRW',
+				updated_by TEXT NOT NULL DEFAULT '',
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 67,
+			query: `CREATE TABLE IF NOT EXISTS dw_customer_proposal_events (
+				id TEXT PRIMARY KEY,
+				customer_key TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				proposal_id TEXT NOT NULL DEFAULT '',
+				variant TEXT NOT NULL DEFAULT '',
+				event_type TEXT NOT NULL DEFAULT '',
+				feedback TEXT NOT NULL DEFAULT '',
+				next_action_at TEXT NOT NULL DEFAULT '',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 68,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_customer_proposal_events_product ON dw_customer_proposal_events(product_key, customer_key, created_at)`,
+		},
+		{
+			version: 69,
+			query: `CREATE TABLE IF NOT EXISTS dw_retirement_candidates (
+				product_key TEXT PRIMARY KEY,
+				reason TEXT NOT NULL DEFAULT '',
+				risk_score INTEGER NOT NULL DEFAULT 0,
+				usage_count INTEGER NOT NULL DEFAULT 0,
+				last_used_at TEXT NOT NULL DEFAULT '',
+				recommendation TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 70,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_retirement_candidates_risk ON dw_retirement_candidates(risk_score, recommendation)`,
+		},
 	}
 
 	for _, step := range versionedMigrations {
@@ -3110,7 +3547,7 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 				}
 			}
 
-			if _, err := s.db.ExecContext(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
+			if _, err := s.db.ExecContext(ctx, s.bind(`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`),
 				step.version, formatTime(time.Now().UTC())); err != nil {
 				return fmt.Errorf("record migration version %d: %w", step.version, err)
 			}

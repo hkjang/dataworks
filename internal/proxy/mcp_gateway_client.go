@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 const mcpProtocolVersion = "2025-06-18"

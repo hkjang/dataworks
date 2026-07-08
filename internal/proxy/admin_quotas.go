@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 var validQuotaScopes = map[string]bool{"api_key": true, "team": true, "ip": true, "global": true}

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // MCP Tool Scope Enforcement (CLU-REQ-11): evaluate a per-tool least-privilege policy. Scopes are

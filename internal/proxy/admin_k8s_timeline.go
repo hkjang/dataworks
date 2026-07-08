@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sRevisions returns the recorded spec revisions for a resource (or a cluster).

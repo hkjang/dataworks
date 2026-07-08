@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // maxMultiRunModels caps how many models one multi-run may call, to bound real cost/latency.

@@ -3,7 +3,7 @@ package analyzer
 import (
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func costPod(cluster, ns, name, cpu, mem string) store.K8sInventoryItem {

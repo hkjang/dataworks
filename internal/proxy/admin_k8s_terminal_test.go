@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestK8sTerminalPoliciesCRUDAndEvaluate(t *testing.T) {

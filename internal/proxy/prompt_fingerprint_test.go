@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestPromptFingerprintGroupsAndSeparates(t *testing.T) {

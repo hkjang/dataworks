@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // evaluateSkillPolicy checks a request's model and declared tools against a skill's

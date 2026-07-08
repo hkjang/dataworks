@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleLLMTraces(w http.ResponseWriter, r *http.Request) {

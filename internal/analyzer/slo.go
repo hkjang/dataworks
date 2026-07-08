@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // SLOLine is the per-namespace reliability roll-up over a window, derived from incident history

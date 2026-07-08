@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sIncidents lists incidents, or (POST /scan) evaluates current high/critical RCA and

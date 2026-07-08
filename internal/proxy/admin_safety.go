@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleKillSwitch(w http.ResponseWriter, r *http.Request) {

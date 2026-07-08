@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestMCPDiscoveryModelRoutesOnlyRelevantGroundedCandidates(t *testing.T) {

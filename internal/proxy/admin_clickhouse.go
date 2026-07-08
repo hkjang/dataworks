@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 // chTableRef returns the (optionally database-qualified) table reference for a name.

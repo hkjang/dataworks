@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // teamScore is one team's AI maturity scorecard. Each dimension is 0..100; nil-equivalent

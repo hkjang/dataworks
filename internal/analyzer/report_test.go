@@ -3,7 +3,7 @@ package analyzer
 import (
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestStabilityBuckets(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/analyzer"
+	"dataworks/internal/analyzer"
 )
 
 // handleK8sPullSecret generates a ready-to-apply imagePullSecret manifest for a private registry.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 type Usage struct {

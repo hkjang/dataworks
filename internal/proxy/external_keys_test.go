@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func buildAuthServer(t *testing.T, attribute bool) *Server {

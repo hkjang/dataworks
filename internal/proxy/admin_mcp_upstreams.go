@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleMCPUpstreams(w http.ResponseWriter, r *http.Request) {

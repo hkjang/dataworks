@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestPromptTemplatesCRUD(t *testing.T) {

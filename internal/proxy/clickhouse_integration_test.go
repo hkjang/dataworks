@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // TestClickHouseIntegration runs the full DW path against a real ClickHouse. It is skipped

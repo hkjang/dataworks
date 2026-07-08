@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // chatCacheKey hashes the deterministic parts of a chat/completions request. Volatile

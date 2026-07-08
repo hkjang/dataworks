@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 // validDWDimensions are the rollup dimensions the daily sink populates.

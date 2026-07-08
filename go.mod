@@ -1,4 +1,4 @@
-module clustara
+module dataworks
 
 go 1.25
 

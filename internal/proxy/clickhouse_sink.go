@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 // clickhouseSink pushes daily rollup rows to ClickHouse via its HTTP interface as

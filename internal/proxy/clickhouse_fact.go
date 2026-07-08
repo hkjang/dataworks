@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 // requestFactDDL is the per-request fact table (detailed behavioral DW). ReplacingMergeTree

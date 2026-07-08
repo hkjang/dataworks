@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestSettingsRuntimeApply(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 type personalizationCoachingItem struct {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func openCollectBurstTestStore(t *testing.T) *SQLStore {

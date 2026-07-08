@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 func TestClampMaxOutputTokens(t *testing.T) {

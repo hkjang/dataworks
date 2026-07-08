@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // parsedTool is the intermediate result before it becomes a store.ToolInvocation.

@@ -3,7 +3,7 @@ package audit
 import (
 	"testing"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func TestEstimateCostFallsBackToQwenPlus(t *testing.T) {

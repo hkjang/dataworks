@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 var mcpContractRiskLevels = map[string]bool{"low": true, "medium": true, "high": true}

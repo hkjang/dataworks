@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 // openAggTestStore spins up a fresh migrated SQLite store in a temp dir.

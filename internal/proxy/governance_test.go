@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestPolicyExportImport(t *testing.T) {

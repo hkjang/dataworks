@@ -8,7 +8,7 @@ import (
 	"hash"
 	"strings"
 
-	"clustara/internal/audit"
+	"dataworks/internal/audit"
 )
 
 type ResponseAnalysis struct {

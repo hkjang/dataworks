@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sPodWatches lists watches with their current health roll-up, or registers a new watch.

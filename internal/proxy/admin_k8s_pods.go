@@ -17,9 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/kube"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/kube"
+	"dataworks/internal/store"
 )
 
 type k8sPodView struct {

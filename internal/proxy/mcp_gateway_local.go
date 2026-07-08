@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleGatewayMCP exposes Clustara's OWN features as an MCP server (JSON-RPC 2.0) so external

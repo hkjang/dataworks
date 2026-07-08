@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // Field-level Stack drift (CLU-REQ-07): beyond existence (present/missing), compare the declared

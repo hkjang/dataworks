@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // ConnFinding is one Service/Ingress/PVC connectivity issue (K8S-22 / K8S-23 / K8S-24).

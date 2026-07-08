@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"clustara/internal/agent"
+	"dataworks/internal/agent"
 )
 
 func main() {

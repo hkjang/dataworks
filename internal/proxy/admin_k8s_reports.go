@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sReports assembles a deterministic operations report (일간 장애·주간 비용·월간 안정성)

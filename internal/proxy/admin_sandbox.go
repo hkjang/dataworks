@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/text2sql"
+	"dataworks/internal/text2sql"
 )
 
 // handleSandboxPreview runs a candidate high-risk request through every read-only safety gate

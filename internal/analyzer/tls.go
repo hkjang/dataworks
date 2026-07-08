@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // TLSFinding describes a TLS certificate stored in a kubernetes.io/tls Secret (SEC-07).

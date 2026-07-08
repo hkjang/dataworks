@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestTeamPortalAggregates(t *testing.T) {

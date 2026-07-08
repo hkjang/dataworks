@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 const k8sCollectionBudgetFlag = "k8s_collection_budget_mb"

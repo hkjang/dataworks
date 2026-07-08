@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // handleSSOStatus is a public endpoint telling the login screen whether SSO is available.

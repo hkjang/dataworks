@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // embeddingCacheKey returns a deterministic key for an /v1/embeddings request body.

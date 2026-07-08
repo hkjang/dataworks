@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // TestSavingsHandler exercises the /admin/savings HTTP handler end-to-end: it combines the

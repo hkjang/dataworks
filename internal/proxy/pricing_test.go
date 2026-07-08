@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestPricingVersionsAndEffectiveMerge(t *testing.T) {

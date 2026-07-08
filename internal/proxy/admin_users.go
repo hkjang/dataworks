@@ -14,8 +14,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // teamNameByID maps auth team IDs to their display names. API keys store a team identifier

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handleTeamDashboard returns the caller's team usage/cost/failures — the team_manager

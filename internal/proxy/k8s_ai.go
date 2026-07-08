@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // composeK8sAIPrompt builds a grounded, Korean prompt that constrains the model to the supplied

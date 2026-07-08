@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 func TestClickHouseSink(t *testing.T) {

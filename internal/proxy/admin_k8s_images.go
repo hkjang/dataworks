@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sImages reports image→workload usage across the inventory + supply-chain risk flags

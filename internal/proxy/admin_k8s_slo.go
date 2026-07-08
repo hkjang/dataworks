@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sSLO rolls up incident history into per-namespace SLO / error-budget lines over a window.

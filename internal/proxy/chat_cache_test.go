@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func newChatCacheServer(t *testing.T, hits *atomic.Int32) (*httptest.Server, *store.SQLStore, func()) {

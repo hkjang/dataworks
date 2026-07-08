@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleRoutingRules(w http.ResponseWriter, r *http.Request) {

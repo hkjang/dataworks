@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // fakeClickHouse records DDL/exec statements (POST body) and answers read queries (GET).

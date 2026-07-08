@@ -11,9 +11,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/kube"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/kube"
+	"dataworks/internal/store"
 )
 
 // resourceTarget is one manifest document resolved to its apply coordinates.

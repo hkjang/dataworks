@@ -3,7 +3,7 @@ package proxy
 import (
 	"net/http"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleRetention(w http.ResponseWriter, r *http.Request) {

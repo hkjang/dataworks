@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // skillCandidate is a proposed skill mined from existing signals (recurring prompt

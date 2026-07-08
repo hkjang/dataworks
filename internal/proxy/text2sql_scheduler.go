@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"clustara/internal/store"
-	"clustara/internal/text2sql"
+	"dataworks/internal/store"
+	"dataworks/internal/text2sql"
 )
 
 // text2sqlReportScheduler periodically runs due saved reports (read-only) and delivers

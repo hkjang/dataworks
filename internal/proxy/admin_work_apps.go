@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // validateAppComponent resolves one component reference, returning whether it exists + a detail

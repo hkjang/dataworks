@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // promptDebtItem is one recurring prompt cluster carrying "debt" — low quality, high cost,

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func hasPrefix(lines []string, prefix string) bool {

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestK8sAdminFlowRegistersClusterAndIngestsSnapshot(t *testing.T) {

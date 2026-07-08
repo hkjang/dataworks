@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // buildWaterfallSession inserts a 4-request session with deterministic timing and

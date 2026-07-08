@@ -1,6 +1,6 @@
 package kube
 
-import "clustara/internal/store"
+import "dataworks/internal/store"
 
 // ResourceTarget describes one Kubernetes collection/watch endpoint.
 type ResourceTarget struct {

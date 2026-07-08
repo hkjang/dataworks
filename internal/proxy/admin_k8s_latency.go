@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/prometheus"
-	"clustara/internal/store"
+	"dataworks/internal/prometheus"
+	"dataworks/internal/store"
 )
 
 // handleK8sLatencyCollect pulls per-workload request latency from Prometheus (the K8s core API

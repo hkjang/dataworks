@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func secByRule(fs []SecFinding, rule string) (SecFinding, bool) {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func openK8sFSMTestStore(t *testing.T) *SQLStore {

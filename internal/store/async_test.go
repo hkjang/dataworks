@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func TestReplayFallbackImportsGoodLinesAndKeepsBadLines(t *testing.T) {

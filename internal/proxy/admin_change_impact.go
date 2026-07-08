@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 // blendedKRWPer1M returns a rough blended (input+output average) price per 1M tokens.

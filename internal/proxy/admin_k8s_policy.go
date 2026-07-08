@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 func toAnalyzerPolicies(ps []store.K8sPolicy) []analyzer.Policy {

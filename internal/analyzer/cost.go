@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // CostPrices are the unit prices used to estimate workload cost from resource requests

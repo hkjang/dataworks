@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/kube"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/kube"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleK8sExecSessions(w http.ResponseWriter, r *http.Request) {

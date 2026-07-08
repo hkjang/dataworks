@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"clustara/internal/collector"
-	"clustara/internal/kube"
+	"dataworks/internal/collector"
+	"dataworks/internal/kube"
 )
 
 type Runner struct {

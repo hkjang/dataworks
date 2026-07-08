@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // fakeMCPUpstream is a minimal JSON-RPC MCP server exposing two tools.

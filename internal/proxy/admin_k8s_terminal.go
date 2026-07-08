@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 type terminalPolicyEvalRequest struct {

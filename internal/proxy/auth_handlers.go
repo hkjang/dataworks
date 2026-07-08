@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // TestK8sGatewayToolsDispatch verifies the read-only K8s MCP tools dispatch and return the

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func newStudioServer(t *testing.T) (*store.SQLStore, *httptest.Server) {

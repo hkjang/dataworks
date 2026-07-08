@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sHome aggregates the cross-cluster operations home: clusters at risk (TOP5), failure

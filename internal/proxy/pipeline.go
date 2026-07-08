@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
-	"clustara/internal/text2sql"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
+	"dataworks/internal/text2sql"
 )
 
 // PipelineStep is one named stage of the OpenAI-compatible request pipeline.

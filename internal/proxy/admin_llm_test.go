@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestLLMObservabilityCapturesTraceSessionAndEvaluations(t *testing.T) {

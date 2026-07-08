@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	k8saction "clustara/internal/action"
-	"clustara/internal/analyzer"
-	"clustara/internal/collector"
-	"clustara/internal/kube"
-	"clustara/internal/store"
+	k8saction "dataworks/internal/action"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/collector"
+	"dataworks/internal/kube"
+	"dataworks/internal/store"
 )
 
 type k8sClusterPayload struct {

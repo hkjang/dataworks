@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 func newDWTestServer(t *testing.T, chURL string) *httptest.Server {

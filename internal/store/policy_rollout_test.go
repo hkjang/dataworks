@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func TestPolicyRolloutPersist(t *testing.T) {

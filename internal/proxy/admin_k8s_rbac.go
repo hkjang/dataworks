@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/analyzer"
+	"dataworks/internal/analyzer"
 )
 
 // handleK8sRBAC serves the operational RBAC reference: the capability catalog, the role→capability

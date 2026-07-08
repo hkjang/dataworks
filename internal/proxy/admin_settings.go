@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 // openTransientSQLDB opens a short-lived DB connection (for connection tests), applying the

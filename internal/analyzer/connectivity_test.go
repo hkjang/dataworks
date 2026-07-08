@@ -3,7 +3,7 @@ package analyzer
 import (
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func connByCheck(fs []ConnFinding, check string) (ConnFinding, bool) {

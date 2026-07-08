@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // policySuggestion is a ready-to-apply governance rule the advisor recommends from observed

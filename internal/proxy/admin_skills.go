@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 var validSkillStatus = map[string]bool{"draft": true, "staging": true, "production": true, "deprecated": true}

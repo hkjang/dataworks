@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // AnalyzeLatencyRegressions correlates a recent deploy (spec revision) with a latency increase

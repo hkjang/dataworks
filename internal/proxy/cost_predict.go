@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 const costSnapshotTTL = 15 * time.Second

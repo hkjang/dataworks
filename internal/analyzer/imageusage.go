@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // Image usage: from the current inventory, map every container image to the workloads that use it

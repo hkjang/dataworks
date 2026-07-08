@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestApplySnapshotFullSyncPrunesMissingInventory(t *testing.T) {

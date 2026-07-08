@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handleTraceByID returns everything sharing a trace_id: the gateway request(s), plus any

@@ -3,8 +3,8 @@ package proxy
 import (
 	"context"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 // keycloakConfig returns the effective Keycloak configuration: the DB-backed provider overlay

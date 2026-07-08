@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // metricSensitiveCols are column/keyword tokens that should not appear in a standard metric

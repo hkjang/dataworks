@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handlePromptProductCandidates surfaces recurring prompt clusters (by fingerprint)

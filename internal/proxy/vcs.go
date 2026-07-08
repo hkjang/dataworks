@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // vibeSessionMarker matches an explicit session reference embedded in a commit

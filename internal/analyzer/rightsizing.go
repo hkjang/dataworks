@@ -3,7 +3,7 @@ package analyzer
 import (
 	"sort"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // RightsizingRec recommends a right-sized CPU/memory request for a workload based on actual

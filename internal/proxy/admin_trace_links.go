@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handleRequestLinks returns an operator-oriented link map for one request. It avoids

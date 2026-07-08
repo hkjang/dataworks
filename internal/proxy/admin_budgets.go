@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 var validBudgetScopes = map[string]bool{"global": true, "api_key": true, "team": true}

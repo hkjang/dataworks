@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestScatterPointsCarryCategoryFields(t *testing.T) {

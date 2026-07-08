@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // dataProductVisibleToTeam reports whether a data product is visible to a team. An empty
@@ -100,6 +100,9 @@ func (s *Server) handleAdminDataProducts(w http.ResponseWriter, r *http.Request)
 			AllowedTeams: p.AllowedTeams, Sensitivity: strings.TrimSpace(p.Sensitivity), Status: status,
 			TargetIndustries: p.TargetIndustries, TargetCustomers: p.TargetCustomers, PricingModel: p.PricingModel, APISpec: p.APISpec, POCPlan: p.POCPlan,
 			RiskScore: p.RiskScore, RevenueScore: p.RevenueScore, Differentiation: p.Differentiation, SimilarProducts: p.SimilarProducts, UpdatedBy: adminID(r),
+		}
+		if status == "published" && !s.enforceDataWorksPublishGate(w, r, dp) {
+			return
 		}
 		if err := s.db.UpsertDataProduct(ctx, dp); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "upsert_failed")

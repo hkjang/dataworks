@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 type ResourceGraphNode struct {

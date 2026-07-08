@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestOpenAPISwaggerAndVersion(t *testing.T) {

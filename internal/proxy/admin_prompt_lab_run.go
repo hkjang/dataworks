@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // handlePromptLabTestCaseRun executes a saved test case across its models, auto-scores each

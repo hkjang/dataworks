@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func settingsServer(t *testing.T) (*httptest.Server, *store.SQLStore) {

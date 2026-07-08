@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // validTemplateCategories are the standard AI-coding task buckets. "custom" is the

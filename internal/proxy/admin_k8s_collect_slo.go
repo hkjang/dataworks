@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // Collector SLO Dashboard (CLU-REQ-02) + Collect Gap RCA (CLU-REQ-03).

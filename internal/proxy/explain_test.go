@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 func TestComplexityScoreMonotonic(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // analyzeRolloutAndJobs inspects the raw .status of workloads/jobs (now persisted as

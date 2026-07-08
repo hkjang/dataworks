@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"clustara/internal/audit"
+	"dataworks/internal/audit"
 )
 
 func TestPricingFallbackRuntimeSetting(t *testing.T) {

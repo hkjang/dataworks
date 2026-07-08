@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // appTemplate is a curated starter pattern for an AI work app. Code-defined (like the capability

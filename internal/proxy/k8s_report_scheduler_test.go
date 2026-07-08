@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestK8sReportDue(t *testing.T) {

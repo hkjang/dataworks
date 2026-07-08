@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 type factoryIdeaRequest struct {
@@ -171,19 +171,8 @@ func (s *Server) handleFactoryProductByID(w http.ResponseWriter, r *http.Request
 			writeOpenAIError(w, http.StatusBadRequest, "action must be approve|publish|archive", "invalid_request_error", "bad_action")
 			return
 		}
-		if action == "publish" {
-			if blockers := s.dataWorksPublishGate(r.Context(), p); len(blockers) > 0 {
-				writeJSON(w, http.StatusConflict, map[string]any{
-					"error": map[string]any{
-						"message": "publish blocked by Data Works readiness/regulatory gate",
-						"type":    "invalid_request_error",
-						"param":   nil,
-						"code":    "dataworks_publish_blocked",
-					},
-					"blockers": blockers,
-				})
-				return
-			}
+		if action == "publish" && !s.enforceDataWorksPublishGate(w, r, p) {
+			return
 		}
 		before := auditJSON(p)
 		p.Status = next

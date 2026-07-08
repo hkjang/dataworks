@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handleAdminModelTags lists or upserts model usage tags (good_for / avoid_for / risk_note).

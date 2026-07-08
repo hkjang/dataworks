@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // parseModelsParam splits a comma-separated ?models= query param into a deduplicated slice.

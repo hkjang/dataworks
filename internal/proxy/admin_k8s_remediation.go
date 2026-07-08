@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	k8saction "clustara/internal/action"
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	k8saction "dataworks/internal/action"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sRemediation returns prioritized remediation advice for current RCA findings — the

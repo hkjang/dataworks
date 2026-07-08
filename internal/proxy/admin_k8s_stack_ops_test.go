@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"clustara/internal/analyzer"
+	"dataworks/internal/analyzer"
 )
 
 func TestDiffStackResources(t *testing.T) {

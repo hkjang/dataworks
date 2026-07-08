@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
 )
 
 func newAuthTestServer(t *testing.T, upstreamURL string) (*store.SQLStore, *httptest.Server) {

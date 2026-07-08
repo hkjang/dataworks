@@ -1,6 +1,6 @@
 package analyzer
 
-import "clustara/internal/store"
+import "dataworks/internal/store"
 
 // StabilityBuckets classifies workloads by health into healthy/degraded/critical and returns a
 // 0-100 stability score (avg health) — a lightweight SLO proxy for the report center (DW-10).

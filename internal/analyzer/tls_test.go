@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func makeCertPEM(t *testing.T, cn string, dns []string, notAfter time.Time) string {

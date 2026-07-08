@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func openStackTestStore(t *testing.T) *SQLStore {

@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestModelFitnessRequired(t *testing.T) {

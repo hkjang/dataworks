@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 var validMaskingLevels = map[string]bool{"none": true, "partial": true, "strict": true}

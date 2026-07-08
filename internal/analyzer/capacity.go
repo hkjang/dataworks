@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // HPAStatus is one HorizontalPodAutoscaler snapshot (SCALE-01 / SCALE-02).

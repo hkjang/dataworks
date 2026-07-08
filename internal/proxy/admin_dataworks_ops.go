@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleDataWorksAssetByKey(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +44,7 @@ func (s *Server) handleDataWorksAssetByKey(w http.ResponseWriter, r *http.Reques
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "readiness_failed")
 			return
 		}
+		_ = s.db.UpsertAssetReadinessScore(r.Context(), bridgeAssetReadinessScore(score))
 		s.auditAdmin(r, "dataworks.asset.readiness.check", "", auditJSON(map[string]any{"asset_key": assetKey, "overall_score": score.OverallScore}))
 		writeJSON(w, http.StatusOK, map[string]any{"readiness": score})
 	case len(parts) == 2 && parts[1] == "lineage":
@@ -119,7 +120,9 @@ func (s *Server) handleDataWorksProductByKey(w http.ResponseWriter, r *http.Requ
 		if len(evidence) == 0 {
 			persisted = false
 			evidence = s.buildProductEvidencePack(r.Context(), product, adminID(r))
+			_ = s.db.ReplaceProductEvidencePack(r.Context(), product.ProductKey, evidence)
 		}
+		_ = s.ensureDataWorksEvidencePack(r.Context(), product, adminID(r))
 		writeJSON(w, http.StatusOK, map[string]any{"evidence": evidence, "persisted": persisted})
 	case len(parts) == 2 && parts[1] == "regulatory-trace":
 		if r.Method != http.MethodPost {
@@ -135,6 +138,7 @@ func (s *Server) handleDataWorksProductByKey(w http.ResponseWriter, r *http.Requ
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "trace_failed")
 			return
 		}
+		s.syncApprovalTracesFromRegulatoryTrace(r.Context(), product, rows, adminID(r))
 		s.auditAdmin(r, "dataworks.product.regulatory_trace", "", auditJSON(map[string]any{"product_key": productKey, "rows": len(rows)}))
 		writeJSON(w, http.StatusOK, map[string]any{"trace": rows, "summary": regulatoryTraceSummary(rows)})
 	case len(parts) == 2 && parts[1] == "api-contract":
@@ -390,6 +394,27 @@ func buildDataAssetReadinessScore(asset store.DataAsset, actor string) store.Dat
 	}
 }
 
+func bridgeAssetReadinessScore(score store.DataAssetReadinessScore) store.AssetReadinessScore {
+	overall := score.OverallScore
+	if strings.EqualFold(score.Status, "External Review") && overall < 70 {
+		overall = 70
+	}
+	return store.AssetReadinessScore{
+		AssetKey:              score.AssetKey,
+		SchemaScore:           score.MetadataScore,
+		FreshnessScore:        score.FreshnessScore,
+		SampleScore:           score.SampleScore,
+		MissingnessScore:      score.QualityScore,
+		SensitivityScore:      score.SensitivityScore,
+		ExternalSharingScore:  score.ApprovalScore,
+		APIReadinessScore:     score.QualityScore,
+		BillingReadinessScore: score.OwnerScore,
+		OverallScore:          overall,
+		Notes:                 strings.Join(score.Blockers, ","),
+		UpdatedBy:             score.CheckedBy,
+	}
+}
+
 func freshnessScore(refresh string) int {
 	lower := strings.ToLower(refresh)
 	switch {
@@ -496,6 +521,54 @@ func (s *Server) buildProductEvidencePack(ctx context.Context, p store.DataProdu
 		evidence = append(evidence, store.ProductEvidence{ID: newID("evid"), ProductKey: p.ProductKey, EvidenceType: "poc_success_metric", SourceRef: poc.ID, Summary: firstNonEmpty(poc.SuccessMetric, "PoC 성공지표 미정"), ConfidenceScore: 72, CreatedBy: actor})
 	}
 	return evidence
+}
+
+func (s *Server) ensureDataWorksEvidencePack(ctx context.Context, p store.DataProduct, actor string) error {
+	if _, ok, err := s.db.GetEvidencePack(ctx, p.ProductKey); err != nil || ok {
+		return err
+	}
+	packJSON, err := s.buildEvidencePackJSON(ctx, p)
+	if err != nil {
+		return err
+	}
+	return s.db.UpsertEvidencePack(ctx, store.EvidencePack{
+		ProductKey: p.ProductKey,
+		PackJSON:   packJSON,
+		CreatedBy:  actor,
+	})
+}
+
+func (s *Server) syncApprovalTracesFromRegulatoryTrace(ctx context.Context, p store.DataProduct, rows []store.RegulatoryTrace, actor string) {
+	steps := map[string]string{
+		"data_owner_approval": "data_owner",
+		"legal_review":        "legal",
+		"compliance_review":   "compliance",
+	}
+	for _, row := range rows {
+		step, ok := steps[strings.ToLower(strings.TrimSpace(row.RiskDomain))]
+		if !ok {
+			continue
+		}
+		status := "pending"
+		switch strings.ToLower(strings.TrimSpace(row.Decision)) {
+		case "approved":
+			status = "approved"
+		case "waived", "not_required":
+			status = "waived"
+		case "rejected", "blocked", "denied":
+			status = "rejected"
+		}
+		_ = s.db.UpsertApprovalTrace(ctx, store.ApprovalTrace{
+			ID:          "appr_" + p.ProductKey + "_" + step,
+			ProductKey:  p.ProductKey,
+			Step:        step,
+			Status:      status,
+			Required:    true,
+			EvidenceRef: row.ID,
+			Notes:       row.Evidence,
+			DecidedBy:   firstNonEmpty(strings.TrimSpace(row.Reviewer), actor),
+		})
+	}
 }
 
 func (s *Server) regulatoryTraceFromRequest(r *http.Request, p store.DataProduct) ([]store.RegulatoryTrace, error) {
@@ -797,7 +870,7 @@ func productRiskPosture(p store.DataProduct) string {
 	return "low: standard review"
 }
 
-func (s *Server) dataWorksPublishGate(ctx context.Context, p store.DataProduct) []string {
+func (s *Server) legacyDataWorksPublishGate(ctx context.Context, p store.DataProduct) []string {
 	blockers := []string{}
 	highRisk := p.RiskScore >= 70 || isHighSensitivity(p.Sensitivity)
 	for _, assetKey := range productSourceAssets(p) {

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestKillSwitchBlocksV1Calls(t *testing.T) {

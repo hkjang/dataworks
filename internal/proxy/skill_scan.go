@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // skillFinding is one security issue detected in a skill definition.

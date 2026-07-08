@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"clustara/internal/collector"
-	"clustara/internal/store"
+	"dataworks/internal/collector"
+	"dataworks/internal/store"
 )
 
 // agentStaleAfter is how long without a heartbeat before an agent is considered stale/offline.

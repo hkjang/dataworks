@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleTimeseries(w http.ResponseWriter, r *http.Request) {

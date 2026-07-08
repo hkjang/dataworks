@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func (s *Server) handleRequestReplay(w http.ResponseWriter, r *http.Request) {

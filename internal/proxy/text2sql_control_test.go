@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/config"
-	"clustara/internal/store"
-	"clustara/internal/text2sql"
+	"dataworks/internal/config"
+	"dataworks/internal/store"
+	"dataworks/internal/text2sql"
 )
 
 func TestApplyPermissionEffect(t *testing.T) {

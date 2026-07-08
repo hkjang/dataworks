@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // Stack drift: compare a saved Application Stack's declared resources (desired state) against the

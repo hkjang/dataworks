@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestEvaluateMCPToolScope(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // k8sFactTable resolves a K8s fact table name: CLICKHOUSE_K8S_<KEY>_FACT_TABLE overrides the

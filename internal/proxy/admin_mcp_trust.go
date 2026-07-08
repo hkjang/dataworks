@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // mcpTrustScore computes a 0–100 trust score for a tool from its error rate and risk level.

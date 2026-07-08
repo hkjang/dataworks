@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
-	"clustara/internal/text2sql"
+	"dataworks/internal/store"
+	"dataworks/internal/text2sql"
 )
 
 // handleText2SQL runs the Text2SQL pipeline for a vibe/text2sql-* request: it picks

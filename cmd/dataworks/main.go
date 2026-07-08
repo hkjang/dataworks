@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"clustara/internal/config"
-	"clustara/internal/proxy"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/proxy"
+	"dataworks/internal/store"
 )
 
 func main() {

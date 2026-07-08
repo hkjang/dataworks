@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // Config impact: before changing a ConfigMap/Secret, find which workloads consume it (env, envFrom,

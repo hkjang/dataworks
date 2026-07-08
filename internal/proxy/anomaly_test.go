@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func seedCostReq(t *testing.T, db *store.SQLStore, id string, cost float64, when time.Time) {

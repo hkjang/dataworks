@@ -3,7 +3,7 @@ package analyzer
 import (
 	"strings"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // Policy is a declarative guardrail (a pragmatic alternative to CEL ValidatingAdmissionPolicy).

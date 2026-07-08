@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"clustara/internal/config"
+	"dataworks/internal/config"
 )
 
 func newMetricTestServer() *Server {

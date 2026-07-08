@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // traceSpan is one normalized node of a request's end-to-end waterfall: the root request span plus

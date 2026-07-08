@@ -12,8 +12,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 // handleK8sStacks lists or creates/updates Application Stacks (persisted, versioned manifests).

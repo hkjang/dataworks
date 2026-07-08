@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"clustara/internal/analyzer"
-	"clustara/internal/store"
+	"dataworks/internal/analyzer"
+	"dataworks/internal/store"
 )
 
 func TestK8sFactRowBuilders(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 func TestPlanWorkflowControlSteps(t *testing.T) {

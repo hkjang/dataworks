@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // handleMultiRunGolden promotes a selected model's result from a multi-model run into a Golden

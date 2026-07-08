@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 // DetectActionAnomalies flags requesters who issued many high/critical-risk K8s actions within a

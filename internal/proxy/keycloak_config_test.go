@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"clustara/internal/config"
-	"clustara/internal/secret"
-	"clustara/internal/store"
+	"dataworks/internal/config"
+	"dataworks/internal/secret"
+	"dataworks/internal/store"
 )
 
 func TestKeycloakConfigDBOverlayAndSecretAtRest(t *testing.T) {

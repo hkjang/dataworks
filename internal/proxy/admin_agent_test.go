@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"clustara/internal/collector"
-	"clustara/internal/store"
+	"dataworks/internal/collector"
+	"dataworks/internal/store"
 )
 
 func TestAgentMessageFallsBackToEvidenceWhenLLMFails(t *testing.T) {

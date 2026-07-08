@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/store"
+	"dataworks/internal/store"
 )
 
 const mattermostSnapshotTTL = 15 * time.Second

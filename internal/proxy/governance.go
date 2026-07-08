@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"clustara/internal/audit"
-	"clustara/internal/store"
+	"dataworks/internal/audit"
+	"dataworks/internal/store"
 )
 
 // canaryBucket maps a request subject to a stable 0-99 bucket so a canary policy enforces on a
