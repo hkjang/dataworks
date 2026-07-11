@@ -344,21 +344,19 @@ const adminHTML = `<!doctype html>
   <header>
     <h1>Data Works</h1>
     <nav id="tabs">
-      <a href="#/dataworks-home" data-tab="dataworks-home" class="active">Home</a>
-      <a href="#/factory" data-tab="factory">Factory</a>
+      <a href="#/dataworks/home" data-tab="dataworks-home" class="active">Home</a>
+      <a href="#/dataworks/actions" data-tab="dataworks-actions">Action Center</a>
+      <a href="#/dataworks/assets" data-tab="dataworks-assets">데이터 자산</a>
+      <a href="#/factory" data-tab="factory">Product Factory</a>
+      <a href="#/dataworks/portfolio" data-tab="dataworks-portfolio">포트폴리오</a>
+      <a href="#/dataworks/risk" data-tab="dataworks-risk">리스크 검토</a>
+      <a href="#/dataworks/analytics" data-tab="dataworks-analytics">성과 분석</a>
       <div class="nav-group">
-        <button class="nav-group-toggle" type="button">상품화</button>
+        <button class="nav-group-toggle" type="button">운영 & 설정</button>
         <div class="nav-group-menu">
-          <a href="#/data-products" data-tab="data-products">상품 카탈로그</a>
-          <a href="#/text2sql" data-tab="text2sql">수요 탐지</a>
-          <a href="#/dwdashboard" data-tab="dwdashboard">성과 분석</a>
-        </div>
-      </div>
-      <div class="nav-group">
-        <button class="nav-group-toggle" type="button">리스크 & 거버넌스</button>
-        <div class="nav-group-menu">
-          <a href="#/security" data-tab="security">리스크 센터</a>
-          <a href="#/safety" data-tab="safety">거버넌스</a>
+          <a href="#/dataworks/factory-runs" data-tab="dataworks-factory-runs">AI 실행 이력</a>
+          <a href="#/dataworks/prompt-registry" data-tab="dataworks-prompt-registry">프롬프트 레지스트리</a>
+          <a href="#/settings" data-tab="settings">시스템 설정</a>
         </div>
       </div>
       <div class="nav-group">
@@ -386,12 +384,6 @@ const adminHTML = `<!doctype html>
           <a href="#/k8s-policy" data-tab="k8s-policy">정책 센터</a>
           <a href="#/k8s-settings" data-tab="k8s-settings">운영 설정</a>
           <a href="#/k8s-configrollback" data-tab="k8s-configrollback">설정 롤백 센터</a>
-        </div>
-      </div>
-      <div class="nav-group">
-        <button class="nav-group-toggle" type="button">설정</button>
-        <div class="nav-group-menu">
-          <a href="#/settings" data-tab="settings">설정</a>
         </div>
       </div>
     </nav>
@@ -1162,6 +1154,64 @@ const adminHTML = `<!doctype html>
           { label: 'Provider Health', href: '#/routing/health', active: onHealth },
         ]);
       } else {
+        el.innerHTML = subNav([
+          { label: '대시보드', href: '#/dashboard', active: tab === 'dashboard' },
+          { label: 'XView', href: '#/xview', active: tab === 'xview' },
+          { label: 'Waterfall', href: '#/waterfall', active: tab === 'waterfall' },
+          { label: 'LLM 관측', href: '#/llm', active: tab === 'llm' },
+        ]);
+      } else if (tab === 'dwdashboard' || tab === 'clickhouse' || tab === 'dwmetrics') {
+        const onCH = tab === 'clickhouse' || rest[0] === 'clickhouse';
+        const onMetrics = tab === 'dwmetrics' || rest[0] === 'metrics';
+        el.innerHTML = subNav([
+          { label: 'DW 대시보드', href: '#/dwdashboard', active: !onCH && !onMetrics },
+          { label: 'ClickHouse', href: '#/dwdashboard/clickhouse', active: onCH },
+          { label: '지표 사전', href: '#/dwmetrics', active: onMetrics },
+        ]);
+      } else if (tab === 'settings' || tab === 'runtimesettings' || tab === 'changesets' || rest[0] === 'errors' || rest[0] === 'sso' || rest[0] === 'changesets') {
+        const onRT = tab === 'runtimesettings' || rest[0] === 'runtime';
+        const onErr = rest[0] === 'errors';
+        const onSSO = rest[0] === 'sso';
+        const onCS = tab === 'changesets' || rest[0] === 'changesets';
+        el.innerHTML = subNav([
+          { label: '설정', href: '#/settings', active: !onRT && !onErr && !onSSO && !onCS },
+          { label: '런타임 설정', href: '#/settings/runtime', active: onRT },
+          { label: '변경 세트', href: '#/changesets', active: onCS },
+          { label: 'SSO', href: '#/settings/sso', active: onSSO },
+          { label: '시스템 오류', href: '#/settings/errors', active: onErr },
+        ]);
+      } else if (tab === 'users' || tab === 'teams' || tab === 'ips' || tab === 'quotas') {
+        el.innerHTML = subNav([
+          { label: '사용자', href: '#/users', active: tab === 'users' },
+          { label: '팀', href: '#/teams', active: tab === 'teams' },
+          { label: 'IP', href: '#/ips', active: tab === 'ips' },
+          { label: '사용 한도', href: '#/quotas', active: tab === 'quotas' },
+        ]);
+      } else if (tab === 'safety' || tab === 'skills' || tab === 'skill-studio' || tab === 'modeldeprecations') {
+        el.innerHTML = subNav([
+          { label: '안전', href: '#/safety', active: tab === 'safety' },
+          { label: 'Skills', href: '#/skills', active: tab === 'skills' },
+          { label: 'Skill Studio', href: '#/skill-studio', active: tab === 'skill-studio' },
+          { label: '모델 일몰', href: '#/modeldeprecations', active: tab === 'modeldeprecations' },
+        ]);
+      } else if (tab === 'mcp' || tab === 'agents' || tab === 'vcs') {
+        el.innerHTML = subNav([
+          { label: 'MCP', href: '#/mcp', active: tab === 'mcp' },
+          { label: '에이전트', href: '#/agents', active: tab === 'agents' },
+          { label: 'VCS', href: '#/vcs', active: tab === 'vcs' },
+        ]);
+      } else if (tab === 'chat-test' || tab === 'prompt-lab') {
+        el.innerHTML = subNav([
+          { label: 'Chat 테스트', href: '#/chat-test', active: tab === 'chat-test' },
+          { label: 'Prompt Lab', href: '#/prompt-lab', active: tab === 'prompt-lab' },
+        ]);
+      } else if (tab === 'routing') {
+        const onHealth = rest[0] === 'health';
+        el.innerHTML = subNav([
+          { label: '라우팅 학습', href: '#/routing', active: !onHealth },
+          { label: 'Provider Health', href: '#/routing/health', active: onHealth },
+        ]);
+      } else {
         el.innerHTML = '';
       }
     }
@@ -1200,7 +1250,12 @@ const adminHTML = `<!doctype html>
         clickhouse: 'dwdashboard', dwmetrics: 'dwdashboard', runtimesettings: 'settings', changesets: 'settings',
         'prompt-lab': 'chat-test',
       };
-      const navTab = navParent[tab] || tab;
+      let navTab = navParent[tab] || tab;
+      if (tab === 'dataworks') {
+        navTab = 'dataworks-' + (rest[0] || 'home');
+      } else if (tab === 'dataworks-home') {
+        navTab = 'dataworks-home';
+      }
       setActiveTab(navTab);
       renderSubTabs(tab, rest);
       // Route guard: the same allowed_tabs the server used to filter the menu also blocks
@@ -1215,7 +1270,8 @@ const adminHTML = `<!doctype html>
           case 'me':        await renderMeHome(); break;
           case 'team':      await renderTeamHome(); break;
           case 'team-portal': await renderTeamPortal(); break;
-          case 'dataworks-home': await renderDataWorksHome(); break;
+          case 'dataworks-home': location.hash = '#/dataworks/home'; break;
+          case 'dataworks': await routeDataWorks(rest, params); break;
           case 'factory': await renderFactoryHome(); break;
           case 'data-products': await renderDataProducts(); break;
           case 'remediation': await renderRemediation(); break;
@@ -13525,18 +13581,62 @@ const adminHTML = `<!doctype html>
         '<p class="muted" style="font-size:12px;padding:8px 14px">' + escapeHTML(d.note || '') + ' <a href="#/team">팀 대시보드 →</a></p>';
     }
 
+    // ---------- KCB Data Works Screens ----------
+
+    async function routeDataWorks(rest, params) {
+      const sub = rest[0] || 'home';
+      if (sub === 'home') {
+        await renderDataWorksHome();
+      } else if (sub === 'actions') {
+        await renderDataWorksActions();
+      } else if (sub === 'assets') {
+        if (rest[1]) {
+          await renderDataWorksAssetDetail(rest[1]);
+        } else {
+          await renderDataWorksAssets();
+        }
+      } else if (sub === 'factory' && rest[1] === 'ideas') {
+        location.hash = '#/factory';
+      } else if (sub === 'portfolio') {
+        if (rest[1] === 'graph') {
+          await renderDataWorksPortfolioGraph();
+        } else {
+          await renderDataWorksPortfolio();
+        }
+      } else if (sub === 'risk') {
+        await renderDataWorksRisk();
+      } else if (sub === 'analytics') {
+        await renderDataWorksAnalytics();
+      } else if (sub === 'factory-runs') {
+        await renderDataWorksFactoryRuns();
+      } else if (sub === 'prompt-registry') {
+        await renderDataWorksPromptRegistry();
+      } else if (sub === 'products') {
+        if (rest[1]) {
+          await renderDataWorksProductTwin(rest[1]);
+        } else {
+          location.hash = '#/factory';
+        }
+      } else {
+        await renderDataWorksHome();
+      }
+    }
+
     async function renderDataWorksHome() {
       const view = document.getElementById('view');
-      view.innerHTML = section('Data Works Home', '<div class="empty">불러오는 중...</div>');
-      let d;
+      view.innerHTML = section('Data Works Control Tower', '<div class="empty">불러오는 중...</div>');
+      let d, act;
       try {
         d = await api('/admin/dataworks/home');
+        act = await api('/admin/dataworks/action-center').catch(() => ({ summary: {}, actions: [] }));
       } catch (e) {
-        view.innerHTML = section('Data Works Home', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        view.innerHTML = section('Data Works Control Tower', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
         return;
       }
       const dash = d.dashboard || {};
       const topProducts = d.top_products || [];
+      const actSummary = act.summary || {};
+      
       const kpis = '<div class="kpis">' +
         '<div class="kpi"><div class="label">데이터 자산</div><div class="value">' + fmt(dash.total_assets) + '</div></div>' +
         '<div class="kpi"><div class="label">전체 상품</div><div class="value">' + fmt(dash.total_products) + '</div></div>' +
@@ -13547,21 +13647,1294 @@ const adminHTML = `<!doctype html>
         '<div class="kpi"><div class="label">아이디어</div><div class="value">' + fmt(dash.ideas_total) + '</div></div>' +
         '<div class="kpi"><div class="label">평균 매출 점수</div><div class="value">' + fmt(dash.avg_revenue_score) + '</div></div>' +
       '</div>';
+
+      const alertsList = [];
+      if (actSummary.blocked_launches > 0) alertsList.push('<span class="status error" style="margin-right:6px">출시 차단 ' + actSummary.blocked_launches + '건</span>');
+      if (actSummary.approval_pending > 0) alertsList.push('<span class="status warn" style="margin-right:6px">승인 대기 ' + actSummary.approval_pending + '건</span>');
+      if (actSummary.stale_watermarks > 0) alertsList.push('<span class="status warn" style="margin-right:6px">stale 데이터 ' + actSummary.stale_watermarks + '건</span>');
+      if (actSummary.expiring_contracts > 0) alertsList.push('<span class="status" style="margin-right:6px">만료 임박 계약 ' + actSummary.expiring_contracts + '건</span>');
+      
+      const alertsWidget = alertsList.length 
+        ? '<div style="margin-bottom:14px;padding:12px;background:var(--panel-alt);border:1px solid var(--line);border-radius:6px">' +
+            '<strong>오늘의 조치 필요:</strong> ' + alertsList.join(' ') + ' <a href="#/dataworks/actions" style="margin-left:10px;font-weight:700">조치 센터로 이동 →</a>' +
+          '</div>'
+        : '<div style="margin-bottom:14px;padding:12px;background:var(--panel-alt);border:1px solid var(--line);border-radius:6px;color:var(--muted)">' +
+            '✓ 현재 긴급히 조치해야 할 위반 사항이나 대기 작업이 없습니다.' +
+          '</div>';
+
       const topRows = topProducts.length
-        ? '<table><thead><tr><th>상품명</th><th>매출 점수</th><th>리스크</th><th>상태</th></tr></thead><tbody>' +
-          topProducts.map(p => '<tr><td><strong>' + escapeHTML(p.name || '') + '</strong><div class="muted" style="font-size:11px">' + escapeHTML(p.product_key || '') + '</div></td><td>' + fmt(p.revenue_score) + '</td><td>' + fmt(p.risk_score) + '</td><td><span class="status">' + escapeHTML(p.status || '') + '</span></td></tr>').join('') +
+        ? '<table><thead><tr><th>상품명</th><th>매출 점수</th><th>리스크</th><th>상태</th><th>액션</th></tr></thead><tbody>' +
+          topProducts.map(p => '<tr><td><a href="#/dataworks/products/' + encodeURIComponent(p.product_key) + '"><strong>' + escapeHTML(p.name || p.name_ko || '') + '</strong></a><div class="muted" style="font-size:11px">' + escapeHTML(p.product_key || '') + '</div></td><td>' + fmt(p.revenue_score) + '</td><td>' + (p.risk_score >= 70 ? '<span class="status error">' + fmt(p.risk_score) + '</span>' : fmt(p.risk_score)) + '</td><td><span class="status">' + escapeHTML(p.status || '') + '</span></td><td><a href="#/dataworks/products/' + encodeURIComponent(p.product_key) + '"><button type="button" class="secondary" style="font-size:11px;height:24px;padding:0 6px">상세 트윈</button></a></td></tr>').join('') +
           '</tbody></table>'
         : '<p class="muted">등록된 상품이 없습니다.</p>';
-      const topCard = card('매출 가능성 높은 상품 TOP10', '<div class="card-body">' + topRows + '</div>');
+
+      const topCard = card('매출 가능성 높은 상품 TOP 10', '<div class="card-body">' + topRows + '</div>');
+
       const quickLinks = card('빠른 이동', '<div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<a href="#/factory"><button type="button">Product Factory</button></a>' +
-        '<a href="#/data-products"><button type="button" class="secondary">상품 카탈로그</button></a>' +
-        '<a href="#/text2sql"><button type="button" class="secondary">수요 탐지</button></a>' +
-        '<a href="#/dwdashboard"><button type="button" class="secondary">성과 분석</button></a>' +
-        '<a href="#/security"><button type="button" class="secondary">리스크 센터</button></a>' +
+        '<a href="#/dataworks/assets"><button type="button" class="secondary">자산 카탈로그</button></a>' +
+        '<a href="#/text2sql"><button type="button" class="secondary">수요 탐지 (Text2SQL)</button></a>' +
+        '<a href="#/dataworks/analytics"><button type="button" class="secondary">성과 및 깔때기 분석</button></a>' +
+        '<a href="#/dataworks/risk"><button type="button" class="secondary">리스크 센터</button></a>' +
       '</div>');
-      view.innerHTML = section('Data Works Home', '<p class="muted" style="margin:-4px 0 12px">Data to Business, AI to Product</p>') + kpis + topCard + quickLinks;
+
+      view.innerHTML = section('Data Works Control Tower', '<p class="muted" style="margin:-4px 0 12px">내부 데이터 자산의 판매 상품화 파이프라인 통합 관제 대시보드</p>') + alertsWidget + kpis + topCard + quickLinks;
     }
+
+    async function renderDataWorksActions() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('Action Center', '<div class="empty">불러오는 중...</div>');
+      let act;
+      try {
+        act = await api('/admin/dataworks/action-center');
+      } catch (e) {
+        view.innerHTML = section('Action Center', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const summary = act.summary || {};
+      const actions = act.actions || [];
+
+      window.actionTabFilter = (type) => {
+        sessionStorage.setItem('actionFilterType', type);
+        renderDataWorksActionsList(actions);
+      };
+
+      const currentFilter = sessionStorage.getItem('actionFilterType') || 'all';
+
+      const tabHeader = '<div class="toolbar" style="gap:4px">' +
+        '<button class="' + (currentFilter === 'all' ? '' : 'secondary') + '" onclick="actionTabFilter(\'all\')">전체 (' + actions.length + ')</button>' +
+        '<button class="' + (currentFilter === 'blocked' ? '' : 'secondary') + '" onclick="actionTabFilter(\'blocked\')">출시 차단 (' + (summary.blocked_launches || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'pending' ? '' : 'secondary') + '" onclick="actionTabFilter(\'pending\')">승인 대기 (' + (summary.approval_pending || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'contract' ? '' : 'secondary') + '" onclick="actionTabFilter(\'contract\')">계약 만료 (' + (summary.expiring_contracts || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'stale' ? '' : 'secondary') + '" onclick="actionTabFilter(\'stale\')">stale 데이터 (' + (summary.stale_watermarks || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'margin' ? '' : 'secondary') + '" onclick="actionTabFilter(\'margin\')">저마진 (' + (summary.negative_margin || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'retire' ? '' : 'secondary') + '" onclick="actionTabFilter(\'retire\')">폐기 추천 (' + (summary.retirement_candidates || 0) + ')</button>' +
+      '</div>';
+
+      view.innerHTML = section('Action Center', '<p class="muted" style="margin:-4px 0 12px">운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업</p>') + tabHeader + '<div id="action-list-container" class="card-body"></div>';
+      renderDataWorksActionsList(actions);
+    }
+
+    function renderDataWorksActionsList(actions) {
+      const container = document.getElementById('action-list-container');
+      const filter = sessionStorage.getItem('actionFilterType') || 'all';
+      
+      const filtered = actions.filter(a => {
+        if (filter === 'all') return true;
+        if (filter === 'blocked') return a.type === 'launch_blocked';
+        if (filter === 'pending') return a.type === 'approval_pending';
+        if (filter === 'contract') return a.type === 'contract_expiring';
+        if (filter === 'stale') return a.type === 'stale_watermark';
+        if (filter === 'margin') return a.type === 'negative_margin';
+        if (filter === 'retire') return a.type === 'retirement_candidate';
+        return true;
+      });
+
+      if (!filtered.length) {
+        container.innerHTML = '<div class="empty">조치할 항목이 없습니다.</div>';
+        return;
+      }
+
+      const rows = filtered.map(a => {
+        const severityBadge = a.severity === 'high' ? '<span class="status error">High</span>' : (a.severity === 'medium' ? '<span class="status warn">Medium</span>' : '<span class="status">Low</span>');
+        let details = '';
+        if (a.blocked_reasons && a.blocked_reasons.length) {
+          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad)">차단 사유: ' + a.blocked_reasons.map(r => '<code>' + escapeHTML(r) + '</code>').join(', ') + '</div>';
+        }
+        if (a.missing_approvals && a.missing_approvals.length) {
+          details += '<div style="margin-top:4px;font-size:12px;color:var(--warn)">미승인 부서: ' + a.missing_approvals.map(m => '<code>' + escapeHTML(m) + '</code>').join(', ') + '</div>';
+        }
+        if (a.delay_status) {
+          details += '<div style="margin-top:6px;font-size:12px">자산: <code>' + escapeHTML(a.asset_key || '') + '</code> (상태: ' + escapeHTML(a.delay_status) + ', 기준시각: ' + escapeHTML(a.data_as_of || '') + ')</div>';
+        }
+        if (a.estimated_margin != null) {
+          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad)">마진율: ' + (a.estimated_margin).toFixed(1) + '% (비용 대비 예상 손실 발생)</div>';
+        }
+        if (a.reason) {
+          details += '<div style="margin-top:6px;font-size:12px">추천 사유: ' + escapeHTML(a.reason) + '</div>';
+        }
+
+        return '<div style="padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-alt);margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              severityBadge +
+              '<span class="pill" style="text-transform:uppercase">' + escapeHTML(a.type) + '</span>' +
+              '<a href="#/dataworks/products/' + encodeURIComponent(a.product_key) + '"><strong style="font-size:15px">' + escapeHTML(a.title || a.product_key) + '</strong></a>' +
+            '</div>' +
+            '<div class="muted" style="margin-top:6px;font-size:12px">권장 액션: ' + escapeHTML(a.next_action) + '</div>' +
+            details +
+          '</div>' +
+          '<div>' +
+            '<a href="#/dataworks/products/' + encodeURIComponent(a.product_key) + '"><button type="button" style="font-size:12px">트윈 상세</button></a>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      container.innerHTML = rows;
+    }
+
+    async function renderDataWorksAssets() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('데이터 자산 Catalog', '<div class="empty">불러오는 중...</div>');
+      let assets;
+      try {
+        const res = await api('/admin/dataworks/assets');
+        assets = res.assets || [];
+      } catch (e) {
+        view.innerHTML = section('데이터 자산 Catalog', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+
+      window.dwAssetAdd = async (event) => {
+        event.preventDefault();
+        const asset_key = document.getElementById('ass-key').value.trim();
+        const name = document.getElementById('ass-name').value.trim();
+        if (!asset_key || !name) return;
+        try {
+          await api('/admin/dataworks/assets', {
+            method: 'POST',
+            body: JSON.stringify({
+              asset_key,
+              name,
+              domain: document.getElementById('ass-domain').value.trim(),
+              owner: document.getElementById('ass-owner').value.trim(),
+              sensitivity: document.getElementById('ass-sensitivity').value,
+              description: document.getElementById('ass-desc').value.trim(),
+              format: document.getElementById('ass-format').value,
+            })
+          });
+          document.getElementById('ass-form').reset();
+          renderDataWorksAssets();
+        } catch (e) { alert('자산 등록 오류: ' + e.message); }
+      };
+
+      const form = card('신규 데이터 자산 등록',
+        '<form class="inline-form" id="ass-form" style="grid-template-columns: minmax(110px,1fr) minmax(130px,1fr) minmax(110px,1fr) minmax(110px,1fr) minmax(120px,1fr) minmax(150px,2fr) minmax(80px,0.8fr) 70px;">' +
+          '<input id="ass-key" placeholder="asset_key" required>' +
+          '<input id="ass-name" placeholder="자산 이름" required>' +
+          '<input id="ass-domain" placeholder="도메인(예: CB, 카드)">' +
+          '<input id="ass-owner" placeholder="오너 부서">' +
+          '<select id="ass-sensitivity"><option value="public">public</option><option value="internal">internal</option><option value="restricted">restricted</option><option value="personal_credit">personal_credit</option><option value="pseudonymized">pseudonymized</option></select>' +
+          '<input id="ass-desc" placeholder="자산 상세 설명">' +
+          '<select id="ass-format"><option value="table">Table</option><option value="api">API</option><option value="file">File</option></select>' +
+          '<button type="submit">등록</button>' +
+        '</form>');
+
+      const sensitivityBadge = (s) => {
+        if (s === 'personal_credit') return '<span class="status error">개인신용</span>';
+        if (s === 'pseudonymized') return '<span class="status warn">가명정보</span>';
+        if (s === 'restricted') return '<span class="status warn">제한됨</span>';
+        return '<span class="status">' + escapeHTML(s) + '</span>';
+      };
+
+      const rows = assets.length
+        ? '<table><thead><tr><th>자산 Key</th><th>이름</th><th>도메인</th><th>오너</th><th>민감도</th><th>형식</th><th>동작</th></tr></thead><tbody>' +
+          assets.map(a => '<tr><td><a href="#/dataworks/assets/' + encodeURIComponent(a.asset_key) + '"><code>' + escapeHTML(a.asset_key) + '</code></a></td><td><strong>' + escapeHTML(a.name) + '</strong><div class="muted" style="font-size:11px">' + escapeHTML(a.description || '') + '</div></td><td>' + escapeHTML(a.domain) + '</td><td>' + escapeHTML(a.owner) + '</td><td>' + sensitivityBadge(a.sensitivity) + '</td><td>' + escapeHTML(a.format || 'table') + '</td><td>' +
+            '<a href="#/dataworks/assets/' + encodeURIComponent(a.asset_key) + '"><button type="button" class="secondary" style="font-size:11px;height:24px;padding:0 6px">상세 & Lineage</button></a>' +
+          '</td></tr>').join('') +
+          '</tbody></table>'
+        : '<p class="muted">등록된 자산이 없습니다.</p>';
+
+      const catalogCard = card('데이터 자산 Catalog', '<div class="card-body">' + rows + '</div>');
+
+      view.innerHTML = section('데이터 자산 Catalog', '') + form + catalogCard;
+      const assForm = document.getElementById('ass-form');
+      if (assForm) assForm.addEventListener('submit', window.dwAssetAdd);
+    }
+
+    async function renderDataWorksAssetDetail(assetKey) {
+      const view = document.getElementById('view');
+      view.innerHTML = section('데이터 자산 상세', '<div class="empty">불러오는 중...</div>');
+      let data;
+      try {
+        data = await api('/admin/dataworks/assets/' + encodeURIComponent(assetKey) + '/lineage');
+      } catch (e) {
+        view.innerHTML = section('데이터 자산 상세', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const asset = data.asset || {};
+      const lineage = data.lineage || { nodes: [], edges: [] };
+
+      window.runReadinessCheck = async () => {
+        const btn = document.getElementById('btn-readiness');
+        btn.disabled = true;
+        btn.textContent = '점검 중...';
+        try {
+          const res = await api('/admin/dataworks/assets/' + encodeURIComponent(assetKey) + '/readiness/check', { method: 'POST' });
+          alert('준비도 평가 완료! 종합 점수: ' + res.readiness.overall_score + '점');
+          renderDataWorksAssetDetail(assetKey);
+        } catch (e) {
+          alert('평가 실패: ' + e.message);
+          btn.disabled = false;
+          btn.textContent = '준비도 검사 실행';
+        }
+      };
+
+      let readinessScores = [];
+      try {
+        const rRes = await api('/admin/dataworks/assets/readiness?asset_key=' + encodeURIComponent(assetKey));
+        readinessScores = rRes.readiness || [];
+      } catch (e) {}
+
+      const latestReadiness = readinessScores.length ? readinessScores[readinessScores.length - 1] : null;
+
+      const overviewHtml = '<div class="card-body"><div class="kv">' +
+        row('자산 Key', '<code>' + escapeHTML(asset.asset_key) + '</code>') +
+        row('자산명', '<strong>' + escapeHTML(asset.name) + '</strong>') +
+        row('설명', escapeHTML(asset.description || '설명이 없습니다.')) +
+        row('도메인', escapeHTML(asset.domain)) +
+        row('소유 부서 (Owner)', escapeHTML(asset.owner)) +
+        row('자산 유형 / 포맷', escapeHTML(asset.format)) +
+        row('연결 정보', '<code>' + escapeHTML(asset.connection_info || '-') + '</code>') +
+        row('민감도 등급', escapeHTML(asset.sensitivity)) +
+        row('등록 정보', escapeHTML(asset.created_by) + ' (시각: ' + escapeHTML(asset.created_at) + ')') +
+      '</div>' +
+      '<div style="margin-top:12px"><button type="button" id="btn-readiness" onclick="runReadinessCheck()">준비도 검사 실행</button></div></div>';
+
+      let readinessHtml = '<div class="card-body"><p class="muted">아직 실행된 준비도 검사가 없습니다. 아래 버튼으로 검사를 실행해 주세요.</p></div>';
+      if (latestReadiness) {
+        const scoreColor = (s) => s >= 80 ? 'var(--good-ink)' : (s >= 50 ? 'var(--warn)' : 'var(--bad)');
+        readinessHtml = '<div class="card-body">' +
+          '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">' +
+            '<div style="font-size:24px;font-weight:800;color:' + scoreColor(latestReadiness.overall_score) + '">' + latestReadiness.overall_score + '점</div>' +
+            '<span class="status ' + (latestReadiness.overall_score >= 70 ? '' : 'warn') + '">' + latestReadiness.notes + '</span>' +
+            '<span class="muted">점검관: ' + escapeHTML(latestReadiness.updated_by) + ' (시각: ' + ago(latestReadiness.updated_at) + ')</span>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px,1fr));gap:10px">' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">스키마 충실도</div><div style="font-size:16px;font-weight:700">' + latestReadiness.schema_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">최신성(Freshness)</div><div style="font-size:16px;font-weight:700">' + latestReadiness.freshness_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">샘플 충족성</div><div style="font-size:16px;font-weight:700">' + latestReadiness.sample_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">결측값(Missing)</div><div style="font-size:16px;font-weight:700">' + latestReadiness.missing_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">민감도 통제</div><div style="font-size:16px;font-weight:700">' + latestReadiness.sensitivity_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">외부 연동성</div><div style="font-size:16px;font-weight:700">' + latestReadiness.external_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">API 적합도</div><div style="font-size:16px;font-weight:700">' + latestReadiness.api_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">과금 수집성</div><div style="font-size:16px;font-weight:700">' + latestReadiness.billing_readiness_score + '점</div></div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      const lNodes = lineage.nodes || [];
+      const lEdges = lineage.edges || [];
+      const cols = { asset: [], product: [], proposal_feedback: [], poc_outcome: [] };
+      lNodes.forEach(n => {
+        if (cols[n.type]) cols[n.type].push(n);
+      });
+
+      const colOrder = ['asset', 'product', 'proposal_feedback', 'poc_outcome'];
+      const colLabels = { asset: '데이터 자산', product: '연결 상품', proposal_feedback: '고객 제안 피드백', poc_outcome: 'PoC 검증 결과' };
+      const nodeCoords = {};
+      let maxCols = 0;
+      colOrder.forEach((t) => {
+        if (cols[t].length > maxCols) maxCols = cols[t].length;
+      });
+
+      const width = 800;
+      const height = Math.max(160, maxCols * 60);
+      const colWidth = width / colOrder.length;
+
+      let lineageSvg = '<div class="empty">관계 계보가 정의되어 있지 않습니다.</div>';
+      if (lNodes.length) {
+        let svgContent = '';
+        colOrder.forEach((t, cIdx) => {
+          const x = cIdx * colWidth;
+          svgContent += '<rect x="' + x + '" y="0" width="' + (colWidth - 10) + '" height="' + height + '" fill="var(--panel-alt)" rx="6" stroke="var(--line)"/>';
+          svgContent += '<text x="' + (x + 8) + '" y="' + 16 + '" font-size="11" font-weight="700" fill="var(--muted)">' + colLabels[t] + '</text>';
+          
+          cols[t].forEach((n, nIdx) => {
+            const nodeY = 40 + nIdx * 54;
+            const nodeX = x + 10;
+            const nodeW = colWidth - 30;
+            const nodeH = 38;
+            nodeCoords[n.id] = { x: nodeX + nodeW / 2, y: nodeY + nodeH / 2, type: n.type };
+            
+            let rectFill = 'var(--panel)';
+            let rectStroke = 'var(--line)';
+            if (n.type === 'asset') { rectFill = 'var(--good-bg)'; rectStroke = 'var(--good-ink)'; }
+            else if (n.type === 'product') { rectFill = 'var(--warn-bg)'; rectStroke = 'var(--warn)'; }
+
+            svgContent += '<g cursor="pointer" onclick="lineageNodeClick(\'' + escapeAttr(n.id) + '\')">';
+            svgContent += '<rect x="' + nodeX + '" y="' + nodeY + '" width="' + nodeW + '" height="' + nodeH + '" fill="' + rectFill + '" stroke="' + rectStroke + '" rx="4" stroke-width="1.5"/>';
+            svgContent += '<text x="' + (nodeX + 8) + '" y="' + (nodeY + 16) + '" font-size="11" font-weight="800" fill="var(--ink)">' + escapeHTML(n.label.slice(0, 18)) + '</text>';
+            const subText = n.type === 'asset' ? n.domain : (n.type === 'product' ? n.status : (n.customer_type || n.success || ''));
+            svgContent += '<text x="' + (nodeX + 8) + '" y="' + (nodeY + 28) + '" font-size="9" fill="var(--muted)">' + escapeHTML(String(subText)) + '</text>';
+            svgContent += '</g>';
+          });
+        });
+
+        lEdges.forEach((e) => {
+          const fromNode = nodeCoords[e.from];
+          const toNode = nodeCoords[e.to];
+          if (fromNode && toNode) {
+            svgContent += '<path d="M ' + (fromNode.x + (colWidth - 30)/2) + ' ' + fromNode.y + ' C ' + (fromNode.x + colWidth/2) + ' ' + fromNode.y + ', ' + (toNode.x - (colWidth - 30)/2 - 10) + ' ' + toNode.y + ', ' + (toNode.x - (colWidth - 30)/2) + ' ' + toNode.y + '" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#arrow)"/>';
+          }
+        });
+
+        lineageSvg = '<div style="overflow-x:auto;padding:10px">' +
+          '<svg width="' + width + '" height="' + height + '">' +
+            '<defs>' +
+              '<marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+                '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />' +
+              '</marker>' +
+            '</defs>' +
+            svgContent +
+          '</svg>' +
+        '</div>';
+      }
+
+      window.lineageNodeClick = (nodeId) => {
+        const parts = nodeId.split(':');
+        if (parts[0] === 'product') {
+          location.hash = '#/dataworks/products/' + encodeURIComponent(parts[1]);
+        }
+      };
+
+      const lineageCard = card('자산 계보 흐름 (Lineage Flow)', lineageSvg);
+
+      view.innerHTML = section('데이터 자산 상세 — ' + escapeHTML(asset.name), '') +
+        '<div style="padding:0 14px 10px"><a href="#/dataworks/assets" class="muted">← 데이터 자산 Catalog 목록으로 이동</a></div>' +
+        overviewHtml + card('데이터 준비도 평가 (Readiness Score)', readinessHtml) + lineageCard;
+    }
+
+    async function renderDataWorksPortfolio() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('상품 포트폴리오 (Kanban)', '<div class="empty">불러오는 중...</div>');
+      let data;
+      try {
+        data = await api('/admin/dataworks/portfolio');
+      } catch (e) {
+        view.innerHTML = section('상품 포트폴리오 (Kanban)', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const portfolio = data.portfolio || {};
+
+      const columns = ['draft', 'review', 'risk_review', 'approved', 'published', 'archived'];
+      const columnLabels = {
+        draft: '초안 (Draft)',
+        review: '검토 중 (Review)',
+        risk_review: '리스크 검토 (Risk)',
+        approved: '승인됨 (Approved)',
+        published: '출시됨 (Published)',
+        archived: '보관됨 (Archived)'
+      };
+
+      window.kanbanTransition = async (key, action) => {
+        try {
+          await api('/admin/dataworks/products/' + encodeURIComponent(key) + '/' + action, { method: 'POST' });
+          renderDataWorksPortfolio();
+        } catch (e) { alert('상태 변경 실패: ' + e.message); }
+      };
+
+      const boardCols = columns.map(col => {
+        const list = portfolio[col] || [];
+        const cardsHtml = list.map(p => {
+          let actionBtn = '';
+          if (col === 'draft') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','approve')">검토 요청</button>';
+          else if (col === 'review') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--warn);border-color:var(--warn)" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','approve')">리스크 검토</button>';
+          else if (col === 'risk_review') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--good-ink);border-color:var(--good-ink)" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','approve')">최종 승인</button>';
+          else if (col === 'approved') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--good-ink);border-color:var(--good-ink)" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','publish')">출시하기</button>';
+          else if (col === 'published') actionBtn = '<button type="button" class="secondary" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','archive')">보관하기</button>';
+
+          return '<div style="padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">' +
+            '<div style="font-size:11px;font-weight:700;color:var(--muted)">' + escapeHTML(p.product_key) + '</div>' +
+            '<div style="margin-top:4px;font-weight:800"><a href="#/dataworks/products/' + encodeURIComponent(p.product_key) + '">' + escapeHTML(p.name_ko || p.name || '') + '</a></div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:11px">' +
+              '<span>매출: ' + fmt(p.revenue_score) + '</span>' +
+              '<span>리스크: ' + fmt(p.risk_score) + '</span>' +
+            '</div>' +
+            actionBtn +
+          '</div>';
+        }).join('');
+
+        return '<div style="flex:1;min-width:200px;background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column">' +
+          '<div style="font-weight:800;font-size:13px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">' +
+            '<span>' + columnLabels[col] + '</span>' +
+            '<span class="pill">' + list.length + '</span>' +
+          '</div>' +
+          '<div style="flex:1;overflow-y:auto;max-height:600px">' + cardsHtml + '</div>' +
+        '</div>';
+      }).join('');
+
+      view.innerHTML = section('상품 포트폴리오 (Kanban Board)', '') +
+        '<div style="display:flex;gap:12px;overflow-x:auto;padding:10px;align-items:stretch">' + boardCols + '</div>';
+    }
+
+    async function renderDataWorksPortfolioGraph() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('포트폴리오 관계 그래프', '<div class="empty">불러오는 중...</div>');
+      let data;
+      try {
+        data = await api('/admin/dataworks/portfolio/graph');
+      } catch (e) {
+        view.innerHTML = section('포트폴리오 관계 그래프', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const graph = data.graph || { nodes: [], edges: [] };
+      const nodes = graph.nodes || [];
+      const edges = graph.edges || [];
+      const width = 900;
+      const height = 500;
+      const nodeCoords = {};
+      const cols = { asset: [], product: [], proposal_feedback: [], poc_outcome: [] };
+      nodes.forEach(n => {
+        if (cols[n.type]) cols[n.type].push(n);
+      });
+
+      const colOrder = ['asset', 'product', 'proposal_feedback', 'poc_outcome'];
+      const colWidth = width / colOrder.length;
+
+      let svgContent = '';
+      colOrder.forEach((t, cIdx) => {
+        const colNodes = cols[t];
+        colNodes.forEach((n, nIdx) => {
+          const x = cIdx * colWidth + 50;
+          const y = 50 + nIdx * 70;
+          nodeCoords[n.id] = { x, y, type: n.type };
+          
+          let color = 'var(--ink)';
+          let fill = 'var(--panel)';
+          let stroke = 'var(--line)';
+          if (n.type === 'asset') { fill = 'var(--good-bg)'; stroke = 'var(--good-ink)'; }
+          else if (n.type === 'product') { fill = 'var(--warn-bg)'; stroke = 'var(--warn)'; }
+
+          svgContent += '<g cursor="pointer" onclick="graphNodeClick('' + escapeAttr(n.id) + '')">';
+          svgContent += '<circle cx="' + x + '" cy="' + y + '" r="22" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
+          svgContent += '<text x="' + x + '" y="' + (y + 4) + '" font-size="9" text-anchor="middle" font-weight="700" fill="' + color + '">' + escapeHTML(n.label.slice(0, 5)) + '</text>';
+          svgContent += '<text x="' + x + '" y="' + (y + 36) + '" font-size="10" text-anchor="middle" fill="var(--muted)">' + escapeHTML(n.id.split(':')[1].slice(0, 10)) + '</text>';
+          svgContent += '</g>';
+        });
+      });
+
+      edges.forEach(e => {
+        const fromNode = nodeCoords[e.from];
+        const toNode = nodeCoords[e.to];
+        if (fromNode && toNode) {
+          svgContent += '<line x1="' + fromNode.x + '" y1="' + fromNode.y + '" x2="' + toNode.x + '" y2="' + toNode.y + '" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#graph-arrow)"/>';
+        }
+      });
+
+      window.graphNodeClick = (nodeId) => {
+        const parts = nodeId.split(':');
+        if (parts[0] === 'product') {
+          location.hash = '#/dataworks/products/' + encodeURIComponent(parts[1]);
+        } else if (parts[0] === 'asset') {
+          location.hash = '#/dataworks/assets/' + encodeURIComponent(parts[1]);
+        }
+      };
+
+      const svgHtml = '<div style="overflow-x:auto;padding:10px">' +
+        '<svg width="' + width + '" height="' + height + '">' +
+          '<defs>' +
+            '<marker id="graph-arrow" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">' +
+              '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-strong)" />' +
+            '</marker>' +
+          '</defs>' +
+          svgContent +
+        '</svg>' +
+      '</div>';
+
+      view.innerHTML = section('포트폴리오 관계 그래프 (SVG)', '') +
+        '<div style="padding:10px;background:var(--panel-alt);border-bottom:1px solid var(--line)"><span class="muted">노드를 클릭하면 해당 데이터 자산 또는 상품 상세 트윈 화면으로 이동합니다.</span></div>' +
+        card('자산 → 상품 → 피드백/PoC 연결망', svgHtml);
+    }
+
+    async function renderDataWorksRisk() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('리스크 검토 센터', '<div class="empty">불러오는 중...</div>');
+      let data;
+      try {
+        data = await api('/admin/dataworks/reviews');
+      } catch (e) {
+        view.innerHTML = section('리스크 검토 센터', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const reviewPending = data.review_pending || [];
+      const riskReviewPending = data.risk_review_pending || [];
+
+      window.riskReviewDecide = async (key, action) => {
+        try {
+          await api('/admin/dataworks/reviews/' + encodeURIComponent(key) + '/' + action, { method: 'POST' });
+          renderDataWorksRisk();
+        } catch (e) { alert('처리 실패: ' + e.message); }
+      };
+
+      const makeRows = (list) => {
+        return list.length
+          ? '<table><thead><tr><th>상품 Key</th><th>상품명</th><th>매출성</th><th>리스크 점수</th><th>동작</th></tr></thead><tbody>' +
+            list.map(p => '<tr><td><code>' + escapeHTML(p.product_key) + '</code></td><td><strong>' + escapeHTML(p.name_ko || p.name || '') + '</strong></td><td>' + fmt(p.revenue_score) + '</td><td>' + (p.risk_score >= 70 ? '<span class="status error">' + fmt(p.risk_score) + '</span>' : fmt(p.risk_score)) + '</td><td>' +
+              '<button type="button" class="secondary" style="font-size:11px" onclick="location.hash='#/dataworks/products/' + encodeURIComponent(p.product_key) + '?tab=risk'">매트릭스 검토</button> ' +
+              '<button type="button" style="font-size:11px;background:var(--good-ink);border-color:var(--good-ink)" onclick="riskReviewDecide('' + escapeAttr(p.product_key) + '','approve')">승인</button> ' +
+              '<button type="button" class="danger" style="font-size:11px" onclick="riskReviewDecide('' + escapeAttr(p.product_key) + '','reject')">반려</button>' +
+            '</td></tr>').join('') +
+            '</tbody></table>'
+          : '<p class="muted">대기 중인 검토 항목이 없습니다.</p>';
+      };
+
+      const riskCard = card('법무 / 컴플라이언스 리스크 검토 대기 (' + riskReviewPending.length + ')', '<div class="card-body">' + makeRows(riskReviewPending) + '</div>');
+      const reviewCard = card('데이터 오너 출시 최종 승인 대기 (' + reviewPending.length + ')', '<div class="card-body">' + makeRows(reviewPending) + '</div>');
+
+      view.innerHTML = section('리스크 & 컴플라이언스 승인 센터', '<p class="muted" style="margin:-4px 0 12px">개인신용정보/가명처리 법적 컴플라이언스 검토 및 오너십 승인 대기열</p>') + riskCard + reviewCard;
+    }
+
+    async function renderDataWorksProductTwin(productKey) {
+      const view = document.getElementById('view');
+      view.innerHTML = section('데이터 상품 디지털 트윈', '<div class="empty">불러오는 중...</div>');
+      let data;
+      try {
+        data = await api('/admin/factory/products/' + encodeURIComponent(productKey));
+      } catch (e) {
+        view.innerHTML = section('데이터 상품 디지털 트윈', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const product = data.product || {};
+      const canvas = data.canvas || {};
+      const evidence = data.evidence || [];
+      const regulatoryTrace = data.regulatory_trace || [];
+      const apiContract = data.api_contract || {};
+      const feedback = data.proposal_feedback || [];
+      const outcomes = data.poc_outcomes || [];
+      const definition = data.definition || {};
+      const riskReview = data.risk_review || {};
+      const pocPlan = data.poc_plan || {};
+
+      window.twinTabFilter = (tab) => {
+        sessionStorage.setItem('twinActiveTab', tab);
+        renderDataWorksProductTwin(productKey);
+      };
+
+      const activeTab = sessionStorage.getItem('twinActiveTab') || 'overview';
+
+      // Header block with scores
+      const statusLabel = product.status || 'draft';
+      const scoreColor = (s) => s >= 80 ? 'var(--good-ink)' : (s >= 50 ? 'var(--warn)' : 'var(--bad)');
+      const headerHtml = '<div style="background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:10px">' +
+              '<h2 style="margin:0;font-size:20px">' + escapeHTML(product.name_ko || product.name || '') + '</h2>' +
+              '<span class="status ' + (statusLabel === 'published' ? 'good' : (statusLabel === 'approved' ? 'good' : 'warn')) + '">' + statusLabel.toUpperCase() + '</span>' +
+            '</div>' +
+            '<div class="muted" style="margin-top:6px;font-size:12px">상품 Key: <code>' + escapeHTML(product.product_key) + '</code> | 소스 유형: ' + escapeHTML(product.source_type || 'table') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:12px;text-align:right">' +
+            '<div><div class="muted" style="font-size:10px">매출성 점수</div><div style="font-size:16px;font-weight:700;color:' + scoreColor(product.revenue_score) + '">' + product.revenue_score + '점</div></div>' +
+            '<div><div class="muted" style="font-size:10px">리스크 점수</div><div style="font-size:16px;font-weight:700;color:' + scoreColor(100 - product.risk_score) + '">' + product.risk_score + '점</div></div>' +
+            '<div><div class="muted" style="font-size:10px">준비도 점수</div><div style="font-size:16px;font-weight:700;color:' + scoreColor(product.readiness_score) + '">' + product.readiness_score + '점</div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-top:12px;display:flex;gap:8px">' +
+          '<button type="button" class="secondary" style="font-size:11px" onclick="triggerPublishGate('' + escapeAttr(product.product_key) + '')">출시 게이트 검증</button>' +
+          '<button type="button" class="secondary" style="font-size:11px" onclick="rebuildDefinition('' + escapeAttr(product.product_key) + '')">정의서 수동 재생성</button>' +
+        '</div>' +
+      '</div>';
+
+      // Inline operations
+      window.triggerPublishGate = async (key) => {
+        try {
+          const res = await api('/admin/dataworks/products/' + encodeURIComponent(key) + '/publish-gate');
+          const gate = res.publish_gate || {};
+          if (gate.allowed) {
+            alert('✓ 출시 가능 상태입니다! 출시를 방해하는 차단 사유가 없습니다.');
+          } else {
+            let msg = '출시 불가 사유:\n';
+            if (gate.blocked_reasons && gate.blocked_reasons.length) {
+              msg += '- ' + gate.blocked_reasons.join('\n- ') + '\n';
+            }
+            if (gate.missing_approvals && gate.missing_approvals.length) {
+              msg += '- 미승인 승인함 부서: ' + gate.missing_approvals.join(', ');
+            }
+            alert(msg);
+          }
+        } catch (e) { alert('게이트 점검 오류: ' + e.message); }
+      };
+
+      window.rebuildDefinition = async (key) => {
+        if (!confirm('정의서를 AI를 사용해 수동으로 재생성하시겠습니까?')) return;
+        try {
+          await api('/admin/dataworks/factory/definitions', {
+            method: 'POST',
+            body: JSON.stringify({ product_key: key })
+          });
+          alert('정의서 재생성 성공!');
+          renderDataWorksProductTwin(productKey);
+        } catch (e) { alert('정의서 생성 실패: ' + e.message); }
+      };
+
+      const subTabs = '<nav class="subtabs" style="margin-bottom:14px">' +
+        ['overview', 'canvas', 'evidence', 'risk', 'api', 'contract', 'poc', 'proposal', 'cost', 'funnel', 'version', 'audit'].map(t =>
+          '<a href="javascript:void(0)" onclick="twinTabFilter('' + t + '')"' + (activeTab === t ? ' class="active"' : '') + '>' + t.toUpperCase() + '</a>'
+        ).join('') +
+      '</nav>';
+
+      let activeContent = '<div class="empty">준비 중인 탭입니다.</div>';
+
+      // Tab Content Handlers
+      if (activeTab === 'overview') {
+        window.twinTransition = async (action) => {
+          try {
+            await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/' + action, { method: 'POST' });
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('상태 변경 오류: ' + e.message); }
+        };
+
+        let actionButtons = '';
+        if (product.status === 'draft') actionButtons = '<button type="button" onclick="twinTransition('approve')">검토 신청 (Review)</button>';
+        else if (product.status === 'review' || product.status === 'risk_review') {
+          actionButtons = '<button type="button" style="background:var(--good-ink);border-color:var(--good-ink)" onclick="twinTransition('approve')">승인 (Approve)</button> ' +
+            '<button type="button" class="danger" onclick="twinTransition('reject')">반려 (Reject)</button>';
+        } else if (product.status === 'approved') {
+          actionButtons = '<button type="button" style="background:var(--good-ink);border-color:var(--good-ink)" onclick="twinTransition('publish')">출시 (Publish)</button> ' +
+            '<button type="button" class="danger" onclick="twinTransition('reject')">초안 반려 (Reject)</button>';
+        } else if (product.status === 'published') {
+          actionButtons = '<button type="button" class="secondary" onclick="twinTransition('archive')">보관 (Archive)</button>';
+        }
+
+        activeContent = '<div class="kv">' +
+          row('상품명', '<strong>' + escapeHTML(product.name_ko || '') + '</strong>') +
+          row('상품 Key', '<code>' + escapeHTML(product.product_key) + '</code>') +
+          row('오너 (Owner)', escapeHTML(product.owner_team || '미정')) +
+          row('민감도 정보', escapeHTML(product.sensitivity || 'public')) +
+          row('현재 상태', '<span class="status">' + escapeHTML(product.status) + '</span>') +
+          row('수정자', escapeHTML(product.updated_by || 'system')) +
+          row('수정 시각', escapeHTML(product.updated_at || '')) +
+          row('생성 시각', escapeHTML(product.created_at || '')) +
+        '</div>' +
+        '<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">' +
+          '<strong>상태 전이 액션:</strong> ' + (actionButtons || '<span class="muted">동작 없음</span>') +
+        '</div>';
+
+      } else if (activeTab === 'canvas') {
+        window.saveCanvas = async (event) => {
+          event.preventDefault();
+          try {
+            await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/canvas', {
+              method: 'POST',
+              body: JSON.stringify({
+                product_key: product.product_key,
+                customer_problem: document.getElementById('can-prob').value,
+                buyer: document.getElementById('can-buyer').value,
+                use_cases: document.getElementById('can-use').value,
+                provided_data: document.getElementById('can-data').value,
+                differentiation: document.getElementById('can-diff').value,
+                pricing_model: document.getElementById('can-price').value,
+                risk_notes: document.getElementById('can-risk').value,
+                poc_success_criteria: document.getElementById('can-poc').value,
+                expected_revenue: document.getElementById('can-rev').value,
+                owner: document.getElementById('can-owner').value,
+              })
+            });
+            alert('캔버스 저장 성공!');
+          } catch (e) { alert('캔버스 저장 실패: ' + e.message); }
+        };
+
+        window.generateCanvasAI = async () => {
+          const btn = document.getElementById('btn-can-ai');
+          btn.disabled = true;
+          btn.textContent = '생성 중...';
+          try {
+            const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/canvas/generate', { method: 'POST' });
+            const c = res.canvas || {};
+            document.getElementById('can-prob').value = c.customer_problem || '';
+            document.getElementById('can-buyer').value = c.buyer || '';
+            document.getElementById('can-use').value = c.use_cases || '';
+            document.getElementById('can-data').value = c.provided_data || '';
+            document.getElementById('can-diff').value = c.differentiation || '';
+            document.getElementById('can-price').value = c.pricing_model || '';
+            document.getElementById('can-risk').value = c.risk_notes || '';
+            document.getElementById('can-poc').value = c.poc_success_criteria || '';
+            document.getElementById('can-rev').value = c.expected_revenue || '';
+            alert('AI 초안 캔버스 로드 성공!');
+          } catch (e) { alert('AI 생성 실패: ' + e.message); }
+          btn.disabled = false;
+          btn.textContent = 'AI 초안 생성';
+        };
+
+        activeContent = '<form id="canvas-form" onsubmit="saveCanvas(event)">' +
+          '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:14px;margin-bottom:14px">' +
+            '<div><label>고객 고통 분담 (Customer Problem)</label><textarea id="can-prob" rows="3">' + escapeHTML(canvas.customer_problem || '') + '</textarea></div>' +
+            '<div><label>구매자 세그먼트 (Target Buyer)</label><textarea id="can-buyer" rows="3">' + escapeHTML(canvas.buyer || '') + '</textarea></div>' +
+            '<div><label>시나리오 (Use Cases)</label><textarea id="can-use" rows="3">' + escapeHTML(canvas.use_cases || '') + '</textarea></div>' +
+            '<div><label>공급 데이터 자산 (Provided Data)</label><textarea id="can-data" rows="3">' + escapeHTML(canvas.provided_data || '') + '</textarea></div>' +
+            '<div><label>차별화 포인트 (Differentiation)</label><textarea id="can-diff" rows="3">' + escapeHTML(canvas.differentiation || '') + '</textarea></div>' +
+            '<div><label>요금 모델 (Pricing Model)</label><textarea id="can-price" rows="3">' + escapeHTML(canvas.pricing_model || '') + '</textarea></div>' +
+            '<div><label>도출된 위험성 (Identified Risks)</label><textarea id="can-risk" rows="3">' + escapeHTML(canvas.risk_notes || '') + '</textarea></div>' +
+            '<div><label>PoC 성공 기준 (Success Criteria)</label><textarea id="can-poc" rows="3">' + escapeHTML(canvas.poc_success_criteria || '') + '</textarea></div>' +
+            '<div><label>기대 매출액 (Expected Revenue)</label><textarea id="can-rev" rows="3">' + escapeHTML(canvas.expected_revenue || '') + '</textarea></div>' +
+            '<div><label>작성자 (Owner)</label><input id="can-owner" value="' + escapeHTML(canvas.owner || '') + '"></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:10px">' +
+            '<button type="submit">캔버스 저장</button>' +
+            '<button type="button" class="secondary" id="btn-can-ai" onclick="generateCanvasAI()">AI 초안 생성</button>' +
+          '</div>' +
+        '</form>';
+
+      } else if (activeTab === 'evidence') {
+        window.rebuildEvidence = async () => {
+          try {
+            await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/evidence', { method: 'POST' });
+            alert('증거 팩 갱신 완료!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('증거 팩 생성 실패: ' + e.message); }
+        };
+
+        const listHtml = evidence.length
+          ? '<table><thead><tr><th>증거 분야</th><th>체크 요건</th><th>결과</th><th>점검인</th><th>시각</th></tr></thead><tbody>' +
+            evidence.map(e => '<tr><td><code>' + escapeHTML(e.domain || '') + '</code></td><td>' + escapeHTML(e.question || '') + '</td><td>' + (e.decision === 'approved' ? '<span class="status good">Pass</span>' : '<span class="status error">' + escapeHTML(e.decision) + '</span>') + '</td><td>' + escapeHTML(e.reviewer || '') + '</td><td>' + escapeHTML(e.created_at || '') + '</td></tr>').join('') +
+            '</tbody></table>'
+          : '<p class="muted">생성된 증거 팩 정보가 없습니다. 아래 버튼으로 갱신해 주세요.</p>';
+
+        activeContent = '<div>' + listHtml + '<div style="margin-top:12px"><button type="button" onclick="rebuildEvidence()">Evidence 팩 갱신</button></div></div>';
+
+      } else if (activeTab === 'risk') {
+        window.saveRegulatoryTrace = async () => {
+          const rows = [];
+          const trs = document.querySelectorAll('#rtrace-table tbody tr');
+          trs.forEach(tr => {
+            rows.push({
+              id: tr.dataset.id,
+              risk_domain: tr.dataset.domain,
+              question: tr.querySelector('.r-question').textContent,
+              answer: tr.querySelector('.r-answer').value,
+              evidence: tr.querySelector('.r-evidence').value,
+              decision: tr.querySelector('.r-decision').value,
+              reviewer: tr.querySelector('.r-reviewer').value,
+            });
+          });
+          try {
+            await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/regulatory-trace', {
+              method: 'POST',
+              body: JSON.stringify({ trace: rows })
+            });
+            alert('위험 검토 매트릭스 저장 완료!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('저장 실패: ' + e.message); }
+        };
+
+        window.runAIRiskCheck = async () => {
+          try {
+            await api('/admin/dataworks/risk/check', {
+              method: 'POST',
+              body: JSON.stringify({ product_key: product.product_key })
+            });
+            alert('AI 리스크 재점검 및 매트릭스 동기화 완료!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('리스크 분석 실패: ' + e.message); }
+        };
+
+        const rows = regulatoryTrace.length
+          ? regulatoryTrace.map(row => {
+              const decisions = ['pending', 'approved', 'conditional', 'requires_review', 'waived'];
+              const selectHtml = '<select class="r-decision" style="font-size:11px;padding:2px">' +
+                decisions.map(d => '<option value="' + d + '"' + (row.decision === d ? ' selected' : '') + '>' + d + '</option>').join('') +
+              '</select>';
+
+              return '<tr data-id="' + escapeAttr(row.id) + '" data-domain="' + escapeAttr(row.risk_domain) + '">' +
+                '<td><strong>' + escapeHTML(row.risk_domain) + '</strong></td>' +
+                '<td class="r-question">' + escapeHTML(row.question) + '</td>' +
+                '<td><textarea class="r-answer" rows="2" style="font-size:11px">' + escapeHTML(row.answer || '') + '</textarea></td>' +
+                '<td><textarea class="r-evidence" rows="2" style="font-size:11px">' + escapeHTML(row.evidence || '') + '</textarea></td>' +
+                '<td>' + selectHtml + '</td>' +
+                '<td><input class="r-reviewer" value="' + escapeHTML(row.reviewer || '') + '" style="font-size:11px;width:70px"></td>' +
+              '</tr>';
+            }).join('')
+          : '<tr><td colspan="6" class="muted">등록된 검토 체크리스트가 없습니다. 아래 버튼으로 AI 점검을 실행해 주세요.</td></tr>';
+
+        activeContent = '<div>' +
+          '<table id="rtrace-table"><thead><tr><th>리스크 분류</th><th>점검 질문</th><th>답변/분석</th><th>점검 증적</th><th>판정</th><th>점검관</th></tr></thead><tbody>' +
+            rows +
+          '</tbody></table>' +
+          '<div style="margin-top:12px;display:flex;gap:8px">' +
+            '<button type="button" onclick="saveRegulatoryTrace()">위험 검토 저장</button>' +
+            '<button type="button" class="secondary" onclick="runAIRiskCheck()">AI 리스크 재점검</button>' +
+          '</div>' +
+        '</div>';
+
+      } else if (activeTab === 'api') {
+        window.runMockQuery = async () => {
+          const btn = document.getElementById('btn-mock-run');
+          btn.disabled = true;
+          btn.textContent = '실행 중...';
+          const out = document.getElementById('mock-output');
+          out.textContent = '대기 중...';
+          try {
+            const body = document.getElementById('mock-input').value;
+            const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/mock', {
+              method: 'POST',
+              body: body
+            });
+            out.textContent = JSON.stringify(res.mock_response, null, 2);
+          } catch (e) {
+            out.textContent = '오류 발생: ' + e.message;
+          }
+          btn.disabled = false;
+          btn.textContent = 'Mock API 실행';
+        };
+
+        const sampleJson = JSON.stringify({ customer_segment: "silver", period: "2026-06" }, null, 2);
+        
+        activeContent = '<div style="display:grid;grid-template-columns:1fr 1.2fr;gap:14px">' +
+          '<div>' +
+            '<strong>OpenAPI 3.1 Specification Preview:</strong>' +
+            '<pre style="max-height:400px;overflow-y:auto;background:var(--panel-alt);border:1px solid var(--line);padding:10px;border-radius:6px;font-size:11px">' +
+              JSON.stringify({
+                openapi: "3.1.0",
+                info: { title: product.name_ko || product.product_key, version: "1.0.0" },
+                paths: {
+                  ["/v1/data-products/" + product.product_key + "/query"]: {
+                    post: {
+                      summary: "실시간 데이터 쿼리 호출",
+                      requestBody: { content: { "application/json": { schema: { type: "object", properties: { customer_segment: { type: "string" }, period: { type: "string" } } } } } },
+                      responses: { ["200"]: { description: "성공 응답", content: { "application/json": {} } } }
+                    }
+                  }
+                }
+              }, null, 2) +
+            '</pre>' +
+          '</div>' +
+          '<div>' +
+            '<strong>Interactive Mock Console:</strong>' +
+            '<div style="margin-top:6px"><label>Request Parameter (JSON)</label><textarea id="mock-input" rows="4" style="font-family:monospace;font-size:11px">' + sampleJson + '</textarea></div>' +
+            '<div style="margin-top:8px"><button type="button" id="btn-mock-run" onclick="runMockQuery()">Mock API 실행</button></div>' +
+            '<div style="margin-top:10px"><label>Mock Response</label>' +
+              '<pre id="mock-output" style="max-height:220px;overflow-y:auto;background:var(--panel-alt);border:1px solid var(--line);padding:10px;border-radius:6px;font-size:11px;color:var(--good-ink)">결과가 여기에 출력됩니다.</pre>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      } else if (activeTab === 'contract') {
+        window.saveSLA = async (event) => {
+          event.preventDefault();
+          try {
+            await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/sla', {
+              method: 'POST',
+              body: JSON.stringify({
+                refresh_cycle: document.getElementById('sla-cycle').value,
+                latency_ms: Number(document.getElementById('sla-latency').value),
+                availability_pct: Number(document.getElementById('sla-availability').value),
+                support_level: document.getElementById('sla-support').value,
+              })
+            });
+            alert('SLA 설정 저장 완료!');
+          } catch (e) { alert('SLA 저장 실패: ' + e.message); }
+        };
+
+        window.saveWatermark = async (event) => {
+          event.preventDefault();
+          try {
+            await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/watermarks', {
+              method: 'POST',
+              body: JSON.stringify({
+                data_as_of: document.getElementById('wat-asof').value,
+                delay_status: document.getElementById('wat-delay').value,
+              })
+            });
+            alert('데이터 워터마크 저장 완료!');
+          } catch (e) { alert('워터마크 저장 실패: ' + e.message); }
+        };
+
+        activeContent = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+          card('SLA 보증 조건 설정',
+            '<form onsubmit="saveSLA(event)">' +
+              '<div><label>데이터 갱신 주기 (Refresh Cycle)</label><input id="sla-cycle" value="daily" required></div>' +
+              '<div><label>지연 시간 (Latency Goal, ms)</label><input id="sla-latency" type="number" value="150" required></div>' +
+              '<div><label>가동률 목표 (Availability, %)</label><input id="sla-availability" type="number" value="99.9" step="0.01" required></div>' +
+              '<div><label>지원 레벨 (Support Level)</label><input id="sla-support" value="24/7 Phone Support" required></div>' +
+              '<div style="margin-top:10px"><button type="submit">SLA 저장</button></div>' +
+            '</form>') +
+          card('실시간 최신성 점검 (Watermark)',
+            '<form onsubmit="saveWatermark(event)">' +
+              '<div><label>데이터 기준 시각 (Data as of)</label><input id="wat-asof" value="' + new Date().toISOString().slice(0, 10) + '" required></div>' +
+              '<div><label>지연 상태 (Delay Status)</label><select id="wat-delay"><option value="normal">Normal (정상)</option><option value="stale">Stale (갱신 지연)</option><option value="critical">Critical (차단 위기)</option></select></div>' +
+              '<div style="margin-top:10px"><button type="submit">워터마크 갱신</button></div>' +
+            '</form>') +
+        '</div>';
+
+      } else if (activeTab === 'poc') {
+        window.savePOCPlan = async (event) => {
+          event.preventDefault();
+          try {
+            await api('/admin/dataworks/poc/plans', {
+              method: 'POST',
+              body: JSON.stringify({
+                product_key: product.product_key,
+                customer_key: document.getElementById('poc-cust').value,
+                success_criteria: document.getElementById('poc-crit').value,
+                timeline: document.getElementById('poc-time').value,
+                status: 'pending'
+              })
+            });
+            alert('PoC 검증 계획 등록 완료!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('PoC 계획 등록 실패: ' + e.message); }
+        };
+
+        window.submitPOCOutcome = async (pocId) => {
+          const success = confirm('이 PoC 검증이 성공했습니까? (확인: 성공, 취소: 실패)');
+          const conversion = prompt('계약 전환 피드백 결과 입력 (accepted | pending | rejected)', 'accepted');
+          if (!conversion) return;
+          try {
+            await api('/admin/dataworks/poc/' + encodeURIComponent(pocId) + '/outcome', {
+              method: 'POST',
+              body: JSON.stringify({
+                success: success,
+                conversion_status: conversion
+              })
+            });
+            alert('PoC 결과 기록 완료!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('PoC 결과 기록 실패: ' + e.message); }
+        };
+
+        const listHtml = outcomes.length
+          ? '<table><thead><tr><th>PoC ID</th><th>고객</th><th>성공 여부</th><th>전환 결과</th><th>점검자</th></tr></thead><tbody>' +
+            outcomes.map(o => '<tr><td><code>' + escapeHTML(o.id) + '</code></td><td>' + escapeHTML(o.customer_key || '') + '</td><td>' + (o.success ? '<span class="status good">Success</span>' : '<span class="status error">Fail</span>') + '</td><td><span class="status">' + escapeHTML(o.conversion_status) + '</span></td><td>' + escapeHTML(o.created_by) + '</td></tr>').join('') +
+            '</tbody></table>'
+          : '<p class="muted">기록된 PoC 검증 이력이 없습니다.</p>';
+
+        activeContent = '<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px">' +
+          card('PoC 검증 목록 및 상태', '<div class="card-body">' + listHtml + '</div>') +
+          card('신규 PoC 검증 계획 등록',
+            '<form onsubmit="savePOCPlan(event)">' +
+              '<div><label>대상 고객사 Key</label><input id="poc-cust" placeholder="kcb_bank" required></div>' +
+              '<div><label>성공 정의 요건 (Success Criteria)</label><textarea id="poc-crit" placeholder="부도율 예측도 2% 향상" required></textarea></div>' +
+              '<div><label>검증 기간/일정 (Timeline)</label><input id="poc-time" placeholder="2026-07 ~ 2026-08" required></div>' +
+              '<div style="margin-top:10px"><button type="submit">PoC 계획 생성</button></div>' +
+            '</form>') +
+        '</div>';
+
+      } else if (activeTab === 'proposal') {
+        window.generateProposal = async (event) => {
+          event.preventDefault();
+          try {
+            await api('/admin/dataworks/proposals', {
+              method: 'POST',
+              body: JSON.stringify({
+                product_key: product.product_key,
+                target_customer_type: document.getElementById('prop-type').value,
+              })
+            });
+            alert('제안서 변형본 A/B 패키지 패킹 완료!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('제안서 생성 실패: ' + e.message); }
+        };
+
+        window.recordProposalFeedback = async (propId) => {
+          const result = prompt('제안 수락 결과 입력 (accepted | pending | rejected)', 'accepted');
+          if (!result) return;
+          const reason = prompt('피드백 사유 및 거절 원인 입력', '수락 완료');
+          try {
+            await api('/admin/dataworks/proposals/' + encodeURIComponent(propId) + '/feedback', {
+              method: 'POST',
+              body: JSON.stringify({ result, reason })
+            });
+            alert('피드백 수집 및 분석 저장 완료!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('피드백 기록 실패: ' + e.message); }
+        };
+
+        const listHtml = feedback.length
+          ? '<table><thead><tr><th>제안 ID</th><th>고객 분류</th><th>판정</th><th>사유</th><th>등록 시각</th><th>동작</th></tr></thead><tbody>' +
+            feedback.map(f => '<tr><td><code>' + escapeHTML(f.id) + '</code></td><td>' + escapeHTML(f.target_customer_type || '') + '</td><td><span class="status">' + escapeHTML(f.result) + '</span></td><td>' + escapeHTML(f.reason || '') + '</td><td>' + escapeHTML(f.created_at) + '</td><td>' +
+              '<button type="button" class="secondary" style="font-size:11px" onclick="recordProposalFeedback('' + escapeAttr(f.id) + '')">피드백 기록</button>' +
+            '</td></tr>').join('') +
+            '</tbody></table>'
+          : '<p class="muted">작성된 제안서 패키지가 없습니다.</p>';
+
+        activeContent = '<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px">' +
+          card('제안서 목록 및 피드백 루프 수집', '<div class="card-body">' + listHtml + '</div>') +
+          card('신규 제안서 (Proposal Package) 생성',
+            '<form onsubmit="generateProposal(event)">' +
+              '<div><label>대상 고객 업종 분류</label><select id="prop-type"><option value="bank">제1금융권 은행</option><option value="card">카드사</option><option value="capital">캐피탈/저축은행</option><option value="fintech">핀테크 스타트업</option></select></div>' +
+              '<div style="margin-top:10px"><button type="submit">제안서 생성</button></div>' +
+            '</form>') +
+        '</div>';
+
+      } else if (activeTab === 'cost') {
+        window.saveCost = async (event) => {
+          event.preventDefault();
+          try {
+            await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/costs', {
+              method: 'POST',
+              body: JSON.stringify({
+                estimated_revenue: Number(document.getElementById('c-rev').value),
+                storage_cost: Number(document.getElementById('c-stor').value),
+                query_cost: Number(document.getElementById('c-query').value),
+                currency: 'KRW'
+              })
+            });
+            alert('비용 매개변수 및 마진 예측치 저장 성공!');
+            renderDataWorksProductTwin(productKey);
+          } catch (e) { alert('비용 저장 실패: ' + e.message); }
+        };
+
+        const marginVal = product.estimated_revenue ? ((product.estimated_revenue - product.storage_cost - product.query_cost) / product.estimated_revenue * 100).toFixed(1) : '0';
+
+        activeContent = '<form onsubmit="saveCost(event)" style="max-width:500px">' +
+          '<div><label>예상 라이선스 계약 단가 (KRW)</label><input id="c-rev" type="number" value="' + (product.estimated_revenue || 50000000) + '" required></div>' +
+          '<div><label>스토리지 인프라 유지 비용 (KRW)</label><input id="c-stor" type="number" value="' + (product.storage_cost || 10000000) + '" required></div>' +
+          '<div><label>LLM/API 쿼리당 계산 비용 (KRW)</label><input id="c-query" type="number" value="' + (product.query_cost || 5000000) + '" required></div>' +
+          '<div style="margin:12px 0;font-size:15px"><strong>예측 마진율:</strong> ' + marginVal + '%</div>' +
+          '<div><button type="submit">비용 정보 업데이트</button></div>' +
+        '</form>';
+
+      } else if (activeTab === 'funnel') {
+        let fData;
+        try {
+          fData = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/funnel');
+        } catch (e) { fData = { funnel: {} }; }
+        
+        const fn = fData.funnel || {};
+        activeContent = '<div>' +
+          '<strong>상품 레벨 퍼널 기여 분석:</strong>' +
+          '<div class="kpis" style="margin-top:10px">' +
+            '<div class="kpi"><div class="label">제안서 노출수</div><div class="value">' + (fn.proposals || 0) + '</div></div>' +
+            '<div class="kpi"><div class="label">피드백 수집수</div><div class="value">' + (fn.feedbacks || 0) + '</div></div>' +
+            '<div class="kpi"><div class="label">PoC 검증수</div><div class="value">' + (fn.pocs || 0) + '</div></div>' +
+            '<div class="kpi"><div class="label">전환 성공수</div><div class="value">' + (fn.conversions || 0) + '</div></div>' +
+          '</div>' +
+        '</div>';
+
+      } else if (activeTab === 'version') {
+        let vList = [];
+        try {
+          const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/versions');
+          vList = res.versions || [];
+        } catch (e) {}
+
+        window.compareVersions = async () => {
+          const v1 = document.getElementById('comp-v1').value;
+          const v2 = document.getElementById('comp-v2').value;
+          if (!v1 || !v2) return;
+          try {
+            const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/version-diff?v1=' + v1 + '&v2=' + v2);
+            document.getElementById('version-diff-output').textContent = JSON.stringify(res.diff, null, 2);
+          } catch (e) { alert('비교 오류: ' + e.message); }
+        };
+
+        const options = vList.map(v => '<option value="' + v.version + '">v' + v.version + ' (' + v.created_at + ')</option>').join('');
+
+        activeContent = '<div>' +
+          '<strong>스냅샷 버전 목록 (' + vList.length + '):</strong>' +
+          '<div style="margin-top:10px;display:flex;align-items:center;gap:10px">' +
+            '<select id="comp-v1">' + options + '</select>' +
+            '<span class="muted">vs</span>' +
+            '<select id="comp-v2">' + options + '</select>' +
+            '<button type="button" onclick="compareVersions()">버전 비교 실행</button>' +
+          '</div>' +
+          '<pre id="version-diff-output" style="margin-top:12px;background:var(--panel-alt);border:1px solid var(--line);padding:10px;border-radius:6px;max-height:300px;overflow-y:auto;font-family:monospace;font-size:11px">비교할 버전을 선택하고 버튼을 누르세요.</pre>' +
+        '</div>';
+
+      } else if (activeTab === 'audit') {
+        let aList = [];
+        try {
+          const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/actions');
+          aList = res.actions || [];
+        } catch (e) {}
+
+        const rows = aList.length
+          ? '<table><thead><tr><th>이벤트 ID</th><th>수행자</th><th>동작</th><th>기록 시각</th></tr></thead><tbody>' +
+            aList.map(a => '<tr><td><code>' + escapeHTML(a.id) + '</code></td><td>' + escapeHTML(a.created_by) + '</td><td><code>' + escapeHTML(a.action_type) + '</code></td><td>' + escapeHTML(a.created_at) + '</td></tr>').join('') +
+            '</tbody></table>'
+          : '<p class="muted">감사 로그 기록이 없습니다.</p>';
+
+        activeContent = '<div>' + rows + '</div>';
+      }
+
+      view.innerHTML = section('데이터 상품 디지털 트윈', '') +
+        '<div style="padding:0 14px 10px"><a href="#/factory" class="muted">← Product Factory 파이프라인으로 이동</a></div>' +
+        headerHtml + subTabs + card(activeTab.toUpperCase() + ' 상세 정보', activeContent);
+    }
+
+    async function renderDataWorksAnalytics() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('성과 및 깔때기 분석 (Analytics)', '<div class="empty">불러오는 중...</div>');
+      let data;
+      try {
+        data = await api('/admin/dataworks/analytics');
+      } catch (e) {
+        view.innerHTML = section('성과 및 깔때기 분석 (Analytics)', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const analytics = data.analytics || {};
+      const statusBreakdown = analytics.status_breakdown || {};
+
+      // Financial margins and funnel calculation
+      const ideas = analytics.total_ideas || 0;
+      const total = analytics.total_products || 0;
+      const published = analytics.published || 0;
+      const archived = analytics.archived || 0;
+
+      // Mock funnel rates representing the pipeline efficiency
+      const calcRate = (n, d) => d > 0 ? (n / d * 100).toFixed(0) : '0';
+      
+      const funnelHtml = '<div style="margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--panel-alt)">' +
+        '<strong style="font-size:14px">데이터 상품화 파이프라인 전환 깔때기 (Conversion Funnel)</strong>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px">' +
+          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + ideas + '</div><div class="muted" style="font-size:10px;margin-top:4px">1. 아이디어 도출</div></div>' +
+          '<div style="font-weight:800;color:var(--muted)">→</div>' +
+          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + total + '</div><div class="muted" style="font-size:10px;margin-top:4px">2. 상품정의 (' + calcRate(total, ideas) + '%)</div></div>' +
+          '<div style="font-weight:800;color:var(--muted)">→</div>' +
+          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + (statusBreakdown.approved || 0) + '</div><div class="muted" style="font-size:10px;margin-top:4px">3. 리스크 통과 (' + calcRate(statusBreakdown.approved || 0, total) + '%)</div></div>' +
+          '<div style="font-weight:800;color:var(--muted)">→</div>' +
+          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + published + '</div><div class="muted" style="font-size:10px;margin-top:4px">4. 시장출시 (' + calcRate(published, statusBreakdown.approved || 0) + '%)</div></div>' +
+        '</div>' +
+      '</div>';
+
+      const statsHtml = '<div class="kpis">' +
+        '<div class="kpi"><div class="label">총 등록 아이디어</div><div class="value">' + fmt(analytics.total_ideas) + '</div></div>' +
+        '<div class="kpi"><div class="label">총 기획 상품수</div><div class="value">' + fmt(analytics.total_products) + '</div></div>' +
+        '<div class="kpi"><div class="label">평균 기획 매출성</div><div class="value">' + fmt(analytics.avg_revenue) + '점</div></div>' +
+        '<div class="kpi"><div class="label">평균 잠재 리스크</div><div class="value">' + fmt(analytics.avg_risk) + '점</div></div>' +
+      '</div>';
+
+      // Status breakdown table
+      const breakdownRows = Object.keys(statusBreakdown).map(k => {
+        return '<tr><td><code>' + escapeHTML(k) + '</code></td><td><strong>' + statusBreakdown[k] + '개 상품</strong></td></tr>';
+      }).join('');
+
+      const breakdownCard = card('생애주기별 상태 분포',
+        '<div class="card-body"><table><thead><tr><th>상태 분류</th><th>등록 상품 수</th></tr></thead><tbody>' +
+          breakdownRows +
+        '</tbody></table></div>');
+
+      view.innerHTML = section('성과 및 깔때기 분석 (Analytics)', '<p class="muted" style="margin:-4px 0 12px">KCB Data Works 플랫폼의 실적 통계 및 데이터 상품 전환 지표 관제</p>') + statsHtml + funnelHtml + breakdownCard;
+    }
+
+    async function renderDataWorksFactoryRuns() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('AI 실행 이력 (Factory Runs)', '<div class="empty">불러오는 중...</div>');
+      let data;
+      try {
+        data = await api('/admin/dataworks/factory/runs');
+      } catch (e) {
+        view.innerHTML = section('AI 실행 이력 (Factory Runs)', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+      const runs = data.runs || [];
+
+      window.replayRun = async (runId) => {
+        if (!confirm('해당 AI 실행 단계를 이전 설정과 템플릿으로 재현(Replay)하시겠습니까?')) return;
+        try {
+          await api('/admin/dataworks/factory/runs/' + encodeURIComponent(runId) + '/replay', { method: 'POST' });
+          alert('Replay 실행 완료! 새로 고침하여 이력을 확인하세요.');
+          renderDataWorksFactoryRuns();
+        } catch (e) { alert('Replay 실패: ' + e.message); }
+      };
+
+      window.evaluateRun = async (runId) => {
+        const score = prompt('AI 출력 품질 점수 평가 입력 (0 ~ 100)', '90');
+        if (score == null) return;
+        const notes = prompt('평가 메모 입력', '우수한 완성도');
+        try {
+          await api('/admin/dataworks/factory/runs/' + encodeURIComponent(runId) + '/evaluate', {
+            method: 'POST',
+            body: JSON.stringify({ score: Number(score), notes: notes })
+          });
+          alert('평가 점수 기록 완료!');
+          renderDataWorksFactoryRuns();
+        } catch (e) { alert('평가 실패: ' + e.message); }
+      };
+
+      const rows = runs.length
+        ? '<table><thead><tr><th>실행 ID</th><th>실행 유형</th><th>모델명</th><th>지연시간</th><th>프롬프트 버전</th><th>품질점수</th><th>수행 시각</th><th>동작</th></tr></thead><tbody>' +
+          runs.map(r => '<tr><td><code>' + escapeHTML(r.id.slice(0, 12)) + '...</code></td><td><span class="pill">' + escapeHTML(r.run_type) + '</span></td><td>' + escapeHTML(r.model_name) + '</td><td>' + (r.latency_ms/1000).toFixed(1) + 's</td><td>v' + r.prompt_version + '</td><td>' + (r.quality_score != null ? r.quality_score + '점' : '<span class="muted">평가 대기</span>') + '</td><td>' + escapeHTML(r.created_at) + '</td><td>' +
+            '<button type="button" class="secondary" style="font-size:11px;padding:0 6px" onclick="replayRun('' + escapeAttr(r.id) + '')">Replay</button> ' +
+            '<button type="button" style="font-size:11px;padding:0 6px" onclick="evaluateRun('' + escapeAttr(r.id) + '')">평가</button>' +
+          '</td></tr>').join('') +
+          '</tbody></table>'
+        : '<p class="muted">최근 30일 내에 생성된 AI 파이프라인 실행 이력이 없습니다.</p>';
+
+      view.innerHTML = section('AI 실행 이력 (Factory Runs)', '<p class="muted" style="margin:-4px 0 12px">AI Product Factory가 수행한 LLM 추론 로그 및 토큰 비용 수집 감사 이력</p>') +
+        card('AI 파이프라인 실행 감사 기록', '<div class="card-body">' + rows + '</div>');
+    }
+
+    async function renderDataWorksPromptRegistry() {
+      const view = document.getElementById('view');
+      view.innerHTML = section('프롬프트 및 거버넌스 룰 레지스트리', '<div class="empty">불러오는 중...</div>');
+      let templates, rules;
+      try {
+        const tRes = await api('/admin/dataworks/prompt-templates');
+        templates = tRes.prompt_templates || [];
+        const rRes = await api('/admin/dataworks/policy/rules');
+        rules = rRes.rules || [];
+      } catch (e) {
+        view.innerHTML = section('프롬프트 및 거버넌스 룰 레지스트리', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        return;
+      }
+
+      window.createPromptTemplate = async (event) => {
+        event.preventDefault();
+        try {
+          await api('/admin/dataworks/prompt-templates', {
+            method: 'POST',
+            body: JSON.stringify({
+              template_key: document.getElementById('pr-key').value,
+              run_type: document.getElementById('pr-type').value,
+              content: document.getElementById('pr-content').value,
+              status: 'active',
+              version: Number(document.getElementById('pr-version').value || 1)
+            })
+          });
+          alert('프롬프트 템플릿 저장 성공!');
+          renderDataWorksPromptRegistry();
+        } catch (e) { alert('템플릿 저장 실패: ' + e.message); }
+      };
+
+      window.createPolicyRule = async (event) => {
+        event.preventDefault();
+        try {
+          await api('/admin/dataworks/policy/rules', {
+            method: 'POST',
+            body: JSON.stringify({
+              id: document.getElementById('pol-id').value,
+              policy_type: document.getElementById('pol-type').value,
+              rule_name: document.getElementById('pol-name').value,
+              rule_body: document.getElementById('pol-body').value,
+              status: 'active'
+            })
+          });
+          alert('정책 룰 등록 성공!');
+          renderDataWorksPromptRegistry();
+        } catch (e) { alert('정책 등록 실패: ' + e.message); }
+      };
+
+      const tRows = templates.length
+        ? '<table><thead><tr><th>Key</th><th>유형</th><th>버전</th><th>템플릿 내용</th><th>작성자</th><th>시각</th></tr></thead><tbody>' +
+          templates.map(t => '<tr><td><code>' + escapeHTML(t.template_key) + '</code></td><td><span class="pill">' + escapeHTML(t.run_type) + '</span></td><td>v' + t.version + '</td><td><small style="display:block;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHTML(t.content) + '</small></td><td>' + escapeHTML(t.created_by) + '</td><td>' + escapeHTML(t.created_at) + '</td></tr>').join('') +
+          '</tbody></table>'
+        : '<p class="muted">등록된 프롬프트 템플릿이 없습니다.</p>';
+
+      const rRows = rules.length
+        ? '<table><thead><tr><th>ID</th><th>정책유형</th><th>규칙명</th><th>동작 규칙</th><th>상태</th></tr></thead><tbody>' +
+          rules.map(r => '<tr><td><code>' + escapeHTML(r.id) + '</code></td><td>' + escapeHTML(r.policy_type) + '</td><td><strong>' + escapeHTML(r.rule_name) + '</strong></td><td><code style="font-size:10px">' + escapeHTML(r.rule_body) + '</code></td><td>' + escapeHTML(r.status) + '</td></tr>').join('') +
+          '</tbody></table>'
+        : '<p class="muted">등록된 컴플라이언스 정책 규칙이 없습니다.</p>';
+
+      const promptForm = card('신규 프롬프트 템플릿 등록',
+        '<form onsubmit="createPromptTemplate(event)">' +
+          '<div><label>Template Key</label><input id="pr-key" placeholder="dw_product_definition" required></div>' +
+          '<div><label>실행 유형</label><select id="pr-type"><option value="idea_generation">idea_generation</option><option value="product_definition">product_definition</option><option value="risk_check">risk_check</option><option value="proposal_generation">proposal_generation</option></select></div>' +
+          '<div><label>버전</label><input id="pr-version" type="number" value="1" required></div>' +
+          '<div><label>프롬프트 본문</label><textarea id="pr-content" rows="4" placeholder="You are an AI..." required></textarea></div>' +
+          '<div style="margin-top:10px"><button type="submit">프롬프트 저장</button></div>' +
+        '</form>');
+
+      const policyForm = card('신규 거버넌스 정책 규칙 등록',
+        '<form onsubmit="createPolicyRule(event)">' +
+          '<div><label>Rule ID</label><input id="pol-id" placeholder="prule_governance_limit" required></div>' +
+          '<div><label>정책 분류</label><select id="pol-type"><option value="governance">거버넌스</option><option value="security">보안 통제</option><option value="compliance">컴플라이언스</option></select></div>' +
+          '<div><label>규칙명</label><input id="pol-name" placeholder="민감정보 가명처리 준수 확인" required></div>' +
+          '<div><label>조건문/동작 규칙 (Rego/SQL)</label><textarea id="pol-body" rows="4" placeholder="SELECT * FROM ... WHERE sensitivity = 'personal_credit'" required></textarea></div>' +
+          '<div style="margin-top:10px"><button type="submit">정책 규칙 등록</button></div>' +
+        '</form>');
+
+      const promptListCard = card('등록된 프롬프트 템플릿 목록', '<div class="card-body">' + tRows + '</div>');
+      const policyListCard = card('등록된 거버넌스 정책 규칙 목록', '<div class="card-body">' + rRows + '</div>');
+
+      view.innerHTML = section('프롬프트 및 거버넌스 레지스트리', '<p class="muted" style="margin:-4px 0 12px">AI Product Factory에서 사용하는 전역 프롬프트 템플릿 및 Policy-as-Code 엔진 설정</p>') +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' + promptForm + policyForm + '</div>' +
+        '<div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px">' + promptListCard + policyListCard + '</div>';
+    }
+
 
     async function renderFactoryHome() {
       const view = document.getElementById('view');
@@ -13661,7 +15034,7 @@ const adminHTML = `<!doctype html>
       const statusBadge = (st) => st === 'published' ? '<span class="status">출시</span>' : (st === 'approved' ? '<span class="status">승인</span>' : (st === 'risk_review' ? '<span class="status warn">리스크 검토</span>' : (st === 'archived' ? '<span class="status warn">보관</span>' : '<span class="status warn">' + escapeHTML(st || 'draft') + '</span>')));
       const productRows = products.length
         ? '<table><thead><tr><th>상품</th><th>고객군</th><th>유형</th><th>매출</th><th>리스크</th><th>상태</th><th>동작</th></tr></thead><tbody>' +
-          products.map(p => '<tr><td><strong>' + escapeHTML(p.name_ko || p.product_key) + '</strong><div class="muted" style="font-size:12px">' + escapeHTML(p.product_key) + '</div></td><td>' + escapeHTML((p.target_customers || []).join(', ')) + '</td><td>' + escapeHTML(p.source_type || '') + '</td><td>' + fmt(p.revenue_score) + '</td><td>' + fmt(p.risk_score) + '</td><td>' + statusBadge(p.status) + '</td><td>' +
+          products.map(p => '<tr><td><a href="#/dataworks/products/' + encodeURIComponent(p.product_key) + '"><strong>' + escapeHTML(p.name_ko || p.product_key) + '</strong></a><div class="muted" style="font-size:12px">' + escapeHTML(p.product_key) + '</div></td><td>' + escapeHTML((p.target_customers || []).join(', ')) + '</td><td>' + escapeHTML(p.source_type || '') + '</td><td>' + fmt(p.revenue_score) + '</td><td>' + fmt(p.risk_score) + '</td><td>' + statusBadge(p.status) + '</td><td>' +
             '<button type="button" style="font-size:11px" onclick="factoryRisk(\'' + escapeAttr(p.product_key) + '\')">리스크</button> ' +
             '<button type="button" style="font-size:11px" onclick="factoryPOC(\'' + escapeAttr(p.product_key) + '\')">PoC</button> ' +
             '<button type="button" style="font-size:11px" onclick="factoryScore(\'' + escapeAttr(p.product_key) + '\')">평가</button> ' +
