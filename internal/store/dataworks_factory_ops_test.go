@@ -133,7 +133,7 @@ func TestDataWorksFactoryOperationsMigrateFromVersion70(t *testing.T) {
 		t.Fatalf("upgraded factory run mismatch: %+v ok=%v err=%v", got, ok, err)
 	}
 	var version int
-	if err := db.db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 85 {
+	if err := db.db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 97 {
 		t.Fatalf("schema version=%d err=%v", version, err)
 	}
 }

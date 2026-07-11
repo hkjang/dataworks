@@ -67,6 +67,16 @@ func (s *Server) handleDataWorksAssetByKey(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"asset": asset, "lineage": graph})
+	case len(parts) == 3 && parts[1] == "quality" && parts[2] == "rules":
+		s.handleDataWorksAssetQualityRules(w, r, assetKey)
+	case len(parts) == 3 && parts[1] == "quality" && parts[2] == "evaluate":
+		s.handleDataWorksAssetQualityEvaluate(w, r, assetKey)
+	case len(parts) == 3 && parts[1] == "quality" && parts[2] == "results":
+		s.handleDataWorksAssetQualityResults(w, r, assetKey)
+	case len(parts) == 3 && parts[1] == "drift" && parts[2] == "detect":
+		s.handleDataWorksAssetDriftDetect(w, r, assetKey)
+	case len(parts) == 2 && parts[1] == "drift":
+		s.handleDataWorksAssetDrifts(w, r, assetKey)
 	default:
 		writeOpenAIError(w, http.StatusNotFound, "unknown asset action", "invalid_request_error", "not_found")
 	}

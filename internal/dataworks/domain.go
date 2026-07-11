@@ -15,19 +15,25 @@ const DefaultReadinessThreshold = 70
 var RequiredPublishApprovals = []string{"data_owner", "legal", "compliance"}
 
 type PublishGateResult struct {
-	ProductKey        string                      `json:"product_key"`
-	StrictGate        bool                        `json:"strict_gate"`
-	Allowed           bool                        `json:"allowed"`
-	MinimumReadiness  int                         `json:"minimum_readiness"`
-	RequiredApprovals []string                    `json:"required_approvals"`
-	ApprovalStatus    map[string]string           `json:"approval_status"`
-	MissingApprovals  []string                    `json:"missing_approvals"`
-	MissingEvidence   []string                    `json:"missing_evidence"`
-	BlockedReasons    []string                    `json:"blocked_reasons"`
-	Warnings          []string                    `json:"warnings"`
-	AssetReadiness    []store.AssetReadinessScore `json:"asset_readiness"`
-	CheckedAt         string                      `json:"checked_at"`
-	Metadata          map[string]any              `json:"metadata,omitempty"`
+	ProductKey             string                      `json:"product_key"`
+	StrictGate             bool                        `json:"strict_gate"`
+	Allowed                bool                        `json:"allowed"`
+	MinimumReadiness       int                         `json:"minimum_readiness"`
+	RequiredApprovals      []string                    `json:"required_approvals"`
+	ApprovalStatus         map[string]string           `json:"approval_status"`
+	MissingApprovals       []string                    `json:"missing_approvals"`
+	MissingEvidence        []string                    `json:"missing_evidence"`
+	BlockedReasons         []string                    `json:"blocked_reasons"`
+	Warnings               []string                    `json:"warnings"`
+	AssetReadiness         []store.AssetReadinessScore `json:"asset_readiness"`
+	CheckedAt              string                      `json:"checked_at"`
+	Metadata               map[string]any              `json:"metadata,omitempty"`
+	QualityPassed          bool                        `json:"quality_passed"`
+	RiskReviewed           bool                        `json:"risk_reviewed"`
+	APIContractConfigured  bool                        `json:"api_contract_configured"`
+	SLAConfigured          bool                        `json:"sla_configured"`
+	PricingModelConfigured bool                        `json:"pricing_model_configured"`
+	MaskingConfigured      bool                        `json:"masking_configured"`
 }
 
 func NormalizeReadinessScore(score store.AssetReadinessScore) store.AssetReadinessScore {
@@ -122,6 +128,85 @@ func EvaluatePublishGate(p store.DataProduct, readiness []store.AssetReadinessSc
 
 	result.Allowed = len(result.BlockedReasons) == 0
 	return result
+}
+
+func EvaluatePublishGateV2(
+	p store.DataProduct,
+	readiness []store.AssetReadinessScore,
+	approvals []store.ApprovalTrace,
+	pack *store.EvidencePack,
+	sla *store.ProductSLA,
+	cost *store.ProductCost,
+	qualityResults []store.DataQualityResult,
+	hasRiskReview bool,
+	maskingConfigured bool,
+	now time.Time,
+) PublishGateResult {
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	res := EvaluatePublishGate(p, readiness, approvals, pack, now)
+	if !res.StrictGate {
+		res.QualityPassed = true
+		res.RiskReviewed = true
+		res.APIContractConfigured = p.APISpec != ""
+		res.SLAConfigured = sla != nil
+		res.PricingModelConfigured = p.PricingModel != "" || (cost != nil && cost.QueryCost > 0)
+		res.MaskingConfigured = true
+		return res
+	}
+
+	res.QualityPassed = true
+	if len(qualityResults) == 0 {
+		res.QualityPassed = false
+		res.Warnings = append(res.Warnings, "no data quality execution results found for assets")
+		res.MissingEvidence = append(res.MissingEvidence, "quality_results")
+	} else {
+		for _, q := range qualityResults {
+			if !q.Passed {
+				res.QualityPassed = false
+				res.BlockedReasons = append(res.BlockedReasons, "data quality rule failed: "+q.Message)
+			}
+		}
+	}
+
+	res.RiskReviewed = hasRiskReview
+	if !hasRiskReview {
+		res.Warnings = append(res.Warnings, "risk review check must be completed before publishing")
+		res.MissingEvidence = append(res.MissingEvidence, "risk_review")
+	}
+
+	res.APIContractConfigured = p.APISpec != ""
+	if !res.APIContractConfigured {
+		res.Warnings = append(res.Warnings, "API contract (OpenAPI Spec) is not configured")
+		res.MissingEvidence = append(res.MissingEvidence, "api_contract")
+	}
+
+	res.SLAConfigured = sla != nil
+	if !res.SLAConfigured {
+		res.Warnings = append(res.Warnings, "SLA targets are not configured")
+		res.MissingEvidence = append(res.MissingEvidence, "product_sla")
+	}
+
+	res.PricingModelConfigured = p.PricingModel != "" || (cost != nil && (cost.QueryCost > 0 || cost.OpsCost > 0 || cost.DataProcessingCost > 0))
+	if !res.PricingModelConfigured {
+		res.Warnings = append(res.Warnings, "pricing model or operational cost parameters are not configured")
+		res.MissingEvidence = append(res.MissingEvidence, "pricing_model")
+	}
+
+	sensitivity := strings.ToLower(strings.TrimSpace(p.Sensitivity))
+	if containsAny(sensitivity, "restricted", "personal", "credit", "pseudonym", "sensitive") {
+		res.MaskingConfigured = maskingConfigured
+		if !maskingConfigured {
+			res.BlockedReasons = append(res.BlockedReasons, "sample response masking policy is not configured for sensitive product")
+			res.MissingEvidence = append(res.MissingEvidence, "masking_policy")
+		}
+	} else {
+		res.MaskingConfigured = true
+	}
+
+	res.Allowed = len(res.BlockedReasons) == 0
+	return res
 }
 
 func DefaultProductCanvas(p store.DataProduct) store.ProductCanvasV2 {

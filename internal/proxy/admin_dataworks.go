@@ -749,7 +749,25 @@ func (s *Server) handleDataWorksProductActions(w http.ResponseWriter, r *http.Re
 	case "entitlements":
 		s.handleDataWorksAPIEntitlements(w, r, product)
 	case "sla":
-		s.handleDataWorksProductSLA(w, r, product)
+		if len(parts) == 3 && parts[2] == "check" {
+			s.handleDataWorksProductSLACheck(w, r, product)
+		} else if len(parts) == 3 && parts[2] == "status" {
+			s.handleDataWorksProductSLAStatus(w, r, product)
+		} else {
+			s.handleDataWorksProductSLA(w, r, product)
+		}
+	case "usage":
+		s.handleDataWorksProductUsage(w, r, product)
+	case "margin":
+		s.handleDataWorksProductMargin(w, r, product)
+	case "policy":
+		if len(parts) == 3 && parts[2] == "evaluate" {
+			s.handleDataWorksProductPolicyEvaluate(w, r, product)
+		} else {
+			writeOpenAIError(w, http.StatusNotFound, "unknown product action", "invalid_request_error", "not_found")
+		}
+	case "drift-impact":
+		s.handleDataWorksProductDriftImpact(w, r, product)
 	case "watermarks":
 		s.handleDataWorksDataWatermarks(w, r, product)
 	case "costs":
@@ -1356,7 +1374,51 @@ func (s *Server) dataWorksPublishGate(ctx context.Context, product store.DataPro
 	if ok {
 		packPtr = &pack
 	}
-	return dw.EvaluatePublishGate(product, readiness, approvals, packPtr, time.Now().UTC()), nil
+
+	// Fetch SLA
+	sla, _, _ := s.db.GetProductSLA(ctx, product.ProductKey)
+	var slaPtr *store.ProductSLA
+	if sla.ProductKey != "" {
+		slaPtr = &sla
+	}
+
+	// Fetch Cost
+	cost, _, _ := s.db.GetProductCost(ctx, product.ProductKey)
+	var costPtr *store.ProductCost
+	if cost.ProductKey != "" {
+		costPtr = &cost
+	}
+
+	// Fetch Quality Results
+	var qualityResults []store.DataQualityResult
+	for _, assetKey := range dw.ProductAssetKeys(product) {
+		qres, err := s.db.ListDataQualityResults(ctx, assetKey)
+		if err == nil {
+			qualityResults = append(qualityResults, qres...)
+		}
+	}
+
+	// Fetch Risk Review
+	hasRiskReview := false
+	if rrev, ok, err := s.db.LatestProductRiskReview(ctx, product.ProductKey); err == nil && ok && rrev.ProductKey != "" {
+		hasRiskReview = true
+	}
+
+	// Fetch Masking Configured
+	maskingConfigured := true
+	scopes, err := s.db.ListContractScopes(ctx, product.ProductKey, "")
+	if err == nil && len(scopes) > 0 {
+		hasMasking := false
+		for _, sc := range scopes {
+			if sc.MaskingPolicy != "" && sc.MaskingPolicy != "none" {
+				hasMasking = true
+				break
+			}
+		}
+		maskingConfigured = hasMasking
+	}
+
+	return dw.EvaluatePublishGateV2(product, readiness, approvals, packPtr, slaPtr, costPtr, qualityResults, hasRiskReview, maskingConfigured, time.Now().UTC()), nil
 }
 
 func entitlementExpired(raw string, now time.Time) bool {

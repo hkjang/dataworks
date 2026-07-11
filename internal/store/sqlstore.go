@@ -3684,6 +3684,147 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			version: 85,
 			query:   `CREATE INDEX IF NOT EXISTS idx_dw_product_relationships_to ON dw_product_relationships(to_type, to_key, relation_type)`,
 		},
+		{
+			version: 86,
+			query:   `ALTER TABLE dw_contract_scopes ADD COLUMN masking_policy TEXT NOT NULL DEFAULT ''`,
+		},
+		{
+			version: 87,
+			query: `CREATE TABLE IF NOT EXISTS dw_data_quality_rules (
+				id TEXT PRIMARY KEY,
+				asset_key TEXT NOT NULL DEFAULT '',
+				column_name TEXT NOT NULL DEFAULT '',
+				rule_type TEXT NOT NULL DEFAULT '',
+				threshold REAL NOT NULL DEFAULT 0.0,
+				expected_values TEXT NOT NULL DEFAULT '',
+				min_value REAL NOT NULL DEFAULT 0.0,
+				max_value REAL NOT NULL DEFAULT 0.0,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 88,
+			query: `CREATE TABLE IF NOT EXISTS dw_data_quality_results (
+				id TEXT PRIMARY KEY,
+				asset_key TEXT NOT NULL DEFAULT '',
+				rule_id TEXT NOT NULL DEFAULT '',
+				rule_type TEXT NOT NULL DEFAULT '',
+				passed INTEGER NOT NULL DEFAULT 1,
+				actual_value REAL NOT NULL DEFAULT 0.0,
+				message TEXT NOT NULL DEFAULT '',
+				checked_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 89,
+			query: `CREATE TABLE IF NOT EXISTS dw_schema_drifts (
+				id TEXT PRIMARY KEY,
+				asset_key TEXT NOT NULL DEFAULT '',
+				column_name TEXT NOT NULL DEFAULT '',
+				drift_type TEXT NOT NULL DEFAULT '',
+				old_type TEXT NOT NULL DEFAULT '',
+				new_type TEXT NOT NULL DEFAULT '',
+				impact_score REAL NOT NULL DEFAULT 0.0,
+				detected_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 90,
+			query: `CREATE TABLE IF NOT EXISTS dw_sla_metrics (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				metric_type TEXT NOT NULL DEFAULT '',
+				actual_value REAL NOT NULL DEFAULT 0.0,
+				target_value REAL NOT NULL DEFAULT 0.0,
+				status TEXT NOT NULL DEFAULT 'normal',
+				checked_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 91,
+			query: `CREATE TABLE IF NOT EXISTS dw_usage_metering (
+				id TEXT PRIMARY KEY,
+				customer_key TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				contract_key TEXT NOT NULL DEFAULT '',
+				total_calls INTEGER NOT NULL DEFAULT 0,
+				failed_calls INTEGER NOT NULL DEFAULT 0,
+				over_limit_calls INTEGER NOT NULL DEFAULT 0,
+				billing_amount REAL NOT NULL DEFAULT 0.0,
+				billed_date TEXT NOT NULL DEFAULT ''
+			)`,
+		},
+		{
+			version: 92,
+			query: `CREATE TABLE IF NOT EXISTS dw_policy_rules (
+				id TEXT PRIMARY KEY,
+				policy_type TEXT NOT NULL DEFAULT '',
+				rule_expression TEXT NOT NULL DEFAULT '',
+				action TEXT NOT NULL DEFAULT 'block',
+				enabled INTEGER NOT NULL DEFAULT 1,
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 93,
+			query: `CREATE TABLE IF NOT EXISTS dw_prompt_regression_tests (
+				id TEXT PRIMARY KEY,
+				prompt_key TEXT NOT NULL DEFAULT '',
+				old_template_version INTEGER NOT NULL DEFAULT 0,
+				new_template_version INTEGER NOT NULL DEFAULT 0,
+				old_model TEXT NOT NULL DEFAULT '',
+				new_model TEXT NOT NULL DEFAULT '',
+				quality_delta REAL NOT NULL DEFAULT 0.0,
+				cost_delta REAL NOT NULL DEFAULT 0.0,
+				latency_delta REAL NOT NULL DEFAULT 0.0,
+				policy_violations_count INTEGER NOT NULL DEFAULT 0,
+				status TEXT NOT NULL DEFAULT 'completed',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 94,
+			query: `CREATE TABLE IF NOT EXISTS dw_proposal_experiments (
+				id TEXT PRIMARY KEY,
+				product_key TEXT NOT NULL DEFAULT '',
+				customer_segment TEXT NOT NULL DEFAULT '',
+				headline_variant TEXT NOT NULL DEFAULT '',
+				pricing_variant REAL NOT NULL DEFAULT 0.0,
+				package_variant TEXT NOT NULL DEFAULT '',
+				status TEXT NOT NULL DEFAULT 'running',
+				conversion_rate REAL NOT NULL DEFAULT 0.0,
+				responses_count INTEGER NOT NULL DEFAULT 0,
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 95,
+			query: `CREATE TABLE IF NOT EXISTS dw_marketplace_bookmarks (
+				id TEXT PRIMARY KEY,
+				user_id TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 96,
+			query: `CREATE TABLE IF NOT EXISTS dw_marketplace_subscriptions (
+				id TEXT PRIMARY KEY,
+				user_id TEXT NOT NULL DEFAULT '',
+				product_key TEXT NOT NULL DEFAULT '',
+				status TEXT NOT NULL DEFAULT 'pending',
+				purpose TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 97,
+			query:   `ALTER TABLE dw_product_costs ADD COLUMN expected_revenue REAL NOT NULL DEFAULT 0.0`,
+		},
 	}
 
 	for _, step := range versionedMigrations {

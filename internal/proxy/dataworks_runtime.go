@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -71,22 +72,43 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var contractKey string
+	var customerKey string
+	var errCode = http.StatusOK
+	defer func() {
+		if contractKey != "" {
+			failed := errCode != http.StatusOK
+			billingAmount := 0.0
+			if !failed {
+				billingAmount = 10.0
+			}
+			_ = s.db.IncrementUsageMetering(r.Context(), customerKey, productKey, contractKey, failed, billingAmount)
+		}
+	}()
+
 	contract, found, err := s.db.GetContractScope(r.Context(), ent.ContractKey)
 	if err != nil {
+		errCode = http.StatusInternalServerError
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "contract_lookup_failed")
 		return
 	}
 	if !found || contract.ProductKey != product.ProductKey {
+		errCode = http.StatusForbidden
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "contract_scope_missing:"+ent.ContractKey)
 		writeOpenAIError(w, http.StatusForbidden, "contract scope is missing for entitlement", "invalid_request_error", "contract_scope_missing")
 		return
 	}
+	contractKey = contract.ContractKey
+	customerKey = firstNonEmpty(ent.CustomerKey, contract.CustomerKey)
+
 	if !contractScopeActive(contract, now) {
+		errCode = http.StatusForbidden
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "contract_scope_inactive:"+contract.ContractKey)
 		writeOpenAIError(w, http.StatusForbidden, "contract scope is inactive or outside valid window", "invalid_request_error", "contract_scope_inactive")
 		return
 	}
 	if sensitiveProduct(product) && strings.TrimSpace(contract.Purpose) == "" {
+		errCode = http.StatusForbidden
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "missing_contract_purpose:"+contract.ContractKey)
 		writeOpenAIError(w, http.StatusForbidden, "contract purpose is required for sensitive data products", "invalid_request_error", "missing_contract_purpose")
 		return
@@ -94,12 +116,14 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 
 	requestBody, err := decodeDataProductQueryBody(r)
 	if err != nil {
+		errCode = http.StatusBadRequest
 		writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 		return
 	}
 	requestedFields := fieldsFromQueryBody(requestBody)
 	responseFields, forbidden := contractResponseFields(contract.AllowedFields, requestedFields)
 	if len(forbidden) > 0 {
+		errCode = http.StatusForbidden
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "forbidden_fields:"+strings.Join(forbidden, ","))
 		writeJSON(w, http.StatusForbidden, map[string]any{
 			"error":            "requested fields exceed contract scope",
@@ -109,6 +133,7 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if len(responseFields) == 0 {
+		errCode = http.StatusForbidden
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "empty_contract_scope:"+contract.ContractKey)
 		writeOpenAIError(w, http.StatusForbidden, "contract scope has no allowed fields", "invalid_request_error", "empty_contract_scope")
 		return
@@ -116,12 +141,16 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 
 	data := map[string]any{}
 	for _, field := range responseFields {
-		data[field] = dataWorksSampleValue(field, requestBody, product)
+		val := dataWorksSampleValue(field, requestBody, product)
+		if contract.MaskingPolicy != "" {
+			val = applyMasking(val, contract.MaskingPolicy)
+		}
+		data[field] = val
 	}
 	s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query", product.ProductKey+":"+ent.ID)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"product_key":    product.ProductKey,
-		"customer_key":   firstNonEmpty(ent.CustomerKey, contract.CustomerKey),
+		"customer_key":   customerKey,
 		"contract_key":   contract.ContractKey,
 		"entitlement_id": ent.ID,
 		"purpose":        contract.Purpose,
@@ -297,4 +326,39 @@ func (s *Server) auditDataProductQuery(r *http.Request, authCtx *store.AuthConte
 		event.TeamID = authCtx.TeamID
 	}
 	_ = s.db.InsertAuditEvent(r.Context(), event)
+}
+
+func applyMasking(value any, policy string) any {
+	policy = strings.ToLower(strings.TrimSpace(policy))
+	if policy == "" || policy == "none" {
+		return value
+	}
+	switch policy {
+	case "redact":
+		if s, ok := value.(string); ok {
+			return strings.Repeat("*", len(s))
+		}
+		if _, ok := value.(int); ok {
+			return 0
+		}
+		if _, ok := value.(float64); ok {
+			return 0.0
+		}
+		return "****"
+	case "hash":
+		if s, ok := value.(string); ok {
+			return fmt.Sprintf("hash_%d", hashString(s))
+		}
+		return 9999
+	default:
+		return value
+	}
+}
+
+func hashString(s string) uint32 {
+	var h uint32 = 2166136261
+	for i := 0; i < len(s); i++ {
+		h = (h ^ uint32(s[i])) * 16777619
+	}
+	return h
 }

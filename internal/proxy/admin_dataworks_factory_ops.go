@@ -76,7 +76,7 @@ func (s *Server) handleDataWorksFactoryRunAction(w http.ResponseWriter, r *http.
 		writeOpenAIError(w, http.StatusNotFound, "factory run action not found", "invalid_request_error", "not_found")
 		return
 	}
-	if r.Method != http.MethodPost {
+	if parts[1] != "regression-test" && r.Method != http.MethodPost {
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 		return
 	}
@@ -94,6 +94,8 @@ func (s *Server) handleDataWorksFactoryRunAction(w http.ResponseWriter, r *http.
 		s.handleDataWorksFactoryRunReplay(w, r, run)
 	case "evaluate":
 		s.handleDataWorksFactoryRunEvaluate(w, r, run)
+	case "regression-test":
+		s.handleDataWorksFactoryRunRegressionTest(w, r, run)
 	default:
 		writeOpenAIError(w, http.StatusNotFound, "factory run action not found", "invalid_request_error", "not_found")
 	}

@@ -50,6 +50,7 @@ type ContractScope struct {
 	CreatedBy     string   `json:"created_by"`
 	CreatedAt     string   `json:"created_at"`
 	UpdatedAt     string   `json:"updated_at"`
+	MaskingPolicy string   `json:"masking_policy"`
 }
 
 type APIEntitlement struct {
@@ -99,6 +100,7 @@ type ProductCost struct {
 	Currency           string  `json:"currency"`
 	UpdatedBy          string  `json:"updated_by"`
 	UpdatedAt          string  `json:"updated_at"`
+	ExpectedRevenue    float64 `json:"expected_revenue"`
 }
 
 type CustomerProposalEvent struct {
@@ -306,8 +308,8 @@ func (s *SQLStore) UpsertContractScope(ctx context.Context, scope ContractScope)
 	}
 	now := formatTime(time.Now().UTC())
 	_, err := s.db.ExecContext(ctx, s.bind(`INSERT INTO dw_contract_scopes
-		(contract_key, product_key, customer_key, allowed_fields, rate_limit, valid_from, valid_to, purpose, restrictions, status, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(contract_key, product_key, customer_key, allowed_fields, rate_limit, valid_from, valid_to, purpose, restrictions, status, created_by, created_at, updated_at, masking_policy)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(contract_key) DO UPDATE SET
 			product_key = excluded.product_key,
 			customer_key = excluded.customer_key,
@@ -319,15 +321,16 @@ func (s *SQLStore) UpsertContractScope(ctx context.Context, scope ContractScope)
 			restrictions = excluded.restrictions,
 			status = excluded.status,
 			created_by = excluded.created_by,
-			updated_at = excluded.updated_at`),
+			updated_at = excluded.updated_at,
+			masking_policy = excluded.masking_policy`),
 		scope.ContractKey, scope.ProductKey, scope.CustomerKey, strings.Join(scope.AllowedFields, ","), scope.RateLimit,
-		scope.ValidFrom, scope.ValidTo, scope.Purpose, scope.Restrictions, scope.Status, scope.CreatedBy, now, now)
+		scope.ValidFrom, scope.ValidTo, scope.Purpose, scope.Restrictions, scope.Status, scope.CreatedBy, now, now, scope.MaskingPolicy)
 	return err
 }
 
 func (s *SQLStore) ListContractScopes(ctx context.Context, productKey string, customerKey string) ([]ContractScope, error) {
 	q := `SELECT contract_key, product_key, customer_key, COALESCE(allowed_fields,''), rate_limit, valid_from, valid_to,
-			purpose, restrictions, status, created_by, created_at, updated_at
+			purpose, restrictions, status, created_by, created_at, updated_at, COALESCE(masking_policy,'')
 		FROM dw_contract_scopes WHERE 1=1`
 	args := []any{}
 	if strings.TrimSpace(productKey) != "" {
@@ -357,7 +360,7 @@ func (s *SQLStore) ListContractScopes(ctx context.Context, productKey string, cu
 
 func (s *SQLStore) GetContractScope(ctx context.Context, contractKey string) (ContractScope, bool, error) {
 	row := s.db.QueryRowContext(ctx, s.bind(`SELECT contract_key, product_key, customer_key, COALESCE(allowed_fields,''), rate_limit, valid_from, valid_to,
-			purpose, restrictions, status, created_by, created_at, updated_at
+			purpose, restrictions, status, created_by, created_at, updated_at, COALESCE(masking_policy,'')
 		FROM dw_contract_scopes WHERE contract_key = ?`), strings.TrimSpace(contractKey))
 	scope, err := scanContractScope(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -374,7 +377,7 @@ func scanContractScope(sc interface{ Scan(...any) error }) (ContractScope, error
 	var fields string
 	if err := sc.Scan(&scope.ContractKey, &scope.ProductKey, &scope.CustomerKey, &fields, &scope.RateLimit,
 		&scope.ValidFrom, &scope.ValidTo, &scope.Purpose, &scope.Restrictions, &scope.Status,
-		&scope.CreatedBy, &scope.CreatedAt, &scope.UpdatedAt); err != nil {
+		&scope.CreatedBy, &scope.CreatedAt, &scope.UpdatedAt, &scope.MaskingPolicy); err != nil {
 		return ContractScope{}, err
 	}
 	scope.AllowedFields = splitCSVField(fields)
@@ -584,8 +587,8 @@ func (s *SQLStore) UpsertProductCost(ctx context.Context, cost ProductCost) erro
 	}
 	now := formatTime(time.Now().UTC())
 	_, err := s.db.ExecContext(ctx, s.bind(`INSERT INTO dw_product_costs
-		(product_key, query_cost, llm_cost, ops_cost, data_processing_cost, estimated_margin, currency, updated_by, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(product_key, query_cost, llm_cost, ops_cost, data_processing_cost, estimated_margin, currency, updated_by, updated_at, expected_revenue)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(product_key) DO UPDATE SET
 			query_cost = excluded.query_cost,
 			llm_cost = excluded.llm_cost,
@@ -594,19 +597,20 @@ func (s *SQLStore) UpsertProductCost(ctx context.Context, cost ProductCost) erro
 			estimated_margin = excluded.estimated_margin,
 			currency = excluded.currency,
 			updated_by = excluded.updated_by,
-			updated_at = excluded.updated_at`),
+			updated_at = excluded.updated_at,
+			expected_revenue = excluded.expected_revenue`),
 		cost.ProductKey, cost.QueryCost, cost.LLMCost, cost.OpsCost, cost.DataProcessingCost,
-		cost.EstimatedMargin, cost.Currency, cost.UpdatedBy, now)
+		cost.EstimatedMargin, cost.Currency, cost.UpdatedBy, now, cost.ExpectedRevenue)
 	return err
 }
 
 func (s *SQLStore) GetProductCost(ctx context.Context, productKey string) (ProductCost, bool, error) {
 	row := s.db.QueryRowContext(ctx, s.bind(`SELECT product_key, query_cost, llm_cost, ops_cost, data_processing_cost,
-			estimated_margin, currency, updated_by, updated_at
+			estimated_margin, currency, updated_by, updated_at, COALESCE(expected_revenue, 0.0)
 		FROM dw_product_costs WHERE product_key = ?`), strings.TrimSpace(productKey))
 	var cost ProductCost
 	err := row.Scan(&cost.ProductKey, &cost.QueryCost, &cost.LLMCost, &cost.OpsCost, &cost.DataProcessingCost,
-		&cost.EstimatedMargin, &cost.Currency, &cost.UpdatedBy, &cost.UpdatedAt)
+		&cost.EstimatedMargin, &cost.Currency, &cost.UpdatedBy, &cost.UpdatedAt, &cost.ExpectedRevenue)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductCost{}, false, nil
 	}
@@ -617,7 +621,7 @@ func (s *SQLStore) GetProductCost(ctx context.Context, productKey string) (Produ
 }
 
 func (s *SQLStore) ListProductCosts(ctx context.Context, productKey string) ([]ProductCost, error) {
-	q := `SELECT product_key, query_cost, llm_cost, ops_cost, data_processing_cost, estimated_margin, currency, updated_by, updated_at
+	q := `SELECT product_key, query_cost, llm_cost, ops_cost, data_processing_cost, estimated_margin, currency, updated_by, updated_at, COALESCE(expected_revenue, 0.0)
 		FROM dw_product_costs`
 	args := []any{}
 	if strings.TrimSpace(productKey) != "" {
@@ -634,7 +638,7 @@ func (s *SQLStore) ListProductCosts(ctx context.Context, productKey string) ([]P
 	for rows.Next() {
 		var cost ProductCost
 		if err := rows.Scan(&cost.ProductKey, &cost.QueryCost, &cost.LLMCost, &cost.OpsCost, &cost.DataProcessingCost,
-			&cost.EstimatedMargin, &cost.Currency, &cost.UpdatedBy, &cost.UpdatedAt); err != nil {
+			&cost.EstimatedMargin, &cost.Currency, &cost.UpdatedBy, &cost.UpdatedAt, &cost.ExpectedRevenue); err != nil {
 			return nil, err
 		}
 		out = append(out, cost)
