@@ -92,14 +92,19 @@ type ProposalPackage struct {
 }
 
 type FactoryRun struct {
-	ID        string `json:"id"`
-	RunType   string `json:"run_type"`
-	Model     string `json:"model"`
-	InputHash string `json:"input_hash"`
-	OutputRef string `json:"output_ref"`
-	LatencyMS int    `json:"latency_ms"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt string `json:"created_at"`
+	ID             string  `json:"id"`
+	RunType        string  `json:"run_type"`
+	Model          string  `json:"model"`
+	PromptVersion  string  `json:"prompt_version"`
+	InputHash      string  `json:"input_hash"`
+	OutputRef      string  `json:"output_ref"`
+	ParentRunID    string  `json:"parent_run_id"`
+	PolicyDecision string  `json:"policy_decision"`
+	TokenCost      float64 `json:"token_cost"`
+	Status         string  `json:"status"`
+	LatencyMS      int     `json:"latency_ms"`
+	CreatedBy      string  `json:"created_by"`
+	CreatedAt      string  `json:"created_at"`
 }
 
 type FactoryDashboard struct {
@@ -315,11 +320,35 @@ func (s *SQLStore) InsertProposalPackage(ctx context.Context, p ProposalPackage)
 }
 
 func (s *SQLStore) InsertFactoryRun(ctx context.Context, run FactoryRun) error {
+	if run.TokenCost < 0 || run.LatencyMS < 0 {
+		return errors.New("token_cost and latency_ms must be non-negative")
+	}
+	if strings.TrimSpace(run.Status) == "" {
+		run.Status = "completed"
+	}
 	_, err := s.db.ExecContext(ctx, s.bind(`INSERT INTO factory_runs
-		(id, run_type, model, input_hash, output_ref, latency_ms, created_by, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
-		run.ID, run.RunType, run.Model, run.InputHash, run.OutputRef, run.LatencyMS, run.CreatedBy, formatTime(time.Now().UTC()))
+		(id, run_type, model, prompt_version, input_hash, output_ref, parent_run_id, policy_decision,
+		 token_cost, status, latency_ms, created_by, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		run.ID, run.RunType, run.Model, run.PromptVersion, run.InputHash, run.OutputRef, run.ParentRunID,
+		run.PolicyDecision, run.TokenCost, run.Status, run.LatencyMS, run.CreatedBy, formatTime(time.Now().UTC()))
 	return err
+}
+
+func (s *SQLStore) GetFactoryRun(ctx context.Context, id string) (FactoryRun, bool, error) {
+	row := s.db.QueryRowContext(ctx, s.bind(`SELECT id, run_type, model, prompt_version, input_hash, output_ref,
+		parent_run_id, policy_decision, token_cost, status, latency_ms, created_by, created_at
+		FROM factory_runs WHERE id = ?`), strings.TrimSpace(id))
+	var run FactoryRun
+	err := row.Scan(&run.ID, &run.RunType, &run.Model, &run.PromptVersion, &run.InputHash, &run.OutputRef,
+		&run.ParentRunID, &run.PolicyDecision, &run.TokenCost, &run.Status, &run.LatencyMS, &run.CreatedBy, &run.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return FactoryRun{}, false, nil
+	}
+	if err != nil {
+		return FactoryRun{}, false, err
+	}
+	return run, true, nil
 }
 
 func (s *SQLStore) FactoryDashboard(ctx context.Context) (FactoryDashboard, error) {
@@ -348,7 +377,11 @@ func (s *SQLStore) FactoryDashboard(ctx context.Context) (FactoryDashboard, erro
 
 // ListFactoryRuns returns the execution history of factory runs.
 func (s *SQLStore) ListFactoryRuns(ctx context.Context, since time.Time, limit int) ([]FactoryRun, error) {
-	rows, err := s.db.QueryContext(ctx, s.bind(`SELECT id, run_type, model, input_hash, output_ref, latency_ms, created_by, created_at
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := s.db.QueryContext(ctx, s.bind(`SELECT id, run_type, model, prompt_version, input_hash, output_ref,
+		parent_run_id, policy_decision, token_cost, status, latency_ms, created_by, created_at
 		FROM factory_runs
 		WHERE created_at >= ?
 		ORDER BY created_at DESC
@@ -361,11 +394,11 @@ func (s *SQLStore) ListFactoryRuns(ctx context.Context, since time.Time, limit i
 	var runs []FactoryRun
 	for rows.Next() {
 		var run FactoryRun
-		if err := rows.Scan(&run.ID, &run.RunType, &run.Model, &run.InputHash, &run.OutputRef, &run.LatencyMS, &run.CreatedBy, &run.CreatedAt); err != nil {
+		if err := rows.Scan(&run.ID, &run.RunType, &run.Model, &run.PromptVersion, &run.InputHash, &run.OutputRef,
+			&run.ParentRunID, &run.PolicyDecision, &run.TokenCost, &run.Status, &run.LatencyMS, &run.CreatedBy, &run.CreatedAt); err != nil {
 			return nil, err
 		}
 		runs = append(runs, run)
 	}
-	return runs, nil
+	return runs, rows.Err()
 }
-

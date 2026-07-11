@@ -232,6 +232,9 @@ func (s *Server) handleDataWorksProposalByID(w http.ResponseWriter, r *http.Requ
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "feedback_failed")
 		return
 	}
+	_ = s.db.UpsertProductRelationship(r.Context(), store.ProductRelationship{
+		FromType: "product", FromKey: fb.ProductKey, ToType: "proposal_feedback", ToKey: fb.ID, RelationType: "proposal_feedback", Weight: 1,
+	})
 	s.applyProposalFeedbackScore(r.Context(), fb.ProductKey, fb.Result, adminID(r))
 	s.auditAdmin(r, "dataworks.proposal.feedback", "", auditJSON(map[string]any{"proposal_id": proposalID, "result": fb.Result}))
 	writeJSON(w, http.StatusOK, map[string]any{"feedback": fb})
@@ -275,6 +278,9 @@ func (s *Server) handleDataWorksPOCByID(w http.ResponseWriter, r *http.Request) 
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "poc_outcome_failed")
 		return
 	}
+	_ = s.db.UpsertProductRelationship(r.Context(), store.ProductRelationship{
+		FromType: "product", FromKey: outcome.ProductKey, ToType: "poc_outcome", ToKey: outcome.ID, RelationType: "poc_outcome", Weight: 1,
+	})
 	s.applyPOCOutcomeScore(r.Context(), outcome, adminID(r))
 	s.auditAdmin(r, "dataworks.poc.outcome", "", auditJSON(map[string]any{"poc_id": pocID, "success": outcome.Success, "conversion_status": outcome.ConversionStatus}))
 	writeJSON(w, http.StatusOK, map[string]any{"outcome": outcome})
@@ -311,7 +317,22 @@ func (s *Server) handleDataWorksAnalyticsFunnel(w http.ResponseWriter, r *http.R
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "funnel_failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"funnel": funnel, "rates": funnelRates(funnel)})
+	snapshot := store.ProductFunnelDaily{
+		Date: time.Now().UTC().Format("2006-01-02"), Ideas: funnel.Ideas, Definitions: funnel.Definitions,
+		Reviews: funnel.RiskReviews, Proposals: funnel.Proposals, POCs: funnel.POCPlans, Published: funnel.Published,
+	}
+	if err := s.db.UpsertProductFunnelDaily(r.Context(), snapshot); err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "funnel_snapshot_failed")
+		return
+	}
+	days := queryInt(r, "days", 30, 366)
+	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
+	history, err := s.db.ListProductFunnelDaily(r.Context(), since, days)
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "funnel_history_failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"funnel": funnel, "rates": funnelRates(funnel), "history": history})
 }
 
 func dataWorksPathParts(path string, prefix string) []string {
@@ -833,7 +854,8 @@ func (s *Server) buildDataWorksGraph(ctx context.Context, focusAsset string) (ma
 		nodes = append(nodes, map[string]any{"id": id, "type": "poc_outcome", "label": outcome.ConversionStatus, "success": outcome.Success})
 		edges = append(edges, map[string]any{"from": "product:" + outcome.ProductKey, "to": id, "relation_type": "poc_outcome", "weight": 1})
 	}
-	return map[string]any{"nodes": nodes, "edges": edges}, nil
+	relationships, _ := s.db.ListProductRelationships(ctx, "", focusAsset, 500)
+	return map[string]any{"nodes": nodes, "edges": edges, "relationships": relationships}, nil
 }
 
 func funnelRates(f store.DataWorksFunnel) map[string]any {
@@ -858,6 +880,14 @@ func productSourceAssets(p store.DataProduct) []string {
 		return []string{}
 	}
 	return assets
+}
+
+func (s *Server) persistProductAssetRelationships(ctx context.Context, p store.DataProduct) {
+	for _, assetKey := range productSourceAssets(p) {
+		_ = s.db.UpsertProductRelationship(ctx, store.ProductRelationship{
+			FromType: "asset", FromKey: assetKey, ToType: "product", ToKey: p.ProductKey, RelationType: "feeds", Weight: 1,
+		})
+	}
 }
 
 func productRiskPosture(p store.DataProduct) string {

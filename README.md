@@ -22,8 +22,6 @@
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| `GET` | `/admin/dataworks/home` | Data Works Home 지표 |
-| `GET` | `/admin/dataworks/assets` | 데이터 자산 목록 조회 및 업서트 |
 | `POST` | `/admin/dataworks/assets/{key}/readiness/check` | 데이터 자산 상품화 준비도 평가 |
 | `GET` | `/admin/dataworks/assets/{key}/lineage` | 데이터 자산 기반 상품 lineage 조회 |
 | `GET` | `/admin/dataworks/home` | Data Works Home KPI |
@@ -64,11 +62,13 @@
 | `POST` | `/admin/dataworks/reviews/{key}/approve\|reject` | 상품 상태 승인/반려 |
 | `GET` | `/admin/dataworks/portfolio` | 상태별 라이프사이클 상품 조회 |
 | `GET` | `/admin/dataworks/portfolio/graph` | 자산·상품·제안·PoC 관계 그래프 조회 |
-| `GET` | `/admin/dataworks/portfolio/graph` | 상품·자산·승인 관계 그래프 |
 | `GET` | `/admin/dataworks/funnel` | 아이디어부터 출시까지 funnel 분석 |
 | `GET` | `/admin/dataworks/analytics` | 상품 매출/리스크 성과 분석 |
-| `GET` | `/admin/dataworks/analytics/funnel` | 아이디어 → 정의서 → 리스크 → 제안 → PoC → 출시 funnel |
+| `GET` | `/admin/dataworks/analytics/funnel` | 아이디어 → 정의서 → 리스크 → 제안 → PoC → 출시 funnel과 일별 이력 |
 | `GET` | `/admin/dataworks/factory/runs` | AI 워크런 수행 이력 조회 |
+| `POST` | `/admin/dataworks/factory/runs/{id}/replay` | 기존 입력 해시를 유지한 모델·프롬프트 버전 재실행 계보 생성 |
+| `POST` | `/admin/dataworks/factory/runs/{id}/evaluate` | 정확도·유용성·리스크·출력 품질 평가 저장 |
+| `GET/POST` | `/admin/dataworks/prompt-templates` | Factory 단계별 프롬프트 템플릿 조회, 등록 및 자동 버전업 |
 | `GET` | `/admin/dataworks/products` | 상품 후보·정의서 목록 |
 | `POST` | `/admin/dataworks/products/{key}/canvas/generate` | Product Canvas 생성 및 저장 |
 | `GET` | `/admin/dataworks/products/{key}/evidence` | Product Evidence Pack 조회 |
@@ -76,7 +76,6 @@
 | `POST` | `/admin/dataworks/products/{key}/api-contract` | OpenAPI 기반 API 상품 계약 생성 |
 | `POST` | `/admin/dataworks/products/{key}/mock` | Mock API 응답 생성 및 호출 로그 기록 |
 | `GET` | `/admin/dataworks/products/{key}/funnel` | 상품별 전환 funnel 조회 |
-| `GET` | `/admin/dataworks/products` | 기존 카탈로그 호환 목록 |
 
 기존 `/admin/data-products` 카탈로그는 확장 필드(`target_customers`, `pricing_model`, `api_spec`, `poc_plan`, `risk_score`, `revenue_score` 등)를 포함하며, `status=published` 업서트 시 동일한 publish gate를 적용합니다.
 

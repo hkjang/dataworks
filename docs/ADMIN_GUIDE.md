@@ -275,10 +275,24 @@ API:
 - `GET /admin/dataworks/funnel`
 - `GET /admin/dataworks/analytics`
 - `GET /admin/dataworks/factory/runs`
+- `GET /admin/dataworks/analytics/funnel?days=30`
 
-Portfolio graph는 product, asset, approval node와 `uses_asset`, `approval_trace` edge를 반환합니다.
+Portfolio graph는 product, asset, proposal feedback, PoC outcome node와 관계 edge 및 영속화된 relationship 목록을 반환합니다. Funnel 분석은 조회 시점의 일별 스냅샷을 저장해 기간별 추이를 함께 제공합니다.
 
-## 15. 레거시 K8s 메뉴
+## 15. Factory Run 재현성과 평가
+
+Factory 단계별 프롬프트는 `template_key`와 자동 증가 `version`으로 관리합니다. 새 `active` 버전을 등록하면 같은 키의 기존 active 버전은 `retired`로 전환됩니다.
+
+API:
+
+- `GET /admin/dataworks/prompt-templates?run_type=products.define&status=active`
+- `POST /admin/dataworks/prompt-templates`
+- `POST /admin/dataworks/factory/runs/{id}/replay`
+- `POST /admin/dataworks/factory/runs/{id}/evaluate`
+
+재실행은 원본 `input_hash`와 `parent_run_id`를 보존하고 모델, 프롬프트 버전, 정책 판단, 토큰 비용을 별도 실행 이력으로 남깁니다. 평가는 정확도, 유용성, 리스크 통제, 출력 품질을 0~100점으로 기록하며 실행 목록에서 집계 점수를 확인할 수 있습니다.
+
+## 16. 레거시 K8s 메뉴
 
 K8s 운영 기능은 Data Works 기본 흐름이 아닙니다. 필요한 경우 `k8s_ops` 기능 플래그와 레거시 문서를 사용하세요.
 

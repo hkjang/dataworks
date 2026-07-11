@@ -623,13 +623,28 @@ func (s *Server) handleDataWorksFactoryRuns(w http.ResponseWriter, r *http.Reque
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 		return
 	}
-	since := time.Now().UTC().AddDate(0, 0, -30)
-	runs, err := s.db.ListFactoryRuns(r.Context(), since, 100)
+	days := queryInt(r, "days", 30, 365)
+	limit := queryInt(r, "limit", 100, 500)
+	since := time.Now().UTC().AddDate(0, 0, -days)
+	runs, err := s.db.ListFactoryRuns(r.Context(), since, limit)
 	if err != nil {
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "runs_failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"runs": runs})
+	evaluations, err := s.db.ListFactoryEvalScores(r.Context(), "", 500)
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "run_evaluations_failed")
+		return
+	}
+	byRun := map[string][]store.FactoryEvalScore{}
+	for _, evaluation := range evaluations {
+		byRun[evaluation.RunID] = append(byRun[evaluation.RunID], evaluation)
+	}
+	summaries := map[string]any{}
+	for runID, scores := range byRun {
+		summaries[runID] = factoryEvaluationSummary(scores)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"runs": runs, "evaluation_summaries": summaries})
 }
 
 // handleDataWorksProductActions manages product-scoped Data Works governance endpoints.

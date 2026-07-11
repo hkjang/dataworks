@@ -1696,13 +1696,66 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			id TEXT PRIMARY KEY,
 			run_type TEXT NOT NULL DEFAULT '',
 			model TEXT NOT NULL DEFAULT '',
+			prompt_version TEXT NOT NULL DEFAULT '',
 			input_hash TEXT NOT NULL DEFAULT '',
 			output_ref TEXT NOT NULL DEFAULT '',
+			parent_run_id TEXT NOT NULL DEFAULT '',
+			policy_decision TEXT NOT NULL DEFAULT '',
+			token_cost REAL NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'completed',
 			latency_ms INTEGER NOT NULL DEFAULT 0,
 			created_by TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_factory_runs_type_time ON factory_runs(run_type, created_at)`,
+		`CREATE TABLE IF NOT EXISTS dw_prompt_templates (
+			template_key TEXT NOT NULL DEFAULT '',
+			run_type TEXT NOT NULL DEFAULT '',
+			version INTEGER NOT NULL DEFAULT 1,
+			template_body TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'draft',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			PRIMARY KEY(template_key, version)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_prompt_templates_run ON dw_prompt_templates(run_type, status, version)`,
+		`CREATE TABLE IF NOT EXISTS dw_factory_eval_scores (
+			id TEXT PRIMARY KEY,
+			run_id TEXT NOT NULL DEFAULT '',
+			accuracy_score INTEGER NOT NULL DEFAULT 0,
+			usefulness_score INTEGER NOT NULL DEFAULT 0,
+			risk_score INTEGER NOT NULL DEFAULT 0,
+			output_quality_score INTEGER NOT NULL DEFAULT 0,
+			review_comment TEXT NOT NULL DEFAULT '',
+			reviewer TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_factory_eval_scores_run ON dw_factory_eval_scores(run_id, created_at)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_funnel_daily (
+			date TEXT PRIMARY KEY,
+			ideas INTEGER NOT NULL DEFAULT 0,
+			definitions INTEGER NOT NULL DEFAULT 0,
+			reviews INTEGER NOT NULL DEFAULT 0,
+			proposals INTEGER NOT NULL DEFAULT 0,
+			pocs INTEGER NOT NULL DEFAULT 0,
+			published INTEGER NOT NULL DEFAULT 0,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_product_funnel_daily_date ON dw_product_funnel_daily(date)`,
+		`CREATE TABLE IF NOT EXISTS dw_product_relationships (
+			from_type TEXT NOT NULL DEFAULT '',
+			from_key TEXT NOT NULL DEFAULT '',
+			to_type TEXT NOT NULL DEFAULT '',
+			to_key TEXT NOT NULL DEFAULT '',
+			relation_type TEXT NOT NULL DEFAULT '',
+			weight REAL NOT NULL DEFAULT 1,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			PRIMARY KEY(from_type, from_key, to_type, to_key, relation_type)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_product_relationships_from ON dw_product_relationships(from_type, from_key, relation_type)`,
+		`CREATE INDEX IF NOT EXISTS idx_dw_product_relationships_to ON dw_product_relationships(to_type, to_key, relation_type)`,
 		`CREATE TABLE IF NOT EXISTS dw_asset_quality_scores (
 			asset_key TEXT PRIMARY KEY,
 			quality_score INTEGER NOT NULL DEFAULT 0,
@@ -3531,6 +3584,105 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		{
 			version: 70,
 			query:   `CREATE INDEX IF NOT EXISTS idx_dw_retirement_candidates_risk ON dw_retirement_candidates(risk_score, recommendation)`,
+		},
+		{
+			version: 71,
+			query:   `ALTER TABLE factory_runs ADD COLUMN prompt_version TEXT NOT NULL DEFAULT ''`,
+		},
+		{
+			version: 72,
+			query:   `ALTER TABLE factory_runs ADD COLUMN parent_run_id TEXT NOT NULL DEFAULT ''`,
+		},
+		{
+			version: 73,
+			query:   `ALTER TABLE factory_runs ADD COLUMN policy_decision TEXT NOT NULL DEFAULT ''`,
+		},
+		{
+			version: 74,
+			query:   `ALTER TABLE factory_runs ADD COLUMN token_cost REAL NOT NULL DEFAULT 0`,
+		},
+		{
+			version: 75,
+			query:   `ALTER TABLE factory_runs ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'`,
+		},
+		{
+			version: 76,
+			query:   `CREATE INDEX IF NOT EXISTS idx_factory_runs_parent ON factory_runs(parent_run_id, created_at)`,
+		},
+		{
+			version: 77,
+			query: `CREATE TABLE IF NOT EXISTS dw_prompt_templates (
+				template_key TEXT NOT NULL DEFAULT '',
+				run_type TEXT NOT NULL DEFAULT '',
+				version INTEGER NOT NULL DEFAULT 1,
+				template_body TEXT NOT NULL DEFAULT '',
+				status TEXT NOT NULL DEFAULT 'draft',
+				created_by TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL,
+				PRIMARY KEY(template_key, version)
+			)`,
+		},
+		{
+			version: 78,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_prompt_templates_run ON dw_prompt_templates(run_type, status, version)`,
+		},
+		{
+			version: 79,
+			query: `CREATE TABLE IF NOT EXISTS dw_factory_eval_scores (
+				id TEXT PRIMARY KEY,
+				run_id TEXT NOT NULL DEFAULT '',
+				accuracy_score INTEGER NOT NULL DEFAULT 0,
+				usefulness_score INTEGER NOT NULL DEFAULT 0,
+				risk_score INTEGER NOT NULL DEFAULT 0,
+				output_quality_score INTEGER NOT NULL DEFAULT 0,
+				review_comment TEXT NOT NULL DEFAULT '',
+				reviewer TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 80,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_factory_eval_scores_run ON dw_factory_eval_scores(run_id, created_at)`,
+		},
+		{
+			version: 81,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_funnel_daily (
+				date TEXT PRIMARY KEY,
+				ideas INTEGER NOT NULL DEFAULT 0,
+				definitions INTEGER NOT NULL DEFAULT 0,
+				reviews INTEGER NOT NULL DEFAULT 0,
+				proposals INTEGER NOT NULL DEFAULT 0,
+				pocs INTEGER NOT NULL DEFAULT 0,
+				published INTEGER NOT NULL DEFAULT 0,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 82,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_product_funnel_daily_date ON dw_product_funnel_daily(date)`,
+		},
+		{
+			version: 83,
+			query: `CREATE TABLE IF NOT EXISTS dw_product_relationships (
+				from_type TEXT NOT NULL DEFAULT '',
+				from_key TEXT NOT NULL DEFAULT '',
+				to_type TEXT NOT NULL DEFAULT '',
+				to_key TEXT NOT NULL DEFAULT '',
+				relation_type TEXT NOT NULL DEFAULT '',
+				weight REAL NOT NULL DEFAULT 1,
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL,
+				PRIMARY KEY(from_type, from_key, to_type, to_key, relation_type)
+			)`,
+		},
+		{
+			version: 84,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_product_relationships_from ON dw_product_relationships(from_type, from_key, relation_type)`,
+		},
+		{
+			version: 85,
+			query:   `CREATE INDEX IF NOT EXISTS idx_dw_product_relationships_to ON dw_product_relationships(to_type, to_key, relation_type)`,
 		},
 	}
 

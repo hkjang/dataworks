@@ -424,6 +424,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/dataworks/analytics/funnel", s.handleDataWorksAnalyticsFunnel)
 	mux.HandleFunc("/admin/dataworks/funnel", s.handleDataWorksFunnel)
 	mux.HandleFunc("/admin/dataworks/analytics", s.handleDataWorksAnalytics)
+	mux.HandleFunc("/admin/dataworks/prompt-templates", s.handleDataWorksPromptTemplates)
+	mux.HandleFunc("/admin/dataworks/factory/runs/", s.handleDataWorksFactoryRunAction)
 	mux.HandleFunc("/admin/dataworks/factory/runs", s.handleDataWorksFactoryRuns)
 	mux.HandleFunc("/admin/dataworks/products/", s.handleDataWorksProductActions)
 	mux.HandleFunc("/admin/dataworks/products", s.handleDataWorksProducts)

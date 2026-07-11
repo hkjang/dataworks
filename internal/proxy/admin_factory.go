@@ -220,7 +220,7 @@ func (s *Server) handleFactoryGenerateIdeas(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	_ = s.db.InsertFactoryRun(r.Context(), store.FactoryRun{
+	_ = s.insertDataWorksFactoryRun(r.Context(), store.FactoryRun{
 		ID: newID("frun"), RunType: "ideas.generate", Model: "rules:dataworks-mvp",
 		InputHash: factoryShortHash(req.Industry + "|" + req.MarketNeed + "|" + strings.Join(req.DataAssets, ",")),
 		OutputRef: strings.Join(productIdeaIDs(ideas), ","), LatencyMS: 0, CreatedBy: adminID(r),
@@ -298,9 +298,10 @@ func (s *Server) handleFactoryDefineProduct(w http.ResponseWriter, r *http.Reque
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "product_failed")
 		return
 	}
+	s.persistProductAssetRelationships(r.Context(), product)
 	_ = s.upsertGeneratedProductCanvas(r.Context(), product, adminID(r))
 	_ = s.refreshProductEvidencePack(r.Context(), product, adminID(r))
-	_ = s.db.InsertFactoryRun(r.Context(), store.FactoryRun{ID: newID("frun"), RunType: "products.define", Model: "rules:dataworks-mvp", InputHash: factoryShortHash(req.Title + req.CustomerNeed), OutputRef: key, CreatedBy: adminID(r)})
+	_ = s.insertDataWorksFactoryRun(r.Context(), store.FactoryRun{ID: newID("frun"), RunType: "products.define", Model: "rules:dataworks-mvp", InputHash: factoryShortHash(req.Title + req.CustomerNeed), OutputRef: key, CreatedBy: adminID(r)})
 	s.auditAdmin(r, "factory.products.define", "", auditJSON(map[string]any{"product_key": key, "version": version}))
 	writeJSON(w, http.StatusOK, map[string]any{"product_key": key, "version": version, "definition": definition, "product": product})
 }

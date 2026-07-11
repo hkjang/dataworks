@@ -65,7 +65,8 @@ docker run -d --name dataworks --restart=always \
 | Data Works KPI | `GET /admin/dataworks/home` |
 | Action Center | `GET /admin/dataworks/action-center` |
 | Factory 실행 이력 | `GET /admin/dataworks/factory/runs` |
-| Funnel | `GET /admin/dataworks/funnel` |
+| Prompt Registry | `GET /admin/dataworks/prompt-templates` |
+| Funnel 일별 추이 | `GET /admin/dataworks/analytics/funnel?days=30` |
 | Portfolio graph | `GET /admin/dataworks/portfolio/graph` |
 | 시스템 오류 | `GET /admin/system-errors` |
 
@@ -175,7 +176,7 @@ PostgreSQL 운영 시:
 pg_dump "$DATABASE_URL" > dataworks-$(date +%F).sql
 ```
 
-백업 대상에는 `data_products`, `dw_asset_readiness_scores`, `dw_product_canvases`, `dw_approval_traces`, `dw_evidence_packs`, `dw_contract_versions`, `dw_customer_segments`, `dw_product_fit_scores`, `dw_product_versions`, `dw_contract_scopes`, `dw_api_entitlements`, `dw_product_sla`, `dw_data_watermarks`, `dw_product_costs`, `dw_customer_proposal_events`, `dw_retirement_candidates`가 포함되어야 합니다.
+백업 대상에는 `data_products`, `factory_runs`, `dw_prompt_templates`, `dw_factory_eval_scores`, `dw_product_funnel_daily`, `dw_product_relationships`, `dw_asset_readiness_scores`, `dw_product_canvases`, `dw_approval_traces`, `dw_evidence_packs`, `dw_contract_versions`, `dw_customer_segments`, `dw_product_fit_scores`, `dw_product_versions`, `dw_contract_scopes`, `dw_api_entitlements`, `dw_product_sla`, `dw_data_watermarks`, `dw_product_costs`, `dw_customer_proposal_events`, `dw_retirement_candidates`가 포함되어야 합니다.
 
 ## 8. 장애 대응
 
@@ -185,6 +186,7 @@ pg_dump "$DATABASE_URL" > dataworks-$(date +%F).sql
 | publish가 계속 차단됨 | `/publish-gate`의 `missing_approvals`, `missing_evidence`, `blocked_reasons` 확인 |
 | Evidence Pack 생성 실패 | 상품 존재 여부, 최신 definition/risk/poc 조회 오류, DB 마이그레이션 상태 확인 |
 | readiness 저장 실패 | `asset_key` 누락 여부, `dw_asset_readiness_scores` 테이블 존재 확인 |
+| Factory replay 실패 | 원본 run ID, active prompt template의 `run_type`, 마이그레이션 71~85 적용 여부 확인 |
 | DB 잠금 | SQLite busy timeout, 장기 트랜잭션, PostgreSQL 전환 검토 |
 
 ## 9. 레거시 K8s 기능
