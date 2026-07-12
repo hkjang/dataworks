@@ -118,6 +118,10 @@ const adminHTML = `<!doctype html>
       font-size: 13px; color: var(--muted); font-weight: 800;
       display: flex; justify-content: space-between; align-items: center; gap: 8px;
     }
+    .section-title-text { display:inline-block; min-width:0; }
+    .section-intro { margin:-4px 0 12px; color:var(--muted); }
+    .section-intro-text, .entity-summary-text, .message-text, .message-title-text, .meta-text, .identifier-text,
+    .body-text, .heading-text, .strong-text, .list-item-text, .secondary-text { display:inline; min-width:0; }
     .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px; border-bottom: 1px solid var(--line); }
     /* Indented content body for panels whose content would otherwise sit flush to the section edge. */
     .card-body { padding: 14px; }
@@ -159,6 +163,7 @@ const adminHTML = `<!doctype html>
     .kpi { background: var(--panel); padding: 14px; min-height: 80px; }
     .kpi .label { color: var(--muted); font-size: 12px; font-weight: 700; }
     .kpi .value { margin-top: 8px; font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
+    .kpi-label-text, .kpi-value-text { display:block; min-width:0; overflow-wrap:anywhere; }
     .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
     .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
     .inline-form { display: grid; gap: var(--form-column-gap); padding: 14px; border-bottom: 1px solid var(--line); align-items:start; }
@@ -299,6 +304,7 @@ const adminHTML = `<!doctype html>
     .kv { display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; }
     .kv .k { color: var(--muted); font-size: 12px; font-weight: 700; }
     .kv .v { overflow-wrap: anywhere; }
+    .kv-label-text, .kv-value-text { display:inline-block; min-width:0; max-width:100%; overflow-wrap:anywhere; }
     .prompt-block {
       padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px;
       background: var(--panel-alt); white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -442,6 +448,7 @@ const adminHTML = `<!doctype html>
     .run-console { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:end; }
     .run-console textarea { height:auto; min-height:78px; width:100%; }
     .twin-header { padding:16px; border:1px solid var(--line); border-radius:8px; background:var(--panel); margin-bottom:12px; }
+    .entity-title-text { display:inline-block; min-width:0; overflow-wrap:anywhere; }
     .twin-header-main { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; }
     .twin-scores { display:grid; grid-template-columns:repeat(3,minmax(90px,1fr)); gap:1px; background:var(--line); min-width:330px; }
     .twin-score { background:var(--panel-alt); padding:9px 11px; }
@@ -3751,11 +3758,13 @@ const adminHTML = `<!doctype html>
       '</div>';
     }
     function kpi(label, value) {
-      return '<div class="kpi"><div class="label">' + label + '</div><div class="value">' + value + '</div></div>';
+      const valueHTML = String(value == null ? '' : value);
+      const hasBlock = /<(?:div|table|pre|section|ul|ol|p|form|article|details)\b/i.test(valueHTML);
+      return '<div class="kpi"><div class="label"><span class="kpi-label-text">' + label + '</span></div><div class="value">' + (hasBlock ? valueHTML : '<span class="kpi-value-text">' + valueHTML + '</span>') + '</div></div>';
     }
-    function section(title, inner) { return '<section><h2>' + escapeHTML(title) + '</h2>' + inner + '</section>'; }
-    function card(title, inner)    { return '<section><h2>' + escapeHTML(title) + '</h2>' + inner + '</section>'; }
-    function cardWithID(id, title, inner) { return '<section id="' + escapeHTML(id) + '"><h2>' + escapeHTML(title) + '</h2>' + inner + '</section>'; }
+    function section(title, inner) { return '<section><h2><span class="section-title-text">' + escapeHTML(title) + '</span></h2>' + inner + '</section>'; }
+    function card(title, inner)    { return '<section><h2><span class="section-title-text">' + escapeHTML(title) + '</span></h2>' + inner + '</section>'; }
+    function cardWithID(id, title, inner) { return '<section id="' + escapeHTML(id) + '"><h2><span class="section-title-text">' + escapeHTML(title) + '</span></h2>' + inner + '</section>'; }
 
     // ---------- LLM observability ----------
     const llmState = {
@@ -4897,7 +4906,9 @@ const adminHTML = `<!doctype html>
       );
     }
     function row(k, v) {
-      return '<div class="k">' + escapeHTML(k) + '</div><div class="v">' + v + '</div>';
+      const valueHTML = String(v == null ? '' : v);
+      const hasBlock = /<(?:div|table|pre|section|ul|ol|p|form|article|details)\b/i.test(valueHTML);
+      return '<div class="k"><span class="kv-label-text">' + escapeHTML(k) + '</span></div><div class="v">' + (hasBlock ? valueHTML : '<span class="kv-value-text">' + valueHTML + '</span>') + '</div>';
     }
     function latencyLabel(r) {
       return '첫 청크 ' + fmt(r.first_chunk_ms || 0) + ' ms / 전체 ' + fmt(r.latency_ms || 0) + ' ms';
@@ -13865,14 +13876,14 @@ const adminHTML = `<!doctype html>
       return item.risk_level || 'low';
     }
     function dwReferencePreview(kind, item) {
-      if (!item) return '<div class="empty">선택한 항목의 요약이 여기에 표시됩니다.</div>';
+      if (!item) return '<div class="empty"><span class="message-text">선택한 항목의 요약이 여기에 표시됩니다.</span></div>';
       const risk = dwReferenceRisk(kind, item);
       const owner = item.owner || '-';
       const status = item.status || (item.enabled === false ? 'disabled' : 'active');
       let meta = dwStatus(status) + ' ' + dwStatus(risk);
       if (kind === 'asset') meta += ' ' + dwStatus(item.sensitivity || 'internal');
       if (kind === 'tool' && item.requires_approval) meta += ' ' + dwStatus('approval_required');
-      return '<article class="reference-preview" data-risk="' + escapeAttr(risk) + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><h3>' + escapeHTML(dwReferenceName(kind, item)) + '</h3><div class="muted" style="font-size:10px;margin-top:3px">' + escapeHTML(dwReferenceKey(kind, item)) + '</div></div><span class="muted" style="font-size:11px">오너 ' + escapeHTML(owner) + '</span></div><div class="reference-meta">' + meta + '</div><p>' + escapeHTML(dwReferenceDescription(kind, item)) + '</p></article>';
+      return '<article class="reference-preview" data-risk="' + escapeAttr(risk) + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><h3><span class="entity-title-text">' + escapeHTML(dwReferenceName(kind, item)) + '</span></h3><div class="muted" style="font-size:10px;margin-top:3px"><span class="identifier-text">' + escapeHTML(dwReferenceKey(kind, item)) + '</span></div></div><span class="muted" style="font-size:11px">오너 ' + escapeHTML(owner) + '</span></div><div class="reference-meta">' + meta + '</div><p><span class="entity-summary-text">' + escapeHTML(dwReferenceDescription(kind, item)) + '</span></p></article>';
     }
     function dwReferenceOptions(kind, items, selected, emptyLabel) {
       return '<option value="">' + escapeHTML(emptyLabel || '선택해 주세요') + '</option>' + (items || []).map(item => {
@@ -13887,7 +13898,7 @@ const adminHTML = `<!doctype html>
     function dwBindReferenceSelect(selectID, previewID, kind, items) {
       const select = document.getElementById(selectID), preview = document.getElementById(previewID);
       if (!select || !preview) return;
-      const render = () => { preview.innerHTML = dwReferencePreview(kind, (items || []).find(item => dwReferenceKey(kind, item) === select.value)); };
+      const render = () => { preview.innerHTML = dwReferencePreview(kind, (items || []).find(item => dwReferenceKey(kind, item) === select.value)); standardizeTextComponents(preview); };
       select.addEventListener('change', render); render();
     }
     function dwField(label, help, control, errorID, wide) {
@@ -13907,6 +13918,45 @@ const adminHTML = `<!doctype html>
     }
     function dwCanvasField(label, help, control, wide) {
       return dwField(label, help, control, '', wide).replace('class="dw-field', 'class="canvas-block dw-field');
+    }
+    function standardizeTextComponents(root) {
+      if (!root || !root.querySelectorAll) return;
+      const specs = [
+        ['section > h2','section-title-text'],
+        ['.kpi > .label','kpi-label-text'],
+        ['.kpi > .value','kpi-value-text'],
+        ['.kv > .k','kv-label-text'],
+        ['.kv > .v','kv-value-text'],
+        ['.section-intro','section-intro-text'],
+        ['.validation-panel','message-text'],
+        ['.validation-panel strong','message-title-text'],
+        ['.empty','message-text'],
+        ['.empty strong','message-title-text'],
+        ['.next-action .muted','message-text'],
+        ['.next-action strong','message-title-text'],
+        ['.twin-header .muted','meta-text'],
+        ['.twin-header p','entity-summary-text'],
+        ['.twin-header h2','entity-title-text'],
+        ['.twin-score > strong','kpi-value-text'],
+        ['.reference-preview h3,.market-item h3,.workspace-tile h3','entity-title-text'],
+        ['.reference-preview p,.market-item p','entity-summary-text'],
+        ['h3,h4','heading-text'],
+        ['p','body-text'],
+        ['strong','strong-text'],
+        ['code','identifier-text'],
+        ['li','list-item-text'],
+        ['.muted:not(span)','secondary-text']
+      ];
+      specs.forEach(spec => {
+        root.querySelectorAll(spec[0]).forEach(element => {
+          Array.from(element.childNodes).filter(node => node.nodeType === 3 && node.textContent.trim()).forEach(node => {
+            const span = document.createElement('span');
+            span.className = spec[1];
+            span.textContent = node.textContent.trim();
+            element.replaceChild(span, node);
+          });
+        });
+      });
     }
     function standardizeFormComponents(root) {
       if (!root || !root.querySelectorAll) return;
@@ -13942,9 +13992,10 @@ const adminHTML = `<!doctype html>
         if (control.id && !label.htmlFor) label.htmlFor = control.id;
         if (control.required) label.classList.add('required');
       });
+      standardizeTextComponents(root);
     }
     function dwEmpty(title, actionLabel, actionHref) {
-      return '<div class="empty"><strong style="display:block;color:var(--ink);margin-bottom:5px">' + escapeHTML(title) + '</strong>' + (actionHref ? '<a href="' + escapeAttr(actionHref) + '"><button type="button" class="secondary">' + escapeHTML(actionLabel || '새로 만들기') + '</button></a>' : '') + '</div>';
+      return '<div class="empty"><strong style="display:block;color:var(--ink);margin-bottom:5px"><span class="message-title-text">' + escapeHTML(title) + '</span></strong>' + (actionHref ? '<a href="' + escapeAttr(actionHref) + '"><button type="button" class="secondary">' + escapeHTML(actionLabel || '새로 만들기') + '</button></a>' : '') + '</div>';
     }
 
     async function renderDataWorksWorkspaces() {
@@ -14463,8 +14514,9 @@ const adminHTML = `<!doctype html>
         '<button class="' + (currentFilter === 'retire' ? '' : 'secondary') + '" onclick="actionTabFilter(\'retire\')">폐기 추천 (' + (summary.retirement_candidates || 0) + ')</button>' +
       '</div>';
 
-      view.innerHTML = section('Action Center', '<p class="muted" style="margin:-4px 0 12px">운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업</p>') + tabHeader + '<div id="action-list-container" class="card-body"></div>';
+      view.innerHTML = section('조치 센터', '<p class="section-intro"><span class="section-intro-text">운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업</span></p>') + tabHeader + '<div id="action-list-container" class="card-body"></div>';
       renderDataWorksActionsList(actions);
+      standardizeTextComponents(view);
     }
 
     function renderDataWorksActionsList(actions) {
@@ -14984,15 +15036,15 @@ const adminHTML = `<!doctype html>
       const nextAction = nextByStatus[statusLabel] || nextByStatus.draft;
       window.renderTwinGatePanel = (gate) => {
         const blocked=(gate.blocked_reasons||[]), approvals=(gate.missing_approvals||[]), allowed=!!gate.allowed;
-        return '<div class="validation-panel ' + (allowed?'ok':'error') + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><strong>' + (allowed?'출시 가능':'출시 조건을 충족하지 못했습니다.') + '</strong>' + (allowed?'모든 필수 근거와 승인이 준비되었습니다.':'아래 차단 사유를 해결해 주세요.') + '</div>' + dwStatus(allowed?'ready':'blocked') + '</div>' +
+        return '<div class="validation-panel ' + (allowed?'ok':'error') + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><strong><span class="message-title-text">' + (allowed?'출시 가능':'출시 조건을 충족하지 못했습니다.') + '</span></strong><span class="message-text">' + (allowed?'모든 필수 근거와 승인이 준비되었습니다.':'아래 차단 사유를 해결해 주세요.') + '</span></div>' + dwStatus(allowed?'ready':'blocked') + '</div>' +
           (blocked.length?'<ul style="margin:8px 0 0;padding-left:18px">'+blocked.map(reason=>'<li>'+escapeHTML(dwLocalizedText(reason))+'</li>').join('')+'</ul>':'') +
-          (approvals.length?'<div style="margin-top:8px"><strong>필요 승인</strong><div class="reference-meta">'+approvals.map(role=>'<span class="pill">'+escapeHTML(dwApprovalLabel(role))+'</span>').join('')+'</div></div>':'') +
+          (approvals.length?'<div style="margin-top:8px"><strong><span class="message-title-text">필요 승인</span></strong><div class="reference-meta">'+approvals.map(role=>'<span class="pill">'+escapeHTML(dwApprovalLabel(role))+'</span>').join('')+'</div></div>':'') +
           (!allowed?'<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="secondary" onclick="twinTabFilter(\'evidence\')">근거 확인</button><button type="button" class="secondary" onclick="twinTabFilter(\'risk\')">리스크 해결</button><button type="button" class="secondary" onclick="twinTabFilter(\'contract\')">계약 확인</button></div>':'') + '</div>';
       };
       const headerHtml = '<div class="twin-header">' +
-        '<div class="twin-header-main"><div style="min-width:0"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;font-size:20px">' + escapeHTML(product.name_ko || product.name || '') + '</h2>' + dwStatus(statusLabel) + '</div><div class="muted" style="margin-top:6px;font-size:12px">상품 키 <code>' + escapeHTML(product.product_key) + '</code> · 제공 유형 ' + escapeHTML(product.source_type || 'dataset') + ' · 오너 ' + escapeHTML(product.owner || '-') + '</div><p style="margin:9px 0 0">' + escapeHTML(product.description || product.executive_summary || '등록된 상품 설명이 없습니다.') + '</p></div>' +
-        '<div class="twin-scores"><div class="twin-score"><span>매출 점수</span><strong style="color:' + scoreColor(product.revenue_score) + '">' + fmt(product.revenue_score) + '점</strong></div><div class="twin-score"><span>리스크 점수</span><strong style="color:' + scoreColor(100-product.risk_score) + '">' + fmt(product.risk_score) + '점</strong></div><div class="twin-score"><span>상품 버전</span><strong>v' + fmt(product.version) + '</strong></div></div></div>' +
-        '<div class="next-action" style="margin-top:12px"><div><strong>다음 작업</strong><div class="muted" style="margin-top:3px">' + escapeHTML(nextAction.label) + '</div></div><button type="button" onclick="' + (statusLabel==='approved'?'triggerPublishGate(\''+escapeAttr(product.product_key)+'\')':'twinTabFilter(\''+nextAction.tab+'\')') + '">' + escapeHTML(nextAction.button) + '</button></div>' +
+        '<div class="twin-header-main"><div style="min-width:0"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;font-size:20px"><span class="entity-title-text">' + escapeHTML(product.name_ko || product.name || '') + '</span></h2>' + dwStatus(statusLabel) + '</div><div class="muted" style="margin-top:6px;font-size:12px"><span class="meta-text">상품 키 </span><code><span class="identifier-text">' + escapeHTML(product.product_key) + '</span></code><span class="meta-text"> · 제공 유형 ' + escapeHTML(product.source_type || 'dataset') + ' · 오너 ' + escapeHTML(product.owner || '-') + '</span></div><p style="margin:9px 0 0"><span class="entity-summary-text">' + escapeHTML(product.description || product.executive_summary || '등록된 상품 설명이 없습니다.') + '</span></p></div>' +
+        '<div class="twin-scores"><div class="twin-score"><span>매출 점수</span><strong style="color:' + scoreColor(product.revenue_score) + '"><span class="kpi-value-text">' + fmt(product.revenue_score) + '점</span></strong></div><div class="twin-score"><span>리스크 점수</span><strong style="color:' + scoreColor(100-product.risk_score) + '"><span class="kpi-value-text">' + fmt(product.risk_score) + '점</span></strong></div><div class="twin-score"><span>상품 버전</span><strong><span class="kpi-value-text">v' + fmt(product.version) + '</span></strong></div></div></div>' +
+        '<div class="next-action" style="margin-top:12px"><div><strong><span class="message-title-text">다음 작업</span></strong><div class="muted" style="margin-top:3px"><span class="message-text">' + escapeHTML(nextAction.label) + '</span></div></div><button type="button" onclick="' + (statusLabel==='approved'?'triggerPublishGate(\''+escapeAttr(product.product_key)+'\')':'twinTabFilter(\''+nextAction.tab+'\')') + '">' + escapeHTML(nextAction.button) + '</button></div>' +
         '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="secondary" onclick="triggerPublishGate(\'' + escapeAttr(product.product_key) + '\')">출시 검증</button><button type="button" class="secondary" onclick="rebuildDefinition(\'' + escapeAttr(product.product_key) + '\')">정의서 AI 재생성</button></div>' +
         '<div id="dw-gate-panel" style="margin-top:12px">' + window.renderTwinGatePanel(publishGate) + '</div></div>';
 

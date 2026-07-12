@@ -181,6 +181,44 @@ Product Twin은 상품 관련 화면의 기준 상세 화면이다.
 
 ## 8. 공통 컴포넌트 계약
 
+### 공통 텍스트 구조
+
+컴포넌트 컨테이너에 사용자 문구를 직접 텍스트 노드로 두지 않는다. 의미 단위별 `span`을 두어 간격, 줄바꿈, 말줄임, 반응형 스타일을 독립적으로 제어한다.
+
+| 문구 유형 | 필수 클래스 |
+| --- | --- |
+| 섹션 제목 | `.section-title-text` |
+| 섹션 설명 | `.section-intro-text` |
+| KPI 라벨 / 값 | `.kpi-label-text` / `.kpi-value-text` |
+| 키·값 라벨 / 값 | `.kv-label-text` / `.kv-value-text` |
+| 개체명 / 개체 설명 | `.entity-title-text` / `.entity-summary-text` |
+| 안내 제목 / 본문 | `.message-title-text` / `.message-text` |
+| 내부 식별자 / 메타데이터 | `.identifier-text` / `.meta-text` |
+
+표준 키·값 마크업:
+
+```html
+<div class="kv">
+  <div class="k"><span class="kv-label-text">상품명</span></div>
+  <div class="v"><span class="kv-value-text"><strong>SME Watchlist Report</strong></span></div>
+  <div class="k"><span class="kv-label-text">상품 키</span></div>
+  <div class="v"><span class="kv-value-text"><code>sme_watchlist_report</code></span></div>
+</div>
+```
+
+표준 섹션 설명 마크업:
+
+```html
+<p class="section-intro">
+  <span class="section-intro-text">운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업</span>
+</p>
+```
+
+- `div`, `p`, `h2`, `strong`, `code`는 구조와 의미를 담당하고 실제 문구는 내부 `span`이 담당한다.
+- 버튼, 입력 옵션, 표 셀처럼 네이티브 의미와 상호작용이 우선인 요소는 불필요하게 중첩하지 않는다.
+- 단순 값은 반드시 값 전용 span으로 감싼다. 표나 폼 같은 블록 콘텐츠는 값 컨테이너에 직접 배치할 수 있다.
+- 동적 렌더링 결과도 동일한 계약을 적용하며 직접 텍스트 노드 검사를 통과해야 한다.
+
 ### 8.1 필드
 
 모든 업무 필드는 다음 순서를 따른다.
@@ -454,6 +492,8 @@ Product Twin은 상품 관련 화면의 기준 상세 화면이다.
 - [ ] 상태 문구와 색상이 공통 체계를 따른다.
 - [ ] 차단 사유와 해결 경로가 함께 표시된다.
 - [ ] 저장 또는 실행 결과가 발생한 위치에서 갱신된다.
+- [ ] 섹션, KPI, 키·값, 개체 요약, 안내 컴포넌트에 직접 텍스트 노드가 없다.
+- [ ] 각 문구가 용도에 맞는 텍스트 span 클래스를 사용한다.
 
 ### AI와 거버넌스
 
