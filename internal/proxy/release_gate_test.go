@@ -97,6 +97,16 @@ func TestReleaseGateChangelogMentionsVersion(t *testing.T) {
 	}
 }
 
+func TestReleaseGateDockerDataDirectoryIsWritable(t *testing.T) {
+	dockerfile := repoFile(t, "Dockerfile")
+	if !strings.Contains(dockerfile, "COPY --chown=nonroot:nonroot --from=build /out/data /data") {
+		t.Fatal("Docker image must create /data with nonroot ownership before declaring the runtime volume")
+	}
+	if !strings.Contains(dockerfile, "USER nonroot:nonroot") {
+		t.Fatal("Docker runtime must remain nonroot")
+	}
+}
+
 func atoiSafe(s string) int {
 	n := 0
 	for _, c := range s {

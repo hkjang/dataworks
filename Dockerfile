@@ -15,13 +15,15 @@ ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 ARG VERSION=dev
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -ldflags "-s -w -X main.version=${VERSION}" -o /out/dataworks ./cmd/dataworks
+    go build -ldflags "-s -w -X main.version=${VERSION}" -o /out/dataworks ./cmd/dataworks && \
+    mkdir -p /out/data
 
 FROM gcr.io/distroless/static:nonroot AS runtime
 WORKDIR /app
 USER nonroot:nonroot
 
-COPY --from=build /out/dataworks /app/dataworks
+COPY --chown=nonroot:nonroot --from=build /out/dataworks /app/dataworks
+COPY --chown=nonroot:nonroot --from=build /out/data /data
 
 ENV LISTEN_ADDR=:8080 \
     DB_DRIVER=sqlite \
