@@ -738,7 +738,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleFavicon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	_, _ = w.Write([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#0f766e"/><path d="M8 10h16v3H8zm0 5h11v3H8zm0 5h16v3H8z" fill="#fff"/></svg>`))
+	_, _ = w.Write([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0f172a"/><path d="M16 6 L26 11 L16 16 L6 11 Z" fill="#14b8a6" fill-opacity="0.3" stroke="#2dd4bf" stroke-width="1.5"/><path d="M6 11 L16 16 L16 26 L6 21 Z" fill="#6366f1" fill-opacity="0.3" stroke="#818cf8" stroke-width="1.5"/><path d="M16 16 L26 11 L26 21 L16 26 Z" fill="#a855f7" fill-opacity="0.3" stroke="#c084fc" stroke-width="1.5"/><circle cx="16" cy="16" r="2.5" fill="#ffffff"/></svg>`))
 }
 
 func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {

@@ -342,7 +342,7 @@ const adminHTML = `<!doctype html>
 </head>
 <body>
   <header>
-    <h1>Data Works</h1>
+    <div style="display:flex;align-items:center;gap:10px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:28px;height:28px"><rect width="32" height="32" rx="8" fill="#0f172a"/><path d="M16 6 L26 11 L16 16 L6 11 Z" fill="#14b8a6" fill-opacity="0.3" stroke="#2dd4bf" stroke-width="1.5"/><path d="M6 11 L16 16 L16 26 L6 21 Z" fill="#6366f1" fill-opacity="0.3" stroke="#818cf8" stroke-width="1.5"/><path d="M16 16 L26 11 L26 21 L16 26 Z" fill="#a855f7" fill-opacity="0.3" stroke="#c084fc" stroke-width="1.5"/><circle cx="16" cy="16" r="2.5" fill="#ffffff"/></svg><h1 style="margin:0">Data Works</h1></div>
     <nav id="tabs">
       <a href="#/dataworks/home" data-tab="dataworks-home" class="active">Home</a>
       <a href="#/dataworks/actions" data-tab="dataworks-actions">Action Center</a>

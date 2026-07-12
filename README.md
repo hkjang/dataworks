@@ -1,5 +1,9 @@
 # Data Works
 
+<p align="center">
+  <img src="internal/proxy/brand_logo.svg" width="128" alt="KCB Data Works Brand Icon"/>
+</p>
+
 **Data Works**는 내부 데이터 자산을 판매 가능한 데이터 상품, API 상품, 분석 리포트, PoC 제안 패키지로 전환하는 **Data Product Factory**입니다.
 
 기존 게이트웨이 코어, Admin UI, SQLite/PostgreSQL 저장소, 감사 로그, 승인 흐름, Text2SQL 수요 분석, ClickHouse 분석 기반은 재활용하되, 기본 경험은 Kubernetes 운영 허브가 아니라 데이터 상품화 워크플로우에 맞춰 전환합니다.
