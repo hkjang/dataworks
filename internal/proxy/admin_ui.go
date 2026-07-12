@@ -1154,64 +1154,6 @@ const adminHTML = `<!doctype html>
           { label: 'Provider Health', href: '#/routing/health', active: onHealth },
         ]);
       } else {
-        el.innerHTML = subNav([
-          { label: '대시보드', href: '#/dashboard', active: tab === 'dashboard' },
-          { label: 'XView', href: '#/xview', active: tab === 'xview' },
-          { label: 'Waterfall', href: '#/waterfall', active: tab === 'waterfall' },
-          { label: 'LLM 관측', href: '#/llm', active: tab === 'llm' },
-        ]);
-      } else if (tab === 'dwdashboard' || tab === 'clickhouse' || tab === 'dwmetrics') {
-        const onCH = tab === 'clickhouse' || rest[0] === 'clickhouse';
-        const onMetrics = tab === 'dwmetrics' || rest[0] === 'metrics';
-        el.innerHTML = subNav([
-          { label: 'DW 대시보드', href: '#/dwdashboard', active: !onCH && !onMetrics },
-          { label: 'ClickHouse', href: '#/dwdashboard/clickhouse', active: onCH },
-          { label: '지표 사전', href: '#/dwmetrics', active: onMetrics },
-        ]);
-      } else if (tab === 'settings' || tab === 'runtimesettings' || tab === 'changesets' || rest[0] === 'errors' || rest[0] === 'sso' || rest[0] === 'changesets') {
-        const onRT = tab === 'runtimesettings' || rest[0] === 'runtime';
-        const onErr = rest[0] === 'errors';
-        const onSSO = rest[0] === 'sso';
-        const onCS = tab === 'changesets' || rest[0] === 'changesets';
-        el.innerHTML = subNav([
-          { label: '설정', href: '#/settings', active: !onRT && !onErr && !onSSO && !onCS },
-          { label: '런타임 설정', href: '#/settings/runtime', active: onRT },
-          { label: '변경 세트', href: '#/changesets', active: onCS },
-          { label: 'SSO', href: '#/settings/sso', active: onSSO },
-          { label: '시스템 오류', href: '#/settings/errors', active: onErr },
-        ]);
-      } else if (tab === 'users' || tab === 'teams' || tab === 'ips' || tab === 'quotas') {
-        el.innerHTML = subNav([
-          { label: '사용자', href: '#/users', active: tab === 'users' },
-          { label: '팀', href: '#/teams', active: tab === 'teams' },
-          { label: 'IP', href: '#/ips', active: tab === 'ips' },
-          { label: '사용 한도', href: '#/quotas', active: tab === 'quotas' },
-        ]);
-      } else if (tab === 'safety' || tab === 'skills' || tab === 'skill-studio' || tab === 'modeldeprecations') {
-        el.innerHTML = subNav([
-          { label: '안전', href: '#/safety', active: tab === 'safety' },
-          { label: 'Skills', href: '#/skills', active: tab === 'skills' },
-          { label: 'Skill Studio', href: '#/skill-studio', active: tab === 'skill-studio' },
-          { label: '모델 일몰', href: '#/modeldeprecations', active: tab === 'modeldeprecations' },
-        ]);
-      } else if (tab === 'mcp' || tab === 'agents' || tab === 'vcs') {
-        el.innerHTML = subNav([
-          { label: 'MCP', href: '#/mcp', active: tab === 'mcp' },
-          { label: '에이전트', href: '#/agents', active: tab === 'agents' },
-          { label: 'VCS', href: '#/vcs', active: tab === 'vcs' },
-        ]);
-      } else if (tab === 'chat-test' || tab === 'prompt-lab') {
-        el.innerHTML = subNav([
-          { label: 'Chat 테스트', href: '#/chat-test', active: tab === 'chat-test' },
-          { label: 'Prompt Lab', href: '#/prompt-lab', active: tab === 'prompt-lab' },
-        ]);
-      } else if (tab === 'routing') {
-        const onHealth = rest[0] === 'health';
-        el.innerHTML = subNav([
-          { label: '라우팅 학습', href: '#/routing', active: !onHealth },
-          { label: 'Provider Health', href: '#/routing/health', active: onHealth },
-        ]);
-      } else {
         el.innerHTML = '';
       }
     }
@@ -13583,6 +13525,8 @@ const adminHTML = `<!doctype html>
 
     // ---------- KCB Data Works Screens ----------
 
+    const dataWorksTwinTabs = ['overview', 'canvas', 'evidence', 'risk', 'api', 'contract', 'poc', 'proposal', 'cost', 'funnel', 'version', 'audit'];
+
     async function routeDataWorks(rest, params) {
       const sub = rest[0] || 'home';
       if (sub === 'home') {
@@ -13613,6 +13557,10 @@ const adminHTML = `<!doctype html>
         await renderDataWorksPromptRegistry();
       } else if (sub === 'products') {
         if (rest[1]) {
+          const requestedTab = params && params.get('tab');
+          if (dataWorksTwinTabs.includes(requestedTab)) {
+            sessionStorage.setItem('twinActiveTab', requestedTab);
+          }
           await renderDataWorksProductTwin(rest[1]);
         } else {
           location.hash = '#/factory';
@@ -13653,13 +13601,15 @@ const adminHTML = `<!doctype html>
       if (actSummary.approval_pending > 0) alertsList.push('<span class="status warn" style="margin-right:6px">승인 대기 ' + actSummary.approval_pending + '건</span>');
       if (actSummary.stale_watermarks > 0) alertsList.push('<span class="status warn" style="margin-right:6px">stale 데이터 ' + actSummary.stale_watermarks + '건</span>');
       if (actSummary.expiring_contracts > 0) alertsList.push('<span class="status" style="margin-right:6px">만료 임박 계약 ' + actSummary.expiring_contracts + '건</span>');
+      if (actSummary.negative_margin > 0) alertsList.push('<span class="status error" style="margin-right:6px">적자 상품 ' + actSummary.negative_margin + '건</span>');
+      if (actSummary.retirement_candidates > 0) alertsList.push('<span class="status warn" style="margin-right:6px">폐기 검토 ' + actSummary.retirement_candidates + '건</span>');
       
       const alertsWidget = alertsList.length 
         ? '<div style="margin-bottom:14px;padding:12px;background:var(--panel-alt);border:1px solid var(--line);border-radius:6px">' +
             '<strong>오늘의 조치 필요:</strong> ' + alertsList.join(' ') + ' <a href="#/dataworks/actions" style="margin-left:10px;font-weight:700">조치 센터로 이동 →</a>' +
           '</div>'
         : '<div style="margin-bottom:14px;padding:12px;background:var(--panel-alt);border:1px solid var(--line);border-radius:6px;color:var(--muted)">' +
-            '✓ 현재 긴급히 조치해야 할 위반 사항이나 대기 작업이 없습니다.' +
+            '현재 긴급히 조치해야 할 위반 사항이나 대기 작업이 없습니다.' +
           '</div>';
 
       const topRows = topProducts.length
@@ -13696,16 +13646,18 @@ const adminHTML = `<!doctype html>
 
       window.actionTabFilter = (type) => {
         sessionStorage.setItem('actionFilterType', type);
-        renderDataWorksActionsList(actions);
+        renderDataWorksActions();
       };
 
       const currentFilter = sessionStorage.getItem('actionFilterType') || 'all';
 
-      const tabHeader = '<div class="toolbar" style="gap:4px">' +
+      const tabHeader = '<div class="toolbar" style="gap:4px;flex-wrap:wrap">' +
         '<button class="' + (currentFilter === 'all' ? '' : 'secondary') + '" onclick="actionTabFilter(\'all\')">전체 (' + actions.length + ')</button>' +
         '<button class="' + (currentFilter === 'blocked' ? '' : 'secondary') + '" onclick="actionTabFilter(\'blocked\')">출시 차단 (' + (summary.blocked_launches || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'pending' ? '' : 'secondary') + '" onclick="actionTabFilter(\'pending\')">승인 대기 (' + (summary.approval_pending || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'fit' ? '' : 'secondary') + '" onclick="actionTabFilter(\'fit\')">고객 적합도 (' + (summary.low_fit_scores || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'contract' ? '' : 'secondary') + '" onclick="actionTabFilter(\'contract\')">계약 만료 (' + (summary.expiring_contracts || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'access' ? '' : 'secondary') + '" onclick="actionTabFilter(\'access\')">접근 만료 (' + (summary.inactive_access || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'stale' ? '' : 'secondary') + '" onclick="actionTabFilter(\'stale\')">stale 데이터 (' + (summary.stale_watermarks || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'margin' ? '' : 'secondary') + '" onclick="actionTabFilter(\'margin\')">저마진 (' + (summary.negative_margin || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'retire' ? '' : 'secondary') + '" onclick="actionTabFilter(\'retire\')">폐기 추천 (' + (summary.retirement_candidates || 0) + ')</button>' +
@@ -13723,7 +13675,9 @@ const adminHTML = `<!doctype html>
         if (filter === 'all') return true;
         if (filter === 'blocked') return a.type === 'launch_blocked';
         if (filter === 'pending') return a.type === 'approval_pending';
+        if (filter === 'fit') return a.type === 'low_customer_fit';
         if (filter === 'contract') return a.type === 'contract_expiring';
+        if (filter === 'access') return a.type === 'entitlement_inactive';
         if (filter === 'stale') return a.type === 'stale_watermark';
         if (filter === 'margin') return a.type === 'negative_margin';
         if (filter === 'retire') return a.type === 'retirement_candidate';
@@ -13739,7 +13693,7 @@ const adminHTML = `<!doctype html>
         const severityBadge = a.severity === 'high' ? '<span class="status error">High</span>' : (a.severity === 'medium' ? '<span class="status warn">Medium</span>' : '<span class="status">Low</span>');
         let details = '';
         if (a.blocked_reasons && a.blocked_reasons.length) {
-          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad)">차단 사유: ' + a.blocked_reasons.map(r => '<code>' + escapeHTML(r) + '</code>').join(', ') + '</div>';
+          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad);overflow-wrap:anywhere">차단 사유: ' + a.blocked_reasons.map(r => '<code style="white-space:normal">' + escapeHTML(r) + '</code>').join(', ') + '</div>';
         }
         if (a.missing_approvals && a.missing_approvals.length) {
           details += '<div style="margin-top:4px;font-size:12px;color:var(--warn)">미승인 부서: ' + a.missing_approvals.map(m => '<code>' + escapeHTML(m) + '</code>').join(', ') + '</div>';
@@ -13748,15 +13702,15 @@ const adminHTML = `<!doctype html>
           details += '<div style="margin-top:6px;font-size:12px">자산: <code>' + escapeHTML(a.asset_key || '') + '</code> (상태: ' + escapeHTML(a.delay_status) + ', 기준시각: ' + escapeHTML(a.data_as_of || '') + ')</div>';
         }
         if (a.estimated_margin != null) {
-          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad)">마진율: ' + (a.estimated_margin).toFixed(1) + '% (비용 대비 예상 손실 발생)</div>';
+          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad)">예상 마진: ' + fmt(a.estimated_margin) + ' ' + escapeHTML(a.currency || 'KRW') + '</div>';
         }
         if (a.reason) {
           details += '<div style="margin-top:6px;font-size:12px">추천 사유: ' + escapeHTML(a.reason) + '</div>';
         }
 
-        return '<div style="padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-alt);margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start">' +
-          '<div>' +
-            '<div style="display:flex;align-items:center;gap:8px">' +
+        return '<div style="padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-alt);margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;min-width:0">' +
+          '<div style="min-width:0;flex:1 1 240px;overflow-wrap:anywhere">' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0">' +
               severityBadge +
               '<span class="pill" style="text-transform:uppercase">' + escapeHTML(a.type) + '</span>' +
               '<a href="#/dataworks/products/' + encodeURIComponent(a.product_key) + '"><strong style="font-size:15px">' + escapeHTML(a.title || a.product_key) + '</strong></a>' +
@@ -13764,8 +13718,8 @@ const adminHTML = `<!doctype html>
             '<div class="muted" style="margin-top:6px;font-size:12px">권장 액션: ' + escapeHTML(a.next_action) + '</div>' +
             details +
           '</div>' +
-          '<div>' +
-            '<a href="#/dataworks/products/' + encodeURIComponent(a.product_key) + '"><button type="button" style="font-size:12px">트윈 상세</button></a>' +
+          '<div style="flex:0 0 auto">' +
+            '<a href="#/dataworks/products/' + encodeURIComponent(a.product_key) + '"><button type="button" style="font-size:12px;white-space:nowrap">트윈 상세</button></a>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -13799,8 +13753,8 @@ const adminHTML = `<!doctype html>
               domain: document.getElementById('ass-domain').value.trim(),
               owner: document.getElementById('ass-owner').value.trim(),
               sensitivity: document.getElementById('ass-sensitivity').value,
-              description: document.getElementById('ass-desc').value.trim(),
-              format: document.getElementById('ass-format').value,
+              columns_summary: document.getElementById('ass-columns').value.trim(),
+              refresh_cycle: document.getElementById('ass-refresh').value,
             })
           });
           document.getElementById('ass-form').reset();
@@ -13809,14 +13763,14 @@ const adminHTML = `<!doctype html>
       };
 
       const form = card('신규 데이터 자산 등록',
-        '<form class="inline-form" id="ass-form" style="grid-template-columns: minmax(110px,1fr) minmax(130px,1fr) minmax(110px,1fr) minmax(110px,1fr) minmax(120px,1fr) minmax(150px,2fr) minmax(80px,0.8fr) 70px;">' +
+        '<form class="inline-form" id="ass-form" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));">' +
           '<input id="ass-key" placeholder="asset_key" required>' +
           '<input id="ass-name" placeholder="자산 이름" required>' +
           '<input id="ass-domain" placeholder="도메인(예: CB, 카드)">' +
           '<input id="ass-owner" placeholder="오너 부서">' +
           '<select id="ass-sensitivity"><option value="public">public</option><option value="internal">internal</option><option value="restricted">restricted</option><option value="personal_credit">personal_credit</option><option value="pseudonymized">pseudonymized</option></select>' +
-          '<input id="ass-desc" placeholder="자산 상세 설명">' +
-          '<select id="ass-format"><option value="table">Table</option><option value="api">API</option><option value="file">File</option></select>' +
+          '<input id="ass-columns" placeholder="컬럼 요약(쉼표 구분)">' +
+          '<select id="ass-refresh"><option value="realtime">실시간</option><option value="hourly">매시간</option><option value="daily" selected>일간</option><option value="weekly">주간</option><option value="monthly">월간</option></select>' +
           '<button type="submit">등록</button>' +
         '</form>');
 
@@ -13828,8 +13782,8 @@ const adminHTML = `<!doctype html>
       };
 
       const rows = assets.length
-        ? '<table><thead><tr><th>자산 Key</th><th>이름</th><th>도메인</th><th>오너</th><th>민감도</th><th>형식</th><th>동작</th></tr></thead><tbody>' +
-          assets.map(a => '<tr><td><a href="#/dataworks/assets/' + encodeURIComponent(a.asset_key) + '"><code>' + escapeHTML(a.asset_key) + '</code></a></td><td><strong>' + escapeHTML(a.name) + '</strong><div class="muted" style="font-size:11px">' + escapeHTML(a.description || '') + '</div></td><td>' + escapeHTML(a.domain) + '</td><td>' + escapeHTML(a.owner) + '</td><td>' + sensitivityBadge(a.sensitivity) + '</td><td>' + escapeHTML(a.format || 'table') + '</td><td>' +
+        ? '<table><thead><tr><th>자산 Key</th><th>이름</th><th>도메인</th><th>오너</th><th>민감도</th><th>갱신 주기</th><th>동작</th></tr></thead><tbody>' +
+          assets.map(a => '<tr><td><a href="#/dataworks/assets/' + encodeURIComponent(a.asset_key) + '"><code>' + escapeHTML(a.asset_key) + '</code></a></td><td><strong>' + escapeHTML(a.name) + '</strong><div class="muted" style="font-size:11px">' + escapeHTML(a.columns_summary || '') + '</div></td><td>' + escapeHTML(a.domain) + '</td><td>' + escapeHTML(a.owner) + '</td><td>' + sensitivityBadge(a.sensitivity) + '</td><td>' + escapeHTML(a.refresh_cycle || '-') + '</td><td>' +
             '<a href="#/dataworks/assets/' + encodeURIComponent(a.asset_key) + '"><button type="button" class="secondary" style="font-size:11px;height:24px;padding:0 6px">상세 & Lineage</button></a>' +
           '</td></tr>').join('') +
           '</tbody></table>'
@@ -13881,13 +13835,12 @@ const adminHTML = `<!doctype html>
       const overviewHtml = '<div class="card-body"><div class="kv">' +
         row('자산 Key', '<code>' + escapeHTML(asset.asset_key) + '</code>') +
         row('자산명', '<strong>' + escapeHTML(asset.name) + '</strong>') +
-        row('설명', escapeHTML(asset.description || '설명이 없습니다.')) +
+        row('컬럼 요약', escapeHTML(asset.columns_summary || '등록된 컬럼 요약이 없습니다.')) +
         row('도메인', escapeHTML(asset.domain)) +
         row('소유 부서 (Owner)', escapeHTML(asset.owner)) +
-        row('자산 유형 / 포맷', escapeHTML(asset.format)) +
-        row('연결 정보', '<code>' + escapeHTML(asset.connection_info || '-') + '</code>') +
+        row('갱신 주기', escapeHTML(asset.refresh_cycle || '-')) +
         row('민감도 등급', escapeHTML(asset.sensitivity)) +
-        row('등록 정보', escapeHTML(asset.created_by) + ' (시각: ' + escapeHTML(asset.created_at) + ')') +
+        row('등록 시각', escapeHTML(asset.created_at || '-')) +
       '</div>' +
       '<div style="margin-top:12px"><button type="button" id="btn-readiness" onclick="runReadinessCheck()">준비도 검사 실행</button></div></div>';
 
@@ -13897,18 +13850,18 @@ const adminHTML = `<!doctype html>
         readinessHtml = '<div class="card-body">' +
           '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">' +
             '<div style="font-size:24px;font-weight:800;color:' + scoreColor(latestReadiness.overall_score) + '">' + latestReadiness.overall_score + '점</div>' +
-            '<span class="status ' + (latestReadiness.overall_score >= 70 ? '' : 'warn') + '">' + latestReadiness.notes + '</span>' +
+            '<span class="status ' + (latestReadiness.overall_score >= 70 ? '' : 'warn') + '">' + escapeHTML(latestReadiness.notes || '-') + '</span>' +
             '<span class="muted">점검관: ' + escapeHTML(latestReadiness.updated_by) + ' (시각: ' + ago(latestReadiness.updated_at) + ')</span>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px,1fr));gap:10px">' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">스키마 충실도</div><div style="font-size:16px;font-weight:700">' + latestReadiness.schema_readiness_score + '점</div></div>' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">최신성(Freshness)</div><div style="font-size:16px;font-weight:700">' + latestReadiness.freshness_readiness_score + '점</div></div>' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">샘플 충족성</div><div style="font-size:16px;font-weight:700">' + latestReadiness.sample_readiness_score + '점</div></div>' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">결측값(Missing)</div><div style="font-size:16px;font-weight:700">' + latestReadiness.missing_readiness_score + '점</div></div>' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">민감도 통제</div><div style="font-size:16px;font-weight:700">' + latestReadiness.sensitivity_readiness_score + '점</div></div>' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">외부 연동성</div><div style="font-size:16px;font-weight:700">' + latestReadiness.external_readiness_score + '점</div></div>' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">API 적합도</div><div style="font-size:16px;font-weight:700">' + latestReadiness.api_readiness_score + '점</div></div>' +
-            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">과금 수집성</div><div style="font-size:16px;font-weight:700">' + latestReadiness.billing_readiness_score + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">스키마 충실도</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.schema_score) + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">최신성(Freshness)</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.freshness_score) + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">샘플 충족성</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.sample_score) + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">결측값(Missing)</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.missingness_score) + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">민감도 통제</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.sensitivity_score) + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">외부 연동성</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.external_sharing_score) + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">API 적합도</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.api_readiness_score) + '점</div></div>' +
+            '<div style="border:1px solid var(--line);padding:8px;border-radius:6px"><div class="muted" style="font-size:11px">과금 수집성</div><div style="font-size:16px;font-weight:700">' + fmt(latestReadiness.billing_readiness_score) + '점</div></div>' +
           '</div>' +
         '</div>';
       }
@@ -14019,7 +13972,14 @@ const adminHTML = `<!doctype html>
 
       window.kanbanTransition = async (key, action) => {
         try {
-          await api('/admin/dataworks/products/' + encodeURIComponent(key) + '/' + action, { method: 'POST' });
+          if (action === 'risk-check') {
+            await api('/admin/dataworks/risk/check', {
+              method: 'POST',
+              body: JSON.stringify({ product_key: key }),
+            });
+          } else {
+            await api('/admin/dataworks/products/' + encodeURIComponent(key) + '/' + action, { method: 'POST' });
+          }
           renderDataWorksPortfolio();
         } catch (e) { alert('상태 변경 실패: ' + e.message); }
       };
@@ -14028,11 +13988,11 @@ const adminHTML = `<!doctype html>
         const list = portfolio[col] || [];
         const cardsHtml = list.map(p => {
           let actionBtn = '';
-          if (col === 'draft') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','approve')">검토 요청</button>';
-          else if (col === 'review') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--warn);border-color:var(--warn)" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','approve')">리스크 검토</button>';
-          else if (col === 'risk_review') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--good-ink);border-color:var(--good-ink)" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','approve')">최종 승인</button>';
-          else if (col === 'approved') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--good-ink);border-color:var(--good-ink)" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','publish')">출시하기</button>';
-          else if (col === 'published') actionBtn = '<button type="button" class="secondary" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px" onclick="kanbanTransition('' + escapeAttr(p.product_key) + '','archive')">보관하기</button>';
+          if (col === 'draft') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px" onclick="kanbanTransition(\'' + escapeAttr(p.product_key) + '\',\'submit\')">검토 요청</button>';
+          else if (col === 'review') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--warn);border-color:var(--warn)" onclick="kanbanTransition(\'' + escapeAttr(p.product_key) + '\',\'risk-check\')">리스크 점검</button>';
+          else if (col === 'risk_review') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--good-ink);border-color:var(--good-ink)" onclick="kanbanTransition(\'' + escapeAttr(p.product_key) + '\',\'approve\')">최종 승인</button>';
+          else if (col === 'approved') actionBtn = '<button type="button" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px;background:var(--good-ink);border-color:var(--good-ink)" onclick="kanbanTransition(\'' + escapeAttr(p.product_key) + '\',\'publish\')">출시하기</button>';
+          else if (col === 'published') actionBtn = '<button type="button" class="secondary" style="font-size:10px;height:22px;padding:0 4px;margin-top:6px" onclick="kanbanTransition(\'' + escapeAttr(p.product_key) + '\',\'archive\')">보관하기</button>';
 
           return '<div style="padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">' +
             '<div style="font-size:11px;font-weight:700;color:var(--muted)">' + escapeHTML(p.product_key) + '</div>' +
@@ -14054,7 +14014,7 @@ const adminHTML = `<!doctype html>
         '</div>';
       }).join('');
 
-      view.innerHTML = section('상품 포트폴리오 (Kanban Board)', '') +
+      view.innerHTML = section('상품 포트폴리오 (Kanban Board)', '<div style="margin-top:-4px"><a href="#/dataworks/portfolio/graph">관계 그래프 보기</a></div>') +
         '<div style="display:flex;gap:12px;overflow-x:auto;padding:10px;align-items:stretch">' + boardCols + '</div>';
     }
 
@@ -14096,7 +14056,7 @@ const adminHTML = `<!doctype html>
           if (n.type === 'asset') { fill = 'var(--good-bg)'; stroke = 'var(--good-ink)'; }
           else if (n.type === 'product') { fill = 'var(--warn-bg)'; stroke = 'var(--warn)'; }
 
-          svgContent += '<g cursor="pointer" onclick="graphNodeClick('' + escapeAttr(n.id) + '')">';
+          svgContent += '<g cursor="pointer" onclick="graphNodeClick(\'' + escapeAttr(n.id) + '\')">';
           svgContent += '<circle cx="' + x + '" cy="' + y + '" r="22" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
           svgContent += '<text x="' + x + '" y="' + (y + 4) + '" font-size="9" text-anchor="middle" font-weight="700" fill="' + color + '">' + escapeHTML(n.label.slice(0, 5)) + '</text>';
           svgContent += '<text x="' + x + '" y="' + (y + 36) + '" font-size="10" text-anchor="middle" fill="var(--muted)">' + escapeHTML(n.id.split(':')[1].slice(0, 10)) + '</text>';
@@ -14161,9 +14121,9 @@ const adminHTML = `<!doctype html>
         return list.length
           ? '<table><thead><tr><th>상품 Key</th><th>상품명</th><th>매출성</th><th>리스크 점수</th><th>동작</th></tr></thead><tbody>' +
             list.map(p => '<tr><td><code>' + escapeHTML(p.product_key) + '</code></td><td><strong>' + escapeHTML(p.name_ko || p.name || '') + '</strong></td><td>' + fmt(p.revenue_score) + '</td><td>' + (p.risk_score >= 70 ? '<span class="status error">' + fmt(p.risk_score) + '</span>' : fmt(p.risk_score)) + '</td><td>' +
-              '<button type="button" class="secondary" style="font-size:11px" onclick="location.hash='#/dataworks/products/' + encodeURIComponent(p.product_key) + '?tab=risk'">매트릭스 검토</button> ' +
-              '<button type="button" style="font-size:11px;background:var(--good-ink);border-color:var(--good-ink)" onclick="riskReviewDecide('' + escapeAttr(p.product_key) + '','approve')">승인</button> ' +
-              '<button type="button" class="danger" style="font-size:11px" onclick="riskReviewDecide('' + escapeAttr(p.product_key) + '','reject')">반려</button>' +
+              '<button type="button" class="secondary" style="font-size:11px" onclick="location.hash=\'#/dataworks/products/' + escapeAttr(encodeURIComponent(p.product_key)) + '?tab=risk\'">매트릭스 검토</button> ' +
+              '<button type="button" style="font-size:11px;background:var(--good-ink);border-color:var(--good-ink)" onclick="riskReviewDecide(\'' + escapeAttr(p.product_key) + '\',\'approve\')">승인</button> ' +
+              '<button type="button" class="danger" style="font-size:11px" onclick="riskReviewDecide(\'' + escapeAttr(p.product_key) + '\',\'reject\')">반려</button>' +
             '</td></tr>').join('') +
             '</tbody></table>'
           : '<p class="muted">대기 중인 검토 항목이 없습니다.</p>';
@@ -14186,7 +14146,9 @@ const adminHTML = `<!doctype html>
         return;
       }
       const product = data.product || {};
-      const canvas = data.canvas || {};
+      const canvasResponse = await api('/admin/dataworks/products/' + encodeURIComponent(productKey) + '/canvas')
+        .catch(() => ({ canvas: data.canvas || {} }));
+      const canvas = canvasResponse.canvas || {};
       const evidence = data.evidence || [];
       const regulatoryTrace = data.regulatory_trace || [];
       const apiContract = data.api_contract || {};
@@ -14211,19 +14173,19 @@ const adminHTML = `<!doctype html>
           '<div>' +
             '<div style="display:flex;align-items:center;gap:10px">' +
               '<h2 style="margin:0;font-size:20px">' + escapeHTML(product.name_ko || product.name || '') + '</h2>' +
-              '<span class="status ' + (statusLabel === 'published' ? 'good' : (statusLabel === 'approved' ? 'good' : 'warn')) + '">' + statusLabel.toUpperCase() + '</span>' +
+              '<span class="status ' + (statusLabel === 'published' ? 'good' : (statusLabel === 'approved' ? 'good' : 'warn')) + '">' + escapeHTML(statusLabel.toUpperCase()) + '</span>' +
             '</div>' +
             '<div class="muted" style="margin-top:6px;font-size:12px">상품 Key: <code>' + escapeHTML(product.product_key) + '</code> | 소스 유형: ' + escapeHTML(product.source_type || 'table') + '</div>' +
           '</div>' +
           '<div style="display:flex;gap:12px;text-align:right">' +
             '<div><div class="muted" style="font-size:10px">매출성 점수</div><div style="font-size:16px;font-weight:700;color:' + scoreColor(product.revenue_score) + '">' + product.revenue_score + '점</div></div>' +
             '<div><div class="muted" style="font-size:10px">리스크 점수</div><div style="font-size:16px;font-weight:700;color:' + scoreColor(100 - product.risk_score) + '">' + product.risk_score + '점</div></div>' +
-            '<div><div class="muted" style="font-size:10px">준비도 점수</div><div style="font-size:16px;font-weight:700;color:' + scoreColor(product.readiness_score) + '">' + product.readiness_score + '점</div></div>' +
+            '<div><div class="muted" style="font-size:10px">상품 버전</div><div style="font-size:16px;font-weight:700">v' + fmt(product.version) + '</div></div>' +
           '</div>' +
         '</div>' +
         '<div style="margin-top:12px;display:flex;gap:8px">' +
-          '<button type="button" class="secondary" style="font-size:11px" onclick="triggerPublishGate('' + escapeAttr(product.product_key) + '')">출시 게이트 검증</button>' +
-          '<button type="button" class="secondary" style="font-size:11px" onclick="rebuildDefinition('' + escapeAttr(product.product_key) + '')">정의서 수동 재생성</button>' +
+          '<button type="button" class="secondary" style="font-size:11px" onclick="triggerPublishGate(\'' + escapeAttr(product.product_key) + '\')">출시 게이트 검증</button>' +
+          '<button type="button" class="secondary" style="font-size:11px" onclick="rebuildDefinition(\'' + escapeAttr(product.product_key) + '\')">정의서 수동 재생성</button>' +
         '</div>' +
       '</div>';
 
@@ -14233,7 +14195,7 @@ const adminHTML = `<!doctype html>
           const res = await api('/admin/dataworks/products/' + encodeURIComponent(key) + '/publish-gate');
           const gate = res.publish_gate || {};
           if (gate.allowed) {
-            alert('✓ 출시 가능 상태입니다! 출시를 방해하는 차단 사유가 없습니다.');
+            alert('출시 가능 상태입니다. 출시를 방해하는 차단 사유가 없습니다.');
           } else {
             let msg = '출시 불가 사유:\n';
             if (gate.blocked_reasons && gate.blocked_reasons.length) {
@@ -14252,7 +14214,16 @@ const adminHTML = `<!doctype html>
         try {
           await api('/admin/dataworks/factory/definitions', {
             method: 'POST',
-            body: JSON.stringify({ product_key: key })
+            body: JSON.stringify({
+              product_key: key,
+              title: product.name_ko || product.product_key,
+              target_industry: (product.target_industries || [])[0] || '',
+              target_customers: product.target_customers || [],
+              customer_need: product.description || product.executive_summary || '',
+              data_assets: splitCSV(product.source_ref || ''),
+              delivery_method: product.source_type || '',
+              expected_impact: product.sales_pitch || '',
+            })
           });
           alert('정의서 재생성 성공!');
           renderDataWorksProductTwin(productKey);
@@ -14260,8 +14231,8 @@ const adminHTML = `<!doctype html>
       };
 
       const subTabs = '<nav class="subtabs" style="margin-bottom:14px">' +
-        ['overview', 'canvas', 'evidence', 'risk', 'api', 'contract', 'poc', 'proposal', 'cost', 'funnel', 'version', 'audit'].map(t =>
-          '<a href="javascript:void(0)" onclick="twinTabFilter('' + t + '')"' + (activeTab === t ? ' class="active"' : '') + '>' + t.toUpperCase() + '</a>'
+        dataWorksTwinTabs.map(t =>
+          '<a href="javascript:void(0)" onclick="twinTabFilter(\'' + t + '\')"' + (activeTab === t ? ' class="active"' : '') + '>' + t.toUpperCase() + '</a>'
         ).join('') +
       '</nav>';
 
@@ -14277,21 +14248,21 @@ const adminHTML = `<!doctype html>
         };
 
         let actionButtons = '';
-        if (product.status === 'draft') actionButtons = '<button type="button" onclick="twinTransition('approve')">검토 신청 (Review)</button>';
+        if (product.status === 'draft') actionButtons = '<button type="button" onclick="twinTransition(\'submit\')">검토 신청 (Review)</button>';
         else if (product.status === 'review' || product.status === 'risk_review') {
-          actionButtons = '<button type="button" style="background:var(--good-ink);border-color:var(--good-ink)" onclick="twinTransition('approve')">승인 (Approve)</button> ' +
-            '<button type="button" class="danger" onclick="twinTransition('reject')">반려 (Reject)</button>';
+          actionButtons = '<button type="button" style="background:var(--good-ink);border-color:var(--good-ink)" onclick="twinTransition(\'approve\')">승인 (Approve)</button> ' +
+            '<button type="button" class="danger" onclick="twinTransition(\'reject\')">반려 (Reject)</button>';
         } else if (product.status === 'approved') {
-          actionButtons = '<button type="button" style="background:var(--good-ink);border-color:var(--good-ink)" onclick="twinTransition('publish')">출시 (Publish)</button> ' +
-            '<button type="button" class="danger" onclick="twinTransition('reject')">초안 반려 (Reject)</button>';
+          actionButtons = '<button type="button" style="background:var(--good-ink);border-color:var(--good-ink)" onclick="twinTransition(\'publish\')">출시 (Publish)</button> ' +
+            '<button type="button" class="danger" onclick="twinTransition(\'reject\')">초안 반려 (Reject)</button>';
         } else if (product.status === 'published') {
-          actionButtons = '<button type="button" class="secondary" onclick="twinTransition('archive')">보관 (Archive)</button>';
+          actionButtons = '<button type="button" class="secondary" onclick="twinTransition(\'archive\')">보관 (Archive)</button>';
         }
 
         activeContent = '<div class="kv">' +
           row('상품명', '<strong>' + escapeHTML(product.name_ko || '') + '</strong>') +
           row('상품 Key', '<code>' + escapeHTML(product.product_key) + '</code>') +
-          row('오너 (Owner)', escapeHTML(product.owner_team || '미정')) +
+          row('오너 (Owner)', escapeHTML(product.owner || '미정')) +
           row('민감도 정보', escapeHTML(product.sensitivity || 'public')) +
           row('현재 상태', '<span class="status">' + escapeHTML(product.status) + '</span>') +
           row('수정자', escapeHTML(product.updated_by || 'system')) +
@@ -14331,7 +14302,7 @@ const adminHTML = `<!doctype html>
           btn.disabled = true;
           btn.textContent = '생성 중...';
           try {
-            const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/canvas/generate', { method: 'POST' });
+            const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/canvas', { method: 'POST', body: '{}' });
             const c = res.canvas || {};
             document.getElementById('can-prob').value = c.customer_problem || '';
             document.getElementById('can-buyer').value = c.buyer || '';
@@ -14377,8 +14348,8 @@ const adminHTML = `<!doctype html>
         };
 
         const listHtml = evidence.length
-          ? '<table><thead><tr><th>증거 분야</th><th>체크 요건</th><th>결과</th><th>점검인</th><th>시각</th></tr></thead><tbody>' +
-            evidence.map(e => '<tr><td><code>' + escapeHTML(e.domain || '') + '</code></td><td>' + escapeHTML(e.question || '') + '</td><td>' + (e.decision === 'approved' ? '<span class="status good">Pass</span>' : '<span class="status error">' + escapeHTML(e.decision) + '</span>') + '</td><td>' + escapeHTML(e.reviewer || '') + '</td><td>' + escapeHTML(e.created_at || '') + '</td></tr>').join('') +
+          ? '<table><thead><tr><th>증거 유형</th><th>출처</th><th>요약</th><th>신뢰도</th><th>생성자</th><th>시각</th></tr></thead><tbody>' +
+            evidence.map(e => '<tr><td><code>' + escapeHTML(e.evidence_type || '') + '</code></td><td>' + escapeHTML(e.source_ref || '') + '</td><td>' + escapeHTML(e.summary || '') + '</td><td><span class="status ' + (e.confidence_score >= 70 ? 'good' : 'warn') + '">' + fmt(e.confidence_score) + '점</span></td><td>' + escapeHTML(e.created_by || '') + '</td><td>' + escapeHTML(e.created_at || '') + '</td></tr>').join('') +
             '</tbody></table>'
           : '<p class="muted">생성된 증거 팩 정보가 없습니다. 아래 버튼으로 갱신해 주세요.</p>';
 
@@ -14469,25 +14440,20 @@ const adminHTML = `<!doctype html>
           btn.textContent = 'Mock API 실행';
         };
 
+        let openAPIDoc;
+        try {
+          const openAPIResponse = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/openapi');
+          openAPIDoc = openAPIResponse.openapi || {};
+        } catch (e) {
+          openAPIDoc = { error: e.message };
+        }
         const sampleJson = JSON.stringify({ customer_segment: "silver", period: "2026-06" }, null, 2);
         
         activeContent = '<div style="display:grid;grid-template-columns:1fr 1.2fr;gap:14px">' +
           '<div>' +
             '<strong>OpenAPI 3.1 Specification Preview:</strong>' +
             '<pre style="max-height:400px;overflow-y:auto;background:var(--panel-alt);border:1px solid var(--line);padding:10px;border-radius:6px;font-size:11px">' +
-              JSON.stringify({
-                openapi: "3.1.0",
-                info: { title: product.name_ko || product.product_key, version: "1.0.0" },
-                paths: {
-                  ["/v1/data-products/" + product.product_key + "/query"]: {
-                    post: {
-                      summary: "실시간 데이터 쿼리 호출",
-                      requestBody: { content: { "application/json": { schema: { type: "object", properties: { customer_segment: { type: "string" }, period: { type: "string" } } } } } },
-                      responses: { ["200"]: { description: "성공 응답", content: { "application/json": {} } } }
-                    }
-                  }
-                }
-              }, null, 2) +
+              escapeHTML(JSON.stringify(openAPIDoc, null, 2)) +
             '</pre>' +
           '</div>' +
           '<div>' +
@@ -14501,6 +14467,13 @@ const adminHTML = `<!doctype html>
         '</div>';
 
       } else if (activeTab === 'contract') {
+        const contractState = await Promise.all([
+          api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/sla').catch(() => ({ sla: null })),
+          api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/watermarks').catch(() => ({ watermarks: [] })),
+        ]);
+        const currentSLA = contractState[0].sla || {};
+        const currentWatermark = (contractState[1].watermarks || [])[0] || {};
+
         window.saveSLA = async (event) => {
           event.preventDefault();
           try {
@@ -14508,8 +14481,8 @@ const adminHTML = `<!doctype html>
               method: 'POST',
               body: JSON.stringify({
                 refresh_cycle: document.getElementById('sla-cycle').value,
-                latency_ms: Number(document.getElementById('sla-latency').value),
-                availability_pct: Number(document.getElementById('sla-availability').value),
+                latency_target_ms: Number(document.getElementById('sla-latency').value),
+                availability_target: Number(document.getElementById('sla-availability').value),
                 support_level: document.getElementById('sla-support').value,
               })
             });
@@ -14534,16 +14507,16 @@ const adminHTML = `<!doctype html>
         activeContent = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
           card('SLA 보증 조건 설정',
             '<form onsubmit="saveSLA(event)">' +
-              '<div><label>데이터 갱신 주기 (Refresh Cycle)</label><input id="sla-cycle" value="daily" required></div>' +
-              '<div><label>지연 시간 (Latency Goal, ms)</label><input id="sla-latency" type="number" value="150" required></div>' +
-              '<div><label>가동률 목표 (Availability, %)</label><input id="sla-availability" type="number" value="99.9" step="0.01" required></div>' +
-              '<div><label>지원 레벨 (Support Level)</label><input id="sla-support" value="24/7 Phone Support" required></div>' +
+              '<div><label>데이터 갱신 주기 (Refresh Cycle)</label><input id="sla-cycle" value="' + escapeHTML(currentSLA.refresh_cycle || 'daily') + '" required></div>' +
+              '<div><label>지연 시간 (Latency Goal, ms)</label><input id="sla-latency" type="number" min="0" value="' + fmt(currentSLA.latency_target_ms || 150) + '" required></div>' +
+              '<div><label>가동률 목표 (Availability, %)</label><input id="sla-availability" type="number" min="0" max="100" value="' + (currentSLA.availability_target || 99.9) + '" step="0.01" required></div>' +
+              '<div><label>지원 레벨 (Support Level)</label><input id="sla-support" value="' + escapeHTML(currentSLA.support_level || 'business hours') + '" required></div>' +
               '<div style="margin-top:10px"><button type="submit">SLA 저장</button></div>' +
             '</form>') +
           card('실시간 최신성 점검 (Watermark)',
             '<form onsubmit="saveWatermark(event)">' +
-              '<div><label>데이터 기준 시각 (Data as of)</label><input id="wat-asof" value="' + new Date().toISOString().slice(0, 10) + '" required></div>' +
-              '<div><label>지연 상태 (Delay Status)</label><select id="wat-delay"><option value="normal">Normal (정상)</option><option value="stale">Stale (갱신 지연)</option><option value="critical">Critical (차단 위기)</option></select></div>' +
+              '<div><label>데이터 기준 시각 (Data as of)</label><input id="wat-asof" value="' + escapeHTML(currentWatermark.data_as_of || new Date().toISOString().slice(0, 10)) + '" required></div>' +
+              '<div><label>지연 상태 (Delay Status)</label><select id="wat-delay">' + ['normal', 'stale', 'failed'].map(status => '<option value="' + status + '"' + (currentWatermark.delay_status === status ? ' selected' : '') + '>' + status + '</option>').join('') + '</select></div>' +
               '<div style="margin-top:10px"><button type="submit">워터마크 갱신</button></div>' +
             '</form>') +
         '</div>';
@@ -14556,10 +14529,10 @@ const adminHTML = `<!doctype html>
               method: 'POST',
               body: JSON.stringify({
                 product_key: product.product_key,
-                customer_key: document.getElementById('poc-cust').value,
-                success_criteria: document.getElementById('poc-crit').value,
+                customer_type: document.getElementById('poc-cust').value,
+                success_metric: document.getElementById('poc-crit').value,
                 timeline: document.getElementById('poc-time').value,
-                status: 'pending'
+                approval_status: 'pending'
               })
             });
             alert('PoC 검증 계획 등록 완료!');
@@ -14571,11 +14544,15 @@ const adminHTML = `<!doctype html>
           const success = confirm('이 PoC 검증이 성공했습니까? (확인: 성공, 취소: 실패)');
           const conversion = prompt('계약 전환 피드백 결과 입력 (accepted | pending | rejected)', 'accepted');
           if (!conversion) return;
+          const metricResult = prompt('성공 지표 측정 결과', '목표 기준 충족');
+          const customerFeedback = prompt('고객 피드백', '업무 적용 가능성 확인');
           try {
             await api('/admin/dataworks/poc/' + encodeURIComponent(pocId) + '/outcome', {
               method: 'POST',
               body: JSON.stringify({
                 success: success,
+                metric_result: metricResult || '',
+                customer_feedback: customerFeedback || '',
                 conversion_status: conversion
               })
             });
@@ -14585,13 +14562,22 @@ const adminHTML = `<!doctype html>
         };
 
         const listHtml = outcomes.length
-          ? '<table><thead><tr><th>PoC ID</th><th>고객</th><th>성공 여부</th><th>전환 결과</th><th>점검자</th></tr></thead><tbody>' +
-            outcomes.map(o => '<tr><td><code>' + escapeHTML(o.id) + '</code></td><td>' + escapeHTML(o.customer_key || '') + '</td><td>' + (o.success ? '<span class="status good">Success</span>' : '<span class="status error">Fail</span>') + '</td><td><span class="status">' + escapeHTML(o.conversion_status) + '</span></td><td>' + escapeHTML(o.created_by) + '</td></tr>').join('') +
+          ? '<table><thead><tr><th>PoC ID</th><th>측정 결과</th><th>성공 여부</th><th>전환 결과</th><th>점검자</th></tr></thead><tbody>' +
+            outcomes.map(o => '<tr><td><code>' + escapeHTML(o.poc_id || o.id) + '</code></td><td>' + escapeHTML(o.metric_result || '-') + '</td><td>' + (o.success ? '<span class="status good">Success</span>' : '<span class="status error">Fail</span>') + '</td><td><span class="status">' + escapeHTML(o.conversion_status) + '</span></td><td>' + escapeHTML(o.created_by) + '</td></tr>').join('') +
             '</tbody></table>'
           : '<p class="muted">기록된 PoC 검증 이력이 없습니다.</p>';
 
-        activeContent = '<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px">' +
-          card('PoC 검증 목록 및 상태', '<div class="card-body">' + listHtml + '</div>') +
+        const planHtml = pocPlan && pocPlan.id
+          ? '<div style="margin-bottom:12px;padding:12px;border:1px solid var(--line);border-radius:6px"><strong>현재 계획</strong><div class="kv" style="margin-top:8px">' +
+              row('계획 ID', '<code>' + escapeHTML(pocPlan.id) + '</code>') +
+              row('성공 지표', escapeHTML(pocPlan.success_metric || '-')) +
+              row('일정', escapeHTML(pocPlan.timeline || '-')) +
+              row('승인 상태', escapeHTML(pocPlan.approval_status || '-')) +
+            '</div><button type="button" onclick="submitPOCOutcome(\'' + escapeAttr(pocPlan.id) + '\')">PoC 결과 기록</button></div>'
+          : '';
+
+        activeContent = '<div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,1fr);gap:14px">' +
+          card('PoC 검증 목록 및 상태', '<div class="card-body">' + planHtml + listHtml + '</div>') +
           card('신규 PoC 검증 계획 등록',
             '<form onsubmit="savePOCPlan(event)">' +
               '<div><label>대상 고객사 Key</label><input id="poc-cust" placeholder="kcb_bank" required></div>' +
@@ -14605,14 +14591,19 @@ const adminHTML = `<!doctype html>
         window.generateProposal = async (event) => {
           event.preventDefault();
           try {
-            await api('/admin/dataworks/proposals', {
+            const res = await api('/admin/dataworks/proposals', {
               method: 'POST',
               body: JSON.stringify({
                 product_key: product.product_key,
                 target_customer_type: document.getElementById('prop-type').value,
               })
             });
-            alert('제안서 변형본 A/B 패키지 패킹 완료!');
+            const pkg = res.package || {};
+            openModal('제안 패키지 생성 완료', '<div class="kv">' +
+              row('제안 ID', '<code>' + escapeHTML(pkg.id || '-') + '</code>') +
+              row('대상 고객 유형', escapeHTML(pkg.target_customer_type || '-')) +
+            '</div><pre class="prompt-block" style="margin-top:12px">' + escapeHTML(JSON.stringify(res.proposal || {}, null, 2)) + '</pre>' +
+            (pkg.id ? '<button type="button" onclick="recordProposalFeedback(\'' + escapeAttr(pkg.id) + '\')">피드백 기록</button>' : ''));
             renderDataWorksProductTwin(productKey);
           } catch (e) { alert('제안서 생성 실패: ' + e.message); }
         };
@@ -14633,8 +14624,8 @@ const adminHTML = `<!doctype html>
 
         const listHtml = feedback.length
           ? '<table><thead><tr><th>제안 ID</th><th>고객 분류</th><th>판정</th><th>사유</th><th>등록 시각</th><th>동작</th></tr></thead><tbody>' +
-            feedback.map(f => '<tr><td><code>' + escapeHTML(f.id) + '</code></td><td>' + escapeHTML(f.target_customer_type || '') + '</td><td><span class="status">' + escapeHTML(f.result) + '</span></td><td>' + escapeHTML(f.reason || '') + '</td><td>' + escapeHTML(f.created_at) + '</td><td>' +
-              '<button type="button" class="secondary" style="font-size:11px" onclick="recordProposalFeedback('' + escapeAttr(f.id) + '')">피드백 기록</button>' +
+            feedback.map(f => '<tr><td><code>' + escapeHTML(f.proposal_id || '') + '</code></td><td>' + escapeHTML(f.customer_type || '') + '</td><td><span class="status">' + escapeHTML(f.result) + '</span></td><td>' + escapeHTML(f.reason || '') + '</td><td>' + escapeHTML(f.created_at) + '</td><td>' +
+              '<button type="button" class="secondary" style="font-size:11px" onclick="recordProposalFeedback(\'' + escapeAttr(f.proposal_id) + '\')">피드백 추가</button>' +
             '</td></tr>').join('') +
             '</tbody></table>'
           : '<p class="muted">작성된 제안서 패키지가 없습니다.</p>';
@@ -14649,6 +14640,8 @@ const adminHTML = `<!doctype html>
         '</div>';
 
       } else if (activeTab === 'cost') {
+        const costResponse = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/costs').catch(() => ({ cost: null }));
+        const productCost = costResponse.cost || {};
         window.saveCost = async (event) => {
           event.preventDefault();
           try {
@@ -14656,8 +14649,10 @@ const adminHTML = `<!doctype html>
               method: 'POST',
               body: JSON.stringify({
                 estimated_revenue: Number(document.getElementById('c-rev').value),
-                storage_cost: Number(document.getElementById('c-stor').value),
                 query_cost: Number(document.getElementById('c-query').value),
+                llm_cost: Number(document.getElementById('c-llm').value),
+                ops_cost: Number(document.getElementById('c-ops').value),
+                data_processing_cost: Number(document.getElementById('c-data').value),
                 currency: 'KRW'
               })
             });
@@ -14666,13 +14661,18 @@ const adminHTML = `<!doctype html>
           } catch (e) { alert('비용 저장 실패: ' + e.message); }
         };
 
-        const marginVal = product.estimated_revenue ? ((product.estimated_revenue - product.storage_cost - product.query_cost) / product.estimated_revenue * 100).toFixed(1) : '0';
+        const expectedRevenue = productCost.expected_revenue || 50000000;
+        const totalCost = (productCost.query_cost || 0) + (productCost.llm_cost || 0) + (productCost.ops_cost || 0) + (productCost.data_processing_cost || 0);
+        const marginVal = productCost.estimated_margin || (expectedRevenue - totalCost);
+        const marginPct = expectedRevenue > 0 ? (marginVal / expectedRevenue * 100).toFixed(1) : '0.0';
 
         activeContent = '<form onsubmit="saveCost(event)" style="max-width:500px">' +
-          '<div><label>예상 라이선스 계약 단가 (KRW)</label><input id="c-rev" type="number" value="' + (product.estimated_revenue || 50000000) + '" required></div>' +
-          '<div><label>스토리지 인프라 유지 비용 (KRW)</label><input id="c-stor" type="number" value="' + (product.storage_cost || 10000000) + '" required></div>' +
-          '<div><label>LLM/API 쿼리당 계산 비용 (KRW)</label><input id="c-query" type="number" value="' + (product.query_cost || 5000000) + '" required></div>' +
-          '<div style="margin:12px 0;font-size:15px"><strong>예측 마진율:</strong> ' + marginVal + '%</div>' +
+          '<div><label>예상 라이선스 계약 단가 (KRW)</label><input id="c-rev" type="number" min="0" value="' + expectedRevenue + '" required></div>' +
+          '<div><label>쿼리 비용 (KRW)</label><input id="c-query" type="number" min="0" value="' + (productCost.query_cost || 0) + '" required></div>' +
+          '<div><label>LLM 비용 (KRW)</label><input id="c-llm" type="number" min="0" value="' + (productCost.llm_cost || 0) + '" required></div>' +
+          '<div><label>운영 비용 (KRW)</label><input id="c-ops" type="number" min="0" value="' + (productCost.ops_cost || 0) + '" required></div>' +
+          '<div><label>데이터 처리 비용 (KRW)</label><input id="c-data" type="number" min="0" value="' + (productCost.data_processing_cost || 0) + '" required></div>' +
+          '<div style="margin:12px 0;font-size:15px"><strong>예측 마진:</strong> ' + fmt(marginVal) + ' KRW (' + marginPct + '%)</div>' +
           '<div><button type="submit">비용 정보 업데이트</button></div>' +
         '</form>';
 
@@ -14687,9 +14687,9 @@ const adminHTML = `<!doctype html>
           '<strong>상품 레벨 퍼널 기여 분석:</strong>' +
           '<div class="kpis" style="margin-top:10px">' +
             '<div class="kpi"><div class="label">제안서 노출수</div><div class="value">' + (fn.proposals || 0) + '</div></div>' +
-            '<div class="kpi"><div class="label">피드백 수집수</div><div class="value">' + (fn.feedbacks || 0) + '</div></div>' +
-            '<div class="kpi"><div class="label">PoC 검증수</div><div class="value">' + (fn.pocs || 0) + '</div></div>' +
-            '<div class="kpi"><div class="label">전환 성공수</div><div class="value">' + (fn.conversions || 0) + '</div></div>' +
+            '<div class="kpi"><div class="label">피드백 수집수</div><div class="value">' + (fn.proposal_feedback || 0) + '</div></div>' +
+            '<div class="kpi"><div class="label">PoC 계획수</div><div class="value">' + (fn.poc_plans || 0) + '</div></div>' +
+            '<div class="kpi"><div class="label">PoC 결과수</div><div class="value">' + (fn.poc_outcomes || 0) + '</div></div>' +
           '</div>' +
         '</div>';
 
@@ -14705,12 +14705,12 @@ const adminHTML = `<!doctype html>
           const v2 = document.getElementById('comp-v2').value;
           if (!v1 || !v2) return;
           try {
-            const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/version-diff?v1=' + v1 + '&v2=' + v2);
-            document.getElementById('version-diff-output').textContent = JSON.stringify(res.diff, null, 2);
+            const res = await api('/admin/dataworks/products/' + encodeURIComponent(product.product_key) + '/version-diff?from=' + encodeURIComponent(v1) + '&to=' + encodeURIComponent(v2));
+            document.getElementById('version-diff-output').textContent = res.diff_summary || '변경 사항이 없습니다.';
           } catch (e) { alert('비교 오류: ' + e.message); }
         };
 
-        const options = vList.map(v => '<option value="' + v.version + '">v' + v.version + ' (' + v.created_at + ')</option>').join('');
+        const options = vList.map(v => '<option value="' + fmt(v.version) + '">v' + fmt(v.version) + ' (' + escapeHTML(v.changed_at || '') + ')</option>').join('');
 
         activeContent = '<div>' +
           '<strong>스냅샷 버전 목록 (' + vList.length + '):</strong>' +
@@ -14747,15 +14747,17 @@ const adminHTML = `<!doctype html>
     async function renderDataWorksAnalytics() {
       const view = document.getElementById('view');
       view.innerHTML = section('성과 및 깔때기 분석 (Analytics)', '<div class="empty">불러오는 중...</div>');
-      let data;
+      let data, funnelData;
       try {
         data = await api('/admin/dataworks/analytics');
+        funnelData = await api('/admin/dataworks/analytics/funnel').catch(() => ({ funnel: {} }));
       } catch (e) {
         view.innerHTML = section('성과 및 깔때기 분석 (Analytics)', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
         return;
       }
       const analytics = data.analytics || {};
       const statusBreakdown = analytics.status_breakdown || {};
+      const funnel = (funnelData && funnelData.funnel) || {};
 
       // Financial margins and funnel calculation
       const ideas = analytics.total_ideas || 0;
@@ -14763,19 +14765,20 @@ const adminHTML = `<!doctype html>
       const published = analytics.published || 0;
       const archived = analytics.archived || 0;
 
-      // Mock funnel rates representing the pipeline efficiency
       const calcRate = (n, d) => d > 0 ? (n / d * 100).toFixed(0) : '0';
+      const funnelStages = [
+        { label: '아이디어', count: funnel.ideas || 0 },
+        { label: '상품 정의', count: funnel.definitions || 0 },
+        { label: '리스크 검토', count: funnel.risk_reviews || 0 },
+        { label: '고객 제안', count: funnel.proposals || 0 },
+        { label: 'PoC 계획', count: funnel.poc_plans || 0 },
+        { label: '출시', count: funnel.published || 0 },
+      ];
       
       const funnelHtml = '<div style="margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--panel-alt)">' +
         '<strong style="font-size:14px">데이터 상품화 파이프라인 전환 깔때기 (Conversion Funnel)</strong>' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px">' +
-          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + ideas + '</div><div class="muted" style="font-size:10px;margin-top:4px">1. 아이디어 도출</div></div>' +
-          '<div style="font-weight:800;color:var(--muted)">→</div>' +
-          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + total + '</div><div class="muted" style="font-size:10px;margin-top:4px">2. 상품정의 (' + calcRate(total, ideas) + '%)</div></div>' +
-          '<div style="font-weight:800;color:var(--muted)">→</div>' +
-          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + (statusBreakdown.approved || 0) + '</div><div class="muted" style="font-size:10px;margin-top:4px">3. 리스크 통과 (' + calcRate(statusBreakdown.approved || 0, total) + '%)</div></div>' +
-          '<div style="font-weight:800;color:var(--muted)">→</div>' +
-          '<div style="flex:1;text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + published + '</div><div class="muted" style="font-size:10px;margin-top:4px">4. 시장출시 (' + calcRate(published, statusBreakdown.approved || 0) + '%)</div></div>' +
+        '<div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(130px,1fr);gap:10px;margin-top:14px;overflow-x:auto;padding-bottom:4px">' +
+          funnelStages.map((stage, index) => '<div style="text-align:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px"><div style="font-size:20px;font-weight:800">' + fmt(stage.count) + '</div><div class="muted" style="font-size:10px;margin-top:4px">' + (index + 1) + '. ' + escapeHTML(stage.label) + (index ? ' (' + calcRate(stage.count, funnelStages[index - 1].count) + '%)' : '') + '</div></div>').join('') +
         '</div>' +
       '</div>';
 
@@ -14810,11 +14813,12 @@ const adminHTML = `<!doctype html>
         return;
       }
       const runs = data.runs || [];
+      const evaluationSummaries = data.evaluation_summaries || {};
 
       window.replayRun = async (runId) => {
         if (!confirm('해당 AI 실행 단계를 이전 설정과 템플릿으로 재현(Replay)하시겠습니까?')) return;
         try {
-          await api('/admin/dataworks/factory/runs/' + encodeURIComponent(runId) + '/replay', { method: 'POST' });
+          await api('/admin/dataworks/factory/runs/' + encodeURIComponent(runId) + '/replay', { method: 'POST', body: '{}' });
           alert('Replay 실행 완료! 새로 고침하여 이력을 확인하세요.');
           renderDataWorksFactoryRuns();
         } catch (e) { alert('Replay 실패: ' + e.message); }
@@ -14823,11 +14827,22 @@ const adminHTML = `<!doctype html>
       window.evaluateRun = async (runId) => {
         const score = prompt('AI 출력 품질 점수 평가 입력 (0 ~ 100)', '90');
         if (score == null) return;
+        const numericScore = Number(score);
+        if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 100) {
+          alert('0에서 100 사이의 숫자를 입력하세요.');
+          return;
+        }
         const notes = prompt('평가 메모 입력', '우수한 완성도');
         try {
           await api('/admin/dataworks/factory/runs/' + encodeURIComponent(runId) + '/evaluate', {
             method: 'POST',
-            body: JSON.stringify({ score: Number(score), notes: notes })
+            body: JSON.stringify({
+              accuracy_score: numericScore,
+              usefulness_score: numericScore,
+              risk_score: numericScore,
+              output_quality_score: numericScore,
+              review_comment: notes || '',
+            })
           });
           alert('평가 점수 기록 완료!');
           renderDataWorksFactoryRuns();
@@ -14836,10 +14851,13 @@ const adminHTML = `<!doctype html>
 
       const rows = runs.length
         ? '<table><thead><tr><th>실행 ID</th><th>실행 유형</th><th>모델명</th><th>지연시간</th><th>프롬프트 버전</th><th>품질점수</th><th>수행 시각</th><th>동작</th></tr></thead><tbody>' +
-          runs.map(r => '<tr><td><code>' + escapeHTML(r.id.slice(0, 12)) + '...</code></td><td><span class="pill">' + escapeHTML(r.run_type) + '</span></td><td>' + escapeHTML(r.model_name) + '</td><td>' + (r.latency_ms/1000).toFixed(1) + 's</td><td>v' + r.prompt_version + '</td><td>' + (r.quality_score != null ? r.quality_score + '점' : '<span class="muted">평가 대기</span>') + '</td><td>' + escapeHTML(r.created_at) + '</td><td>' +
-            '<button type="button" class="secondary" style="font-size:11px;padding:0 6px" onclick="replayRun('' + escapeAttr(r.id) + '')">Replay</button> ' +
-            '<button type="button" style="font-size:11px;padding:0 6px" onclick="evaluateRun('' + escapeAttr(r.id) + '')">평가</button>' +
-          '</td></tr>').join('') +
+          runs.map(r => {
+            const summary = evaluationSummaries[r.id] || {};
+            return '<tr><td><code>' + escapeHTML(String(r.id || '').slice(0, 12)) + '</code></td><td><span class="pill">' + escapeHTML(r.run_type) + '</span></td><td>' + escapeHTML(r.model || '-') + '</td><td>' + (Number(r.latency_ms || 0)/1000).toFixed(1) + 's</td><td>v' + escapeHTML(r.prompt_version || '-') + '</td><td>' + (summary.count ? fmt(summary.average_output_quality_score) + '점' : '<span class="muted">평가 대기</span>') + '</td><td>' + escapeHTML(r.created_at) + '</td><td>' +
+            '<button type="button" class="secondary" style="font-size:11px;padding:0 6px" onclick="replayRun(\'' + escapeAttr(r.id) + '\')">Replay</button> ' +
+            '<button type="button" style="font-size:11px;padding:0 6px" onclick="evaluateRun(\'' + escapeAttr(r.id) + '\')">평가</button>' +
+          '</td></tr>';
+          }).join('') +
           '</tbody></table>'
         : '<p class="muted">최근 30일 내에 생성된 AI 파이프라인 실행 이력이 없습니다.</p>';
 
@@ -14869,9 +14887,8 @@ const adminHTML = `<!doctype html>
             body: JSON.stringify({
               template_key: document.getElementById('pr-key').value,
               run_type: document.getElementById('pr-type').value,
-              content: document.getElementById('pr-content').value,
-              status: 'active',
-              version: Number(document.getElementById('pr-version').value || 1)
+              template_body: document.getElementById('pr-content').value,
+              status: 'active'
             })
           });
           alert('프롬프트 템플릿 저장 성공!');
@@ -14887,9 +14904,9 @@ const adminHTML = `<!doctype html>
             body: JSON.stringify({
               id: document.getElementById('pol-id').value,
               policy_type: document.getElementById('pol-type').value,
-              rule_name: document.getElementById('pol-name').value,
-              rule_body: document.getElementById('pol-body').value,
-              status: 'active'
+              rule_expression: document.getElementById('pol-body').value,
+              action: document.getElementById('pol-action').value,
+              enabled: true
             })
           });
           alert('정책 룰 등록 성공!');
@@ -14899,21 +14916,20 @@ const adminHTML = `<!doctype html>
 
       const tRows = templates.length
         ? '<table><thead><tr><th>Key</th><th>유형</th><th>버전</th><th>템플릿 내용</th><th>작성자</th><th>시각</th></tr></thead><tbody>' +
-          templates.map(t => '<tr><td><code>' + escapeHTML(t.template_key) + '</code></td><td><span class="pill">' + escapeHTML(t.run_type) + '</span></td><td>v' + t.version + '</td><td><small style="display:block;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHTML(t.content) + '</small></td><td>' + escapeHTML(t.created_by) + '</td><td>' + escapeHTML(t.created_at) + '</td></tr>').join('') +
+          templates.map(t => '<tr><td><code>' + escapeHTML(t.template_key) + '</code></td><td><span class="pill">' + escapeHTML(t.run_type) + '</span></td><td>v' + fmt(t.version) + '</td><td><small style="display:block;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHTML(t.template_body) + '</small></td><td>' + escapeHTML(t.created_by) + '</td><td>' + escapeHTML(t.created_at) + '</td></tr>').join('') +
           '</tbody></table>'
         : '<p class="muted">등록된 프롬프트 템플릿이 없습니다.</p>';
 
       const rRows = rules.length
-        ? '<table><thead><tr><th>ID</th><th>정책유형</th><th>규칙명</th><th>동작 규칙</th><th>상태</th></tr></thead><tbody>' +
-          rules.map(r => '<tr><td><code>' + escapeHTML(r.id) + '</code></td><td>' + escapeHTML(r.policy_type) + '</td><td><strong>' + escapeHTML(r.rule_name) + '</strong></td><td><code style="font-size:10px">' + escapeHTML(r.rule_body) + '</code></td><td>' + escapeHTML(r.status) + '</td></tr>').join('') +
+        ? '<table><thead><tr><th>ID</th><th>정책유형</th><th>규칙 표현식</th><th>동작</th><th>상태</th></tr></thead><tbody>' +
+          rules.map(r => '<tr><td><code>' + escapeHTML(r.id) + '</code></td><td>' + escapeHTML(r.policy_type) + '</td><td><code style="font-size:10px">' + escapeHTML(r.rule_expression) + '</code></td><td>' + escapeHTML(r.action) + '</td><td>' + (r.enabled ? '<span class="status good">enabled</span>' : '<span class="status">disabled</span>') + '</td></tr>').join('') +
           '</tbody></table>'
         : '<p class="muted">등록된 컴플라이언스 정책 규칙이 없습니다.</p>';
 
       const promptForm = card('신규 프롬프트 템플릿 등록',
         '<form onsubmit="createPromptTemplate(event)">' +
           '<div><label>Template Key</label><input id="pr-key" placeholder="dw_product_definition" required></div>' +
-          '<div><label>실행 유형</label><select id="pr-type"><option value="idea_generation">idea_generation</option><option value="product_definition">product_definition</option><option value="risk_check">risk_check</option><option value="proposal_generation">proposal_generation</option></select></div>' +
-          '<div><label>버전</label><input id="pr-version" type="number" value="1" required></div>' +
+          '<div><label>실행 유형</label><select id="pr-type"><option value="ideas.generate">ideas.generate</option><option value="products.define">products.define</option></select></div>' +
           '<div><label>프롬프트 본문</label><textarea id="pr-content" rows="4" placeholder="You are an AI..." required></textarea></div>' +
           '<div style="margin-top:10px"><button type="submit">프롬프트 저장</button></div>' +
         '</form>');
@@ -14921,9 +14937,9 @@ const adminHTML = `<!doctype html>
       const policyForm = card('신규 거버넌스 정책 규칙 등록',
         '<form onsubmit="createPolicyRule(event)">' +
           '<div><label>Rule ID</label><input id="pol-id" placeholder="prule_governance_limit" required></div>' +
-          '<div><label>정책 분류</label><select id="pol-type"><option value="governance">거버넌스</option><option value="security">보안 통제</option><option value="compliance">컴플라이언스</option></select></div>' +
-          '<div><label>규칙명</label><input id="pol-name" placeholder="민감정보 가명처리 준수 확인" required></div>' +
-          '<div><label>조건문/동작 규칙 (Rego/SQL)</label><textarea id="pol-body" rows="4" placeholder="SELECT * FROM ... WHERE sensitivity = 'personal_credit'" required></textarea></div>' +
+          '<div><label>정책 분류</label><select id="pol-type"><option value="privacy">privacy</option><option value="credit_info">credit_info</option><option value="ai_usage">ai_usage</option><option value="external_sharing">external_sharing</option><option value="security">security</option></select></div>' +
+          '<div><label>규칙 표현식</label><textarea id="pol-body" rows="4" placeholder="sensitivity=personal_credit -> require_compliance_approval" required></textarea></div>' +
+          '<div><label>위반 시 동작</label><select id="pol-action"><option value="block">block</option><option value="warn">warn</option><option value="approve">approve</option></select></div>' +
           '<div style="margin-top:10px"><button type="submit">정책 규칙 등록</button></div>' +
         '</form>');
 

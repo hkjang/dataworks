@@ -20,17 +20,18 @@ func tabSet(scopes []string, features map[string]bool) map[string]bool {
 }
 
 func TestResolveDefaultHome(t *testing.T) {
-	// Data Works is a factory-oriented admin tool: admin:read lands on the Factory home.
+	// Data Works operators land on the control tower. Roles without admin access retain the
+	// legacy factory fallback, which the SPA can replace with a role-specific home.
 	// A security-only role would land on the risk center; built-in security_admin has admin:read,
 	// so resolveHome applies its role override separately.
 	cases := []struct {
 		role string
 		want string
 	}{
-		{"admin", "#/factory"},
-		{"viewer", "#/factory"},
-		{"readonly_admin", "#/factory"},
-		{"security_admin", "#/factory"},
+		{"admin", "#/dataworks/home"},
+		{"viewer", "#/dataworks/home"},
+		{"readonly_admin", "#/dataworks/home"},
+		{"security_admin", "#/dataworks/home"},
 		{"developer", "#/factory"},
 		{"service_account", "#/factory"},
 	}
@@ -44,28 +45,28 @@ func TestResolveDefaultHome(t *testing.T) {
 func TestAccessibleMenusByRole(t *testing.T) {
 	features := map[string]bool{}
 
-	// developer: no admin:read/security:read → sees no factory or K8s menu.
+	// developer: no admin:read/security:read -> sees no Data Works or K8s menu.
 	devTabs := tabSet(roleScopes["developer"], features)
-	for _, forbidden := range []string{"factory", "data-products", "k8s-home", "k8s", "k8s-security", "settings"} {
+	for _, forbidden := range []string{"dataworks-home", "dataworks-actions", "dataworks-assets", "factory", "data-products", "k8s-home", "k8s", "k8s-security", "settings"} {
 		if devTabs[forbidden] {
 			t.Errorf("developer must NOT see %q", forbidden)
 		}
 	}
 
-	// ai_admin: admin:read but NOT security:read → factory tabs + settings, but no risk center.
+	// ai_admin: admin:read but NOT security:read -> product operations + settings, but no risk center.
 	aiTabs := tabSet(roleScopes["ai_admin"], features)
-	for _, want := range []string{"factory", "data-products", "text2sql", "dwdashboard", "settings"} {
+	for _, want := range []string{"dataworks-home", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "settings"} {
 		if !aiTabs[want] {
 			t.Errorf("ai_admin should see %q", want)
 		}
 	}
-	if aiTabs["security"] {
-		t.Error("ai_admin lacks security:read → must NOT see security")
+	if aiTabs["dataworks-risk"] || aiTabs["security"] {
+		t.Error("ai_admin lacks security:read -> must NOT see risk routes")
 	}
 
 	// admin: all Data Works factory/risk areas + nested settings children; K8s remains feature-gated off.
 	adminTabs := tabSet(roleScopes["admin"], features)
-	for _, want := range []string{"factory", "data-products", "text2sql", "dwdashboard", "security", "safety", "settings"} {
+	for _, want := range []string{"dataworks-home", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-risk", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "security", "safety", "settings"} {
 		if !adminTabs[want] {
 			t.Errorf("admin should see %q", want)
 		}
@@ -106,17 +107,17 @@ func TestMeNavigationLegacyModeReturnsFullMenu(t *testing.T) {
 	json.NewDecoder(resp.Body).Decode(&nav)
 	resp.Body.Close()
 	// Legacy (auth disabled) = admin-equivalent: Data Works menu with feature-gated K8s hidden.
-	if nav.DefaultHome != "#/factory" {
-		t.Errorf("legacy default_home = %q, want #/factory", nav.DefaultHome)
+	if nav.DefaultHome != "#/dataworks/home" {
+		t.Errorf("legacy default_home = %q, want #/dataworks/home", nav.DefaultHome)
 	}
-	if len(nav.Menus) != 7 {
-		t.Errorf("legacy mode should expose 7 Data Works menus, got %d", len(nav.Menus))
+	if len(nav.Menus) != 10 {
+		t.Errorf("legacy mode should expose 10 Data Works menus, got %d", len(nav.Menus))
 	}
 	tabs := map[string]bool{}
 	for _, tb := range nav.AllowedTabs {
 		tabs[tb] = true
 	}
-	for _, want := range []string{"factory", "data-products", "text2sql", "dwdashboard", "security", "settings", "runtimesettings"} {
+	for _, want := range []string{"dataworks-home", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-risk", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "security", "settings", "runtimesettings"} {
 		if !tabs[want] {
 			t.Errorf("legacy allowed_tabs missing %q", want)
 		}
@@ -132,8 +133,8 @@ func TestRoleCatalog(t *testing.T) {
 	for _, c := range cat {
 		byRole[c.Role] = c
 	}
-	if !byRole["admin"].IsAdmin || byRole["admin"].DefaultHome != "#/factory" {
-		t.Errorf("admin should be is_admin with factory home: %+v", byRole["admin"])
+	if !byRole["admin"].IsAdmin || byRole["admin"].DefaultHome != "#/dataworks/home" {
+		t.Errorf("admin should be is_admin with Data Works home: %+v", byRole["admin"])
 	}
 	if byRole["developer"].IsAdmin || byRole["developer"].DefaultHome != "#/factory" {
 		t.Errorf("developer should be non-admin with factory fallback home: %+v", byRole["developer"])
@@ -198,21 +199,21 @@ func TestTeamManagerNavigation(t *testing.T) {
 
 func TestRoleHomeOverrides(t *testing.T) {
 	features := map[string]bool{}
-	// security_admin keeps a tailored landing; admin-scoped roles fall back to the factory home.
-	if got := resolveHome("security_admin", roleScopes["security_admin"]); got != "#/security" {
-		t.Errorf("security_admin home = %q, want #/security", got)
+	// security_admin keeps a tailored landing; admin-scoped roles use the control tower.
+	if got := resolveHome("security_admin", roleScopes["security_admin"]); got != "#/dataworks/risk" {
+		t.Errorf("security_admin home = %q, want #/dataworks/risk", got)
 	}
 	for _, role := range []string{"admin", "readonly_admin", "billing_admin"} {
-		if got := resolveHome(role, roleScopes[role]); got != "#/factory" {
-			t.Errorf("resolveHome(%s) = %q, want #/factory", role, got)
+		if got := resolveHome(role, roleScopes[role]); got != "#/dataworks/home" {
+			t.Errorf("resolveHome(%s) = %q, want #/dataworks/home", role, got)
 		}
 	}
 	// security_admin sees the security tab; billing_admin (no security:read) does not.
-	if !tabSet(roleScopes["security_admin"], features)["security"] {
-		t.Error("security_admin should see security")
+	if !tabSet(roleScopes["security_admin"], features)["dataworks-risk"] {
+		t.Error("security_admin should see Data Works risk review")
 	}
-	if tabSet(roleScopes["billing_admin"], features)["security"] {
-		t.Error("billing_admin should not see security")
+	if tabSet(roleScopes["billing_admin"], features)["dataworks-risk"] {
+		t.Error("billing_admin should not see Data Works risk review")
 	}
 }
 

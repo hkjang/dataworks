@@ -710,6 +710,70 @@ func (s *Server) handleDataWorksProductActions(w http.ResponseWriter, r *http.Re
 		}
 		s.auditAdmin(r, "dataworks.product.publish", before, auditJSON(map[string]any{"product_key": product.ProductKey, "status": product.Status}))
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "product_key": product.ProductKey, "status": product.Status})
+	case "submit", "approve", "reject", "archive":
+		if r.Method != http.MethodPost {
+			writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+			return
+		}
+		transition := struct {
+			from map[string]bool
+			to   string
+		}{}
+		switch action {
+		case "submit":
+			transition = struct {
+				from map[string]bool
+				to   string
+			}{map[string]bool{"draft": true}, "review"}
+		case "approve":
+			transition = struct {
+				from map[string]bool
+				to   string
+			}{map[string]bool{"review": true, "risk_review": true}, "approved"}
+		case "reject":
+			transition = struct {
+				from map[string]bool
+				to   string
+			}{map[string]bool{"review": true, "risk_review": true, "approved": true}, "draft"}
+		case "archive":
+			transition = struct {
+				from map[string]bool
+				to   string
+			}{map[string]bool{"published": true}, "archived"}
+		}
+		if !transition.from[product.Status] {
+			writeOpenAIError(w, http.StatusConflict, "invalid lifecycle transition from "+product.Status+" via "+action, "invalid_request_error", "invalid_product_transition")
+			return
+		}
+		before := auditJSON(product)
+		product.Status = transition.to
+		product.UpdatedBy = adminID(r)
+		if err := s.db.UpsertDataProduct(r.Context(), product); err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "transition_failed")
+			return
+		}
+		s.auditAdmin(r, "dataworks.product."+action, before, auditJSON(map[string]any{"product_key": product.ProductKey, "status": product.Status}))
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "product_key": product.ProductKey, "status": product.Status})
+	case "actions":
+		if r.Method != http.MethodGet {
+			writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+			return
+		}
+		logs, err := s.db.ListAdminAudit(r.Context(), 200)
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "product_actions_failed")
+			return
+		}
+		actions := make([]map[string]any, 0)
+		for _, log := range logs {
+			if !auditReferencesProduct(log.BeforeValue, product.ProductKey) && !auditReferencesProduct(log.AfterValue, product.ProductKey) {
+				continue
+			}
+			actions = append(actions, map[string]any{
+				"id": log.ID, "created_by": log.AdminID, "action_type": log.Action, "created_at": log.CreatedAt,
+			})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"actions": actions})
 	case "openapi":
 		if r.Method != http.MethodGet {
 			writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
@@ -779,6 +843,38 @@ func (s *Server) handleDataWorksProductActions(w http.ResponseWriter, r *http.Re
 	default:
 		writeOpenAIError(w, http.StatusNotFound, "unknown product action", "invalid_request_error", "not_found")
 	}
+}
+
+func auditReferencesProduct(raw, productKey string) bool {
+	if strings.TrimSpace(raw) == "" || strings.TrimSpace(productKey) == "" {
+		return false
+	}
+	var value any
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		return false
+	}
+	return jsonReferencesProduct(value, productKey)
+}
+
+func jsonReferencesProduct(value any, productKey string) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		if key, ok := typed["product_key"].(string); ok && key == productKey {
+			return true
+		}
+		for _, child := range typed {
+			if jsonReferencesProduct(child, productKey) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if jsonReferencesProduct(child, productKey) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func dataWorksOpsProductAction(parts []string) bool {

@@ -154,6 +154,85 @@ func TestDataWorksOperationalAPIs(t *testing.T) {
 	}
 }
 
+func TestDataWorksProductLifecycleEvidenceAndActions(t *testing.T) {
+	db := openTestStore(t)
+	defer db.Close()
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "dataworks-lifecycle.ndjson"))
+	logger.Start()
+	defer logger.Stop(context.Background())
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(server.Routes())
+	defer srv.Close()
+
+	product := store.DataProduct{
+		ID: "dprod_lifecycle", ProductKey: "dw_lifecycle", NameKO: "Lifecycle Product",
+		SourceType: "api", SourceRef: "asset_lifecycle", Owner: "data-business",
+		Sensitivity: "internal", Status: "draft", RevenueScore: 75, RiskScore: 25,
+	}
+	if err := db.UpsertDataProduct(context.Background(), product); err != nil {
+		t.Fatal(err)
+	}
+
+	assertTransition := func(action, wantStatus string) {
+		t.Helper()
+		resp := postJSON(t, srv.URL+"/admin/dataworks/products/dw_lifecycle/"+action, "", map[string]any{})
+		requireStatus(t, resp, http.StatusOK)
+		resp.Body.Close()
+		stored, ok, err := db.GetDataProduct(context.Background(), product.ProductKey)
+		if err != nil || !ok || stored.Status != wantStatus {
+			t.Fatalf("transition %s: status=%q ok=%v err=%v", action, stored.Status, ok, err)
+		}
+	}
+
+	assertTransition("submit", "review")
+	invalid := postJSON(t, srv.URL+"/admin/dataworks/products/dw_lifecycle/submit", "", map[string]any{})
+	requireStatus(t, invalid, http.StatusConflict)
+	invalid.Body.Close()
+	assertTransition("approve", "approved")
+	assertTransition("reject", "draft")
+
+	product.Status = "published"
+	if err := db.UpsertDataProduct(context.Background(), product); err != nil {
+		t.Fatal(err)
+	}
+	assertTransition("archive", "archived")
+
+	evidenceResp := postJSON(t, srv.URL+"/admin/dataworks/products/dw_lifecycle/evidence", "", map[string]any{})
+	requireStatus(t, evidenceResp, http.StatusOK)
+	var evidenceBody struct {
+		Evidence []store.ProductEvidence `json:"evidence"`
+	}
+	decodeAndClose(t, evidenceResp, &evidenceBody)
+	if len(evidenceBody.Evidence) < 3 {
+		t.Fatalf("expected refreshed evidence rows, got %+v", evidenceBody.Evidence)
+	}
+
+	actionsResp, err := http.Get(srv.URL + "/admin/dataworks/products/dw_lifecycle/actions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, actionsResp, http.StatusOK)
+	var actionsBody struct {
+		Actions []struct {
+			ActionType string `json:"action_type"`
+		} `json:"actions"`
+	}
+	decodeAndClose(t, actionsResp, &actionsBody)
+	foundEvidenceRefresh := false
+	for _, action := range actionsBody.Actions {
+		if action.ActionType == "dataworks.product.evidence.refresh" {
+			foundEvidenceRefresh = true
+			break
+		}
+	}
+	if !foundEvidenceRefresh {
+		t.Fatalf("product actions missing evidence refresh: %+v", actionsBody.Actions)
+	}
+}
+
 func requireStatus(t *testing.T, resp *http.Response, want int) {
 	t.Helper()
 	if resp.StatusCode == want {

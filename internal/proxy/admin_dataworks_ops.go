@@ -117,7 +117,13 @@ func (s *Server) handleDataWorksProductByKey(w http.ResponseWriter, r *http.Requ
 		s.auditAdmin(r, "dataworks.product.canvas.generate", "", auditJSON(map[string]any{"product_key": productKey}))
 		writeJSON(w, http.StatusOK, map[string]any{"canvas": canvas})
 	case len(parts) == 2 && parts[1] == "evidence":
-		if r.Method != http.MethodGet {
+		if r.Method == http.MethodPost {
+			if err := s.refreshProductEvidencePack(r.Context(), product, adminID(r)); err != nil {
+				writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "evidence_refresh_failed")
+				return
+			}
+			s.auditAdmin(r, "dataworks.product.evidence.refresh", "", auditJSON(map[string]any{"product_key": productKey}))
+		} else if r.Method != http.MethodGet {
 			writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 			return
 		}

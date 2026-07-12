@@ -7,7 +7,7 @@ import (
 
 // menuVersion is bumped whenever the menu registry or its access rules change, so the
 // SPA can detect a stale navigation and refresh /me/navigation without a full reload.
-const menuVersion = 22
+const menuVersion = 23
 
 // menuItem is one navigable destination in the admin SPA. Access is decided server-side
 // from the caller's scopes + enabled feature flags — the same registry drives both the
@@ -26,13 +26,16 @@ type menuItem struct {
 
 // menuRegistry is the single source of truth for navigation. Order = display order.
 var menuRegistry = []menuItem{
-	// Data Works 영역 — 데이터 상품 팩토리 (admin:read).
-	{ID: "factory.home", Label: "Factory Home", Path: "#/factory", Tab: "factory", Group: "factory", Scopes: []string{"admin:read"}, DataScope: "all"},
-	{ID: "factory.catalog", Label: "상품 카탈로그", Path: "#/data-products", Tab: "data-products", Group: "factory", Scopes: []string{"admin:read"}, DataScope: "all"},
-	{ID: "factory.text2sql", Label: "수요 탐지", Path: "#/text2sql", Tab: "text2sql", Group: "factory", Scopes: []string{"admin:read"}, DataScope: "all"},
-	{ID: "factory.analytics", Label: "성과 분석", Path: "#/dwdashboard", Tab: "dwdashboard", Group: "factory", Scopes: []string{"admin:read"}, DataScope: "all"},
-	{ID: "sec.security", Label: "리스크 센터", Path: "#/security", Tab: "security", Group: "security", Scopes: []string{"security:read"}, DataScope: "all"},
-	{ID: "sec.safety", Label: "거버넌스", Path: "#/safety", Tab: "safety", Group: "security", Scopes: []string{"security:read"}, DataScope: "all"},
+	// Data Works product operations (admin:read), with risk review scoped separately.
+	{ID: "dataworks.home", Label: "Home", Path: "#/dataworks/home", Tab: "dataworks-home", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.actions", Label: "Action Center", Path: "#/dataworks/actions", Tab: "dataworks-actions", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.assets", Label: "데이터 자산", Path: "#/dataworks/assets", Tab: "dataworks-assets", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.factory", Label: "Product Factory", Path: "#/factory", Tab: "factory", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.portfolio", Label: "포트폴리오", Path: "#/dataworks/portfolio", Tab: "dataworks-portfolio", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.risk", Label: "리스크 검토", Path: "#/dataworks/risk", Tab: "dataworks-risk", Group: "security", Scopes: []string{"security:read"}, DataScope: "all"},
+	{ID: "dataworks.analytics", Label: "성과 분석", Path: "#/dataworks/analytics", Tab: "dataworks-analytics", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.factory_runs", Label: "AI 실행 이력", Path: "#/dataworks/factory-runs", Tab: "dataworks-factory-runs", Group: "settings", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.prompt_registry", Label: "프롬프트 레지스트리", Path: "#/dataworks/prompt-registry", Tab: "dataworks-prompt-registry", Group: "settings", Scopes: []string{"admin:read"}, DataScope: "all"},
 	// Legacy K8s routes remain compiled but are hidden unless k8s_ops is explicitly enabled.
 	{ID: "ops.k8s_home", Label: "운영 홈", Path: "#/k8s-home", Tab: "k8s-home", Group: "legacy-k8s", Scopes: []string{"admin:read"}, Features: []string{"k8s_ops"}, DataScope: "all"},
 	{ID: "ops.k8s", Label: "클러스터", Path: "#/k8s", Tab: "k8s", Group: "legacy-k8s", Scopes: []string{"admin:read"}, Features: []string{"k8s_ops"}, DataScope: "all"},
@@ -60,7 +63,10 @@ var menuRegistry = []menuItem{
 // childTabs maps a parent tab to the nested route tabs that share its permission. The
 // route guard treats a child as accessible exactly when its parent menu is accessible.
 var childTabs = map[string][]string{
-	"settings": {"runtimesettings", "errors", "changesets"},
+	"factory":             {"data-products", "text2sql", "dataworks-factory", "dataworks-products"},
+	"dataworks-risk":      {"security", "safety", "skills", "skill-studio", "modeldeprecations"},
+	"dataworks-analytics": {"dwdashboard", "clickhouse", "dwmetrics"},
+	"settings":            {"runtimesettings", "errors", "changesets"},
 }
 
 // featureFlags reports which optional features are enabled, for both /auth/me and menu
@@ -146,7 +152,7 @@ func allowedTabs(scopes []string, features map[string]bool) []string {
 // alone can't distinguish (e.g. security_admin and readonly_admin both hold admin:read +
 // security:read, but the former lands on the security dashboard).
 var roleHomeOverride = map[string]string{
-	"security_admin": "#/security",
+	"security_admin": "#/dataworks/risk",
 }
 
 // resolveDefaultHome picks the landing route from scopes alone: operators (admin:read) →
@@ -154,10 +160,10 @@ var roleHomeOverride = map[string]string{
 // the personalized home.
 func resolveDefaultHome(scopes []string) string {
 	if hasScope(scopes, "admin:read") {
-		return "#/factory"
+		return "#/dataworks/home"
 	}
 	if hasScope(scopes, "security:read") {
-		return "#/security"
+		return "#/dataworks/risk"
 	}
 	return "#/factory"
 }
