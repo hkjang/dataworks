@@ -4225,6 +4225,22 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			version: 126,
 			query:   `CREATE INDEX IF NOT EXISTS idx_dw_agent_traces_session ON dw_agent_traces(session_id, step_no)`,
 		},
+		{
+			version: 127,
+			query: `UPDATE data_assets SET
+				name = CASE asset_key
+					WHEN 'card_transaction_signals' THEN '카드 트랜잭션 신호'
+					WHEN 'company_risk_features' THEN '기업 리스크 특성'
+					WHEN 'credit_bureau_history' THEN '신용평가 이력'
+					ELSE name END,
+				owner = CASE asset_key
+					WHEN 'card_transaction_signals' THEN '카드사업팀'
+					WHEN 'company_risk_features' THEN '기업정보팀'
+					WHEN 'credit_bureau_history' THEN 'CB사업본부'
+					ELSE owner END
+			WHERE asset_key IN ('card_transaction_signals', 'company_risk_features', 'credit_bureau_history')
+				AND (name LIKE '%?%' OR owner LIKE '%?%')`,
+		},
 	}
 
 	for _, step := range versionedMigrations {

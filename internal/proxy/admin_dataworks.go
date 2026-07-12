@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	dw "dataworks/internal/dataworks"
 	"dataworks/internal/store"
@@ -94,6 +95,10 @@ func (s *Server) handleDataWorksAssets(w http.ResponseWriter, r *http.Request) {
 			writeOpenAIError(w, http.StatusBadRequest, "asset_key is required", "invalid_request_error", "missing_fields")
 			return
 		}
+		if looksCorruptedCatalogText(a.Name) || looksCorruptedCatalogText(a.Owner) {
+			writeOpenAIError(w, http.StatusBadRequest, "asset name or owner contains corrupted text", "invalid_request_error", "invalid_text_encoding")
+			return
+		}
 		if a.ID == "" {
 			a.ID = newID("asset")
 		}
@@ -106,6 +111,12 @@ func (s *Server) handleDataWorksAssets(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 	}
+}
+
+func looksCorruptedCatalogText(value string) bool {
+	compact := strings.Join(strings.Fields(value), "")
+	questionMarks := strings.Count(compact, "?")
+	return questionMarks >= 2 && questionMarks*2 >= utf8.RuneCountInString(compact)
 }
 
 // handleDataWorksAssetReadiness manages asset readiness scoring.

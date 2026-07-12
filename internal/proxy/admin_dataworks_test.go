@@ -30,6 +30,15 @@ func TestDataWorksOperationalAPIs(t *testing.T) {
 		"owner": "risk-data", "columns_summary": "loan_id, overdue_days, balance", "sensitivity": "personal_credit", "refresh_cycle": "daily",
 	})
 	requireStatus(t, resp, http.StatusOK)
+	if got := resp.Header.Get("Content-Type"); got != "application/json; charset=utf-8" {
+		t.Fatalf("Content-Type = %q, want UTF-8 JSON", got)
+	}
+
+	resp = postJSON(t, srv.URL+"/admin/dataworks/assets", "", map[string]any{
+		"id": "asset_corrupt", "asset_key": "corrupt_text", "name": "?? ??? ??", "domain": "credit", "owner": "?????",
+	})
+	requireStatus(t, resp, http.StatusBadRequest)
+	resp.Body.Close()
 
 	resp = postJSON(t, srv.URL+"/admin/dataworks/assets/loan_history/readiness/check", "", map[string]any{})
 	requireStatus(t, resp, http.StatusOK)

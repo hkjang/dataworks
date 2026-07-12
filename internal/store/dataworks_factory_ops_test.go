@@ -117,6 +117,17 @@ func TestDataWorksFactoryOperationsMigrateFromVersion70(t *testing.T) {
 	)`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.db.ExecContext(ctx, `CREATE TABLE data_assets (
+		asset_key TEXT PRIMARY KEY, name TEXT NOT NULL, owner TEXT NOT NULL
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO data_assets (asset_key, name, owner) VALUES
+		('card_transaction_signals', '?? ???? ??', '?????'),
+		('company_risk_features', '?? ??? ??', '?????'),
+		('credit_bureau_history', '???? ??', 'CB????')`); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +144,22 @@ func TestDataWorksFactoryOperationsMigrateFromVersion70(t *testing.T) {
 		t.Fatalf("upgraded factory run mismatch: %+v ok=%v err=%v", got, ok, err)
 	}
 	var version int
-	if err := db.db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 126 {
+	if err := db.db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 127 {
 		t.Fatalf("schema version=%d err=%v", version, err)
+	}
+	for _, tc := range []struct {
+		key, name, owner string
+	}{
+		{key: "card_transaction_signals", name: "카드 트랜잭션 신호", owner: "카드사업팀"},
+		{key: "company_risk_features", name: "기업 리스크 특성", owner: "기업정보팀"},
+		{key: "credit_bureau_history", name: "신용평가 이력", owner: "CB사업본부"},
+	} {
+		var name, owner string
+		if err := db.db.QueryRowContext(ctx, `SELECT name, owner FROM data_assets WHERE asset_key = ?`, tc.key).Scan(&name, &owner); err != nil {
+			t.Fatal(err)
+		}
+		if name != tc.name || owner != tc.owner {
+			t.Fatalf("repaired asset %s = (%q, %q), want (%q, %q)", tc.key, name, owner, tc.name, tc.owner)
+		}
 	}
 }
