@@ -379,8 +379,8 @@ func (s *Server) runDataWorksAgent(w http.ResponseWriter, r *http.Request, agent
 	started := time.Now().UTC()
 	sessionID := newID("dwasess")
 	traces := []store.DataWorksAgentTrace{{
-		ID: newID("dwatrace"), SessionID: sessionID, StepNo: 1, TraceType: "plan", Name: "Plan",
-		Status: "succeeded", ReasoningSummary: "Select only tools allowed by the agent contract and evaluate approval policy before execution.",
+		ID: newID("dwatrace"), SessionID: sessionID, StepNo: 1, TraceType: "plan", Name: "계획",
+		Status: "succeeded", ReasoningSummary: "에이전트 계약에서 허용된 도구만 선택하고 실행 전 승인 정책을 확인합니다.",
 		InputSummary: truncateRunes(strings.TrimSpace(in.Input), 240), PolicyDecision: "allow", LatencyMS: 5,
 	}}
 	status := "succeeded"
@@ -396,7 +396,7 @@ func (s *Server) runDataWorksAgent(w http.ResponseWriter, r *http.Request, agent
 		tool, ok, _ := s.db.GetDataWorksTool(r.Context(), requested)
 		if !allowed[requested] || !ok {
 			trace.Status, trace.PolicyDecision = "blocked", "deny"
-			trace.ReasoningSummary = "The requested tool is not in the agent allowlist."
+			trace.ReasoningSummary = "요청한 도구가 에이전트 허용 목록에 없습니다."
 			status, policyBlocked = "blocked", true
 			traces = append(traces, trace)
 			break
@@ -404,21 +404,21 @@ func (s *Server) runDataWorksAgent(w http.ResponseWriter, r *http.Request, agent
 		trace.ToolID, trace.Name = tool.ID, tool.Name
 		if !tool.Enabled {
 			trace.Status, trace.PolicyDecision = "blocked", "deny"
-			trace.ReasoningSummary = "The tool is disabled by Tool Governance."
+			trace.ReasoningSummary = "도구 거버넌스에서 비활성화된 도구입니다."
 			status, policyBlocked = "blocked", true
 			traces = append(traces, trace)
 			break
 		}
 		if tool.RequiresApproval || agent.RequiresApproval || tool.RiskLevel == "high" || tool.RiskLevel == "critical" {
 			trace.Status, trace.PolicyDecision = "pending_approval", "approval_required"
-			trace.ReasoningSummary = "High-risk tool execution is paused for human approval."
+			trace.ReasoningSummary = "고위험 도구 실행이 담당자 승인 대기로 전환되었습니다."
 			status, approvalStatus = "pending_approval", "pending"
 			traces = append(traces, trace)
 			break
 		}
 		trace.Status, trace.PolicyDecision = "succeeded", "allow"
-		trace.ReasoningSummary = "Tool contract, parameter policy, and masking policy passed in the sandbox."
-		trace.OutputSummary = "contract-valid sandbox result"
+		trace.ReasoningSummary = "샌드박스에서 도구 계약, 매개변수 정책, 마스킹 정책을 통과했습니다."
+		trace.OutputSummary = "계약 검증을 통과한 샌드박스 결과"
 		trace.Cost = 0.05 + float64(len(in.Params))*0.01
 		totalCost += trace.Cost
 		traces = append(traces, trace)
@@ -432,14 +432,14 @@ func (s *Server) runDataWorksAgent(w http.ResponseWriter, r *http.Request, agent
 	if status == "succeeded" {
 		traces = append(traces, store.DataWorksAgentTrace{
 			ID: newID("dwatrace"), SessionID: sessionID, StepNo: len(traces) + 1, TraceType: "response",
-			Name: "Final response", Status: "succeeded", ReasoningSummary: "Compose a bounded response from policy-approved intermediate results.",
-			OutputSummary: "Agent run completed in governance sandbox.", PolicyDecision: "allow", LatencyMS: 8,
+			Name: "최종 응답", Status: "succeeded", ReasoningSummary: "정책 승인을 통과한 중간 결과만 사용해 제한된 응답을 구성합니다.",
+			OutputSummary: "거버넌스 샌드박스에서 에이전트 실행을 완료했습니다.", PolicyDecision: "allow", LatencyMS: 8,
 		})
 	}
 	finished := time.Now().UTC()
 	session := store.DataWorksAgentSession{
 		ID: sessionID, AgentID: agent.ID, Status: status, InputSummary: truncateRunes(strings.TrimSpace(in.Input), 240),
-		OutputSummary: map[string]string{"succeeded": "Governance sandbox run completed.", "blocked": "Execution blocked by policy.", "pending_approval": "Execution paused for approval."}[status],
+		OutputSummary: map[string]string{"succeeded": "거버넌스 샌드박스 실행이 완료되었습니다.", "blocked": "정책에 의해 실행이 차단되었습니다.", "pending_approval": "승인을 위해 실행이 일시 중지되었습니다."}[status],
 		TotalCost:     totalCost, LatencyMS: finished.Sub(started).Milliseconds(), PolicyBlocked: policyBlocked,
 		ApprovalStatus: approvalStatus, StartedAt: started.Format(time.RFC3339Nano), FinishedAt: finished.Format(time.RFC3339Nano), CreatedBy: adminID(r),
 	}

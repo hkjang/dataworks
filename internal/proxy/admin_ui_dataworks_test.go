@@ -78,3 +78,31 @@ func TestAdminUIDataWorksAPIContractKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminUIDataWorksFieldComponentContract(t *testing.T) {
+	required := []string{
+		`--control-height: 38px;`,
+		`--form-row-gap: 18px;`,
+		`class="field-label-text"`,
+		`class="field-control"`,
+		`class="field-error" aria-live="polite"`,
+		`function standardizeFormComponents(root)`,
+		`standardizeFormComponents(document.getElementById('view'))`,
+		`standardizeFormComponents(document.getElementById('modal-body'))`,
+	}
+	for _, fragment := range required {
+		if !strings.Contains(adminHTML, fragment) {
+			t.Errorf("admin UI missing field component contract %q", fragment)
+		}
+	}
+
+	for _, stale := range []string{
+		`<div><label>Template Key</label>`,
+		`<div><label>Rule ID</label>`,
+		`<div class="canvas-block"><label>`,
+	} {
+		if strings.Contains(adminHTML, stale) {
+			t.Errorf("admin UI still contains unstructured field markup %q", stale)
+		}
+	}
+}

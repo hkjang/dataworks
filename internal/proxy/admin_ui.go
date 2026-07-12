@@ -26,6 +26,11 @@ const adminHTML = `<!doctype html>
       --bad-bg: #fee4e2;
       --row-hover: #f0f4f8;
       --pill-bg: #eef2f7;
+      --control-height: 38px;
+      --control-radius: 6px;
+      --field-gap: 6px;
+      --form-column-gap: 14px;
+      --form-row-gap: 18px;
     }
     :root[data-theme="dark"] {
       color-scheme: dark;
@@ -118,8 +123,21 @@ const adminHTML = `<!doctype html>
     .card-body { padding: 14px; }
     .card-body > table:first-child, .card-body > :first-child { margin-top: 0; }
     input, button, select, textarea {
-      height: 34px; border: 1px solid var(--line); border-radius: 6px;
-      background: var(--panel); color: var(--ink); padding: 0 10px; font: inherit;
+      border: 1px solid var(--line); border-radius: var(--control-radius);
+      background: var(--panel); color: var(--ink); font: inherit;
+    }
+    input, button, select { height: var(--control-height); padding: 0 11px; }
+    textarea {
+      height: auto; min-height: 96px; padding: 9px 11px; line-height: 1.5;
+      resize: vertical;
+    }
+    input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
+      outline-offset: 1px; border-color: var(--accent);
+    }
+    input:disabled, select:disabled, textarea:disabled, button:disabled {
+      cursor: not-allowed; opacity: .58;
     }
     input::placeholder, textarea::placeholder { color: var(--muted); }
     input { min-width: 140px; }
@@ -143,7 +161,7 @@ const adminHTML = `<!doctype html>
     .kpi .value { margin-top: 8px; font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
     .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
     .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
-    .inline-form { display: grid; gap: 8px; padding: 12px; border-bottom: 1px solid var(--line); }
+    .inline-form { display: grid; gap: var(--form-column-gap); padding: 14px; border-bottom: 1px solid var(--line); align-items:start; }
     .inline-form input, .inline-form select { width: 100%; }
     .secret-once {
       display: none; padding: 10px 12px; border-bottom: 1px solid var(--line);
@@ -331,8 +349,12 @@ const adminHTML = `<!doctype html>
     .platform-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; padding:14px; }
     .platform-split { display:grid; grid-template-columns:minmax(280px,0.8fr) minmax(0,1.7fr); gap:14px; padding:14px; }
     .platform-split > * { min-width:0; }
-    .platform-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; align-items:end; }
+    .dw-two-column { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:14px; }
+    .dw-two-column > * { min-width:0; }
+    .platform-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); column-gap:var(--form-column-gap); row-gap:var(--form-row-gap); align-items:start; }
     .platform-form-grid .wide { grid-column:1 / -1; }
+    .dw-form { display:grid; gap:var(--form-row-gap); padding:16px; align-content:start; }
+    .dw-form > .form-actions { margin:2px -16px -16px; }
     .platform-table { width:100%; overflow-x:auto; overscroll-behavior-x:contain; }
     .platform-table table { min-width:640px; table-layout:auto; }
     .workspace-tile, .market-item { border:1px solid var(--line); border-radius:6px; padding:13px; background:var(--panel); min-width:0; }
@@ -358,12 +380,26 @@ const adminHTML = `<!doctype html>
     .decision-block { border-left:4px solid #b91c1c; }
     .decision-approval_required { border-left:4px solid #b45309; }
     .decision-allow, .decision-allow_with_controls { border-left:4px solid #15803d; }
-    .dw-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
-    .dw-field > label, .dw-field > .field-label { font-size:12px; font-weight:800; color:var(--ink); }
-    .dw-field .field-help { min-height:16px; color:var(--muted); font-size:11px; line-height:1.4; }
-    .dw-field .field-error { min-height:16px; color:var(--bad); font-size:11px; }
-    .dw-field input, .dw-field select, .dw-field textarea { width:100%; min-width:0; }
-    .dw-field textarea { height:auto; min-height:84px; resize:vertical; padding:8px 10px; }
+    .dw-field { display:flex; flex-direction:column; gap:var(--field-gap); min-width:0; align-content:start; }
+    .field-label {
+      display:flex; align-items:center; gap:4px; min-height:18px; margin:0;
+      font-size:12px; line-height:1.35; font-weight:800; color:var(--ink);
+    }
+    .field-label > .field-label-text { display:inline-block; min-width:0; }
+    .field-label.required::after { content:'필수'; color:var(--bad); font-size:9px; font-weight:800; }
+    .field-help { display:block; min-height:16px; color:var(--muted); font-size:11px; line-height:1.45; }
+    .field-control { display:grid; gap:8px; min-width:0; }
+    .field-error { display:block; min-height:16px; color:var(--bad); font-size:11px; line-height:1.4; }
+    .field-error:empty { visibility:hidden; }
+    .dw-field input:not([type="checkbox"]):not([type="radio"]), .dw-field select, .dw-field textarea,
+    .field-control input:not([type="checkbox"]):not([type="radio"]), .field-control select, .field-control textarea { width:100%; min-width:0; }
+    .dw-field input[type="checkbox"], .dw-field input[type="radio"],
+    .field-control input[type="checkbox"], .field-control input[type="radio"] { width:auto; min-width:0; height:auto; min-height:0; }
+    .dw-field textarea, .field-control textarea { min-height:96px; }
+    .control-label { display:flex; flex-direction:column; align-items:stretch; gap:var(--field-gap); }
+    .control-label > input, .control-label > select, .control-label > textarea { width:100%; min-width:0; }
+    .ct-check > .control-copy { display:inline-block; line-height:1.4; }
+    .form-actions { min-height:58px; }
     .reference-preview { border:1px solid var(--line); border-left:4px solid #0f766e; border-radius:6px; padding:11px; background:var(--panel-alt); min-width:0; }
     .reference-preview[data-risk="high"], .reference-preview[data-risk="critical"] { border-left-color:#b91c1c; }
     .reference-preview h3 { margin:0; font-size:13px; }
@@ -413,10 +449,12 @@ const adminHTML = `<!doctype html>
     .twin-score strong { display:block; margin-top:4px; font-size:16px; }
     .twin-canvas-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
     .canvas-block { display:flex; flex-direction:column; gap:5px; border:1px solid var(--line); border-top:3px solid var(--accent); border-radius:6px; padding:11px; background:var(--panel-alt); min-width:0; }
-    .canvas-block label { font-size:12px; font-weight:800; }
+    .canvas-block.wide { grid-column:span 2; }
+    .canvas-block .field-label { font-size:12px; font-weight:800; }
     .canvas-block small { color:var(--muted); min-height:28px; line-height:1.35; }
-    .canvas-block textarea, .canvas-block input, .canvas-block select { width:100%; min-width:0; height:auto; min-height:68px; }
-    .canvas-block select, .canvas-block input { min-height:34px; }
+    .canvas-block textarea { width:100%; min-width:0; min-height:104px; }
+    .canvas-block select, .canvas-block input:not([type="checkbox"]):not([type="radio"]) { width:100%; min-width:0; height:var(--control-height); min-height:var(--control-height); }
+    .canvas-block input[type="checkbox"], .canvas-block input[type="radio"] { width:auto; min-width:0; height:auto; min-height:0; }
     .ai-draft { border:1px solid var(--accent); border-left:4px solid var(--accent); border-radius:6px; padding:12px; background:var(--panel-alt); }
     .ai-draft .ai-label { color:var(--accent); font-size:11px; font-weight:900; }
 
@@ -433,6 +471,7 @@ const adminHTML = `<!doctype html>
       .inline-form > * { min-width:0; max-width:100%; }
       .platform-split { grid-template-columns:1fr; padding:10px; }
       .platform-grid { grid-template-columns:1fr; padding:10px; }
+      .dw-two-column { grid-template-columns:1fr; }
       .flow-canvas { flex-direction:column; min-height:0; }
       .flow-node { flex:0 0 auto; min-height:74px; width:auto; }
       .flow-link { flex:0 0 20px; transform:rotate(90deg); }
@@ -447,6 +486,7 @@ const adminHTML = `<!doctype html>
       .twin-header-main { flex-direction:column; }
       .twin-scores { min-width:0; width:100%; grid-template-columns:1fr; }
       .twin-canvas-grid { grid-template-columns:1fr; }
+      .canvas-block.wide { grid-column:auto; }
       .next-action { align-items:flex-start; flex-direction:column; }
     }
   </style>
@@ -878,6 +918,7 @@ const adminHTML = `<!doctype html>
       opts = opts || {};
       document.getElementById('modal-title').textContent = title;
       document.getElementById('modal-body').innerHTML = html;
+      standardizeFormComponents(document.getElementById('modal-body'));
 
       const modalEl = document.querySelector('#modal-backdrop .modal');
       if (modalEl) modalEl.classList.toggle('modal-wide', !!opts.wide);
@@ -1222,7 +1263,7 @@ const adminHTML = `<!doctype html>
       const el = document.getElementById('subtabs');
       if (tab === 'factory' || tab === 'data-products' || tab === 'text2sql' || tab === 'dwdashboard') {
         el.innerHTML = subNav([
-          { label: 'Factory Home', href: '#/factory', active: tab === 'factory' },
+          { label: '팩토리 홈', href: '#/factory', active: tab === 'factory' },
           { label: '상품 카탈로그', href: '#/data-products', active: tab === 'data-products' },
           { label: '수요 탐지', href: '#/text2sql', active: tab === 'text2sql' },
           { label: '성과 분석', href: '#/dwdashboard', active: tab === 'dwdashboard' },
@@ -1437,6 +1478,7 @@ const adminHTML = `<!doctype html>
       } catch (err) {
         document.getElementById('view').innerHTML = '<div class="error-line">' + escapeHTML(err.message) + '</div>';
       }
+      standardizeFormComponents(document.getElementById('view'));
       agentOnRoute();
     }
     window.addEventListener('hashchange', route);
@@ -13744,6 +13786,40 @@ const adminHTML = `<!doctype html>
       const cls = ['blocked','failed','disabled','archived','retired','block','critical','high_risk','personal_credit','restricted'].includes(v) ? 'error' : (v.indexOf('pending') >= 0 || ['draft','review','risk_review','approval_required','warning','medium','high','pseudonymized','not_tested'].includes(v) ? 'warn' : '');
       return '<span class="status ' + cls + '" title="' + escapeAttr(v) + '">' + escapeHTML(dwStatusLabels[v] || value || '알 수 없음') + '</span>';
     }
+    function dwApprovalLabel(value) {
+      const labels={data_owner:'데이터 오너',legal:'법무',compliance:'준법감시',privacy:'개인정보보호',risk:'리스크',security:'정보보호'};
+      return labels[String(value||'').toLowerCase()]||value||'-';
+    }
+    function dwLocalizedText(value) {
+      const raw=String(value||'');
+      const exact={
+        'Plan':'계획','Final response':'최종 응답','plan':'계획','tool':'도구','response':'응답','guardrail':'가드레일','approval':'승인',
+        'Select only tools allowed by the agent contract and evaluate approval policy before execution.':'에이전트 계약에서 허용된 도구만 선택하고 실행 전 승인 정책을 확인합니다.',
+        'The requested tool is not in the agent allowlist.':'요청한 도구가 에이전트 허용 목록에 없습니다.',
+        'The tool is disabled by Tool Governance.':'도구 거버넌스에서 비활성화된 도구입니다.',
+        'High-risk tool execution is paused for human approval.':'고위험 도구 실행이 담당자 승인 대기로 전환되었습니다.',
+        'Tool contract, parameter policy, and masking policy passed in the sandbox.':'샌드박스에서 도구 계약, 매개변수 정책, 마스킹 정책을 통과했습니다.',
+        'contract-valid sandbox result':'계약 검증을 통과한 샌드박스 결과',
+        'Compose a bounded response from policy-approved intermediate results.':'정책 승인을 통과한 중간 결과만 사용해 제한된 응답을 구성합니다.',
+        'Agent run completed in governance sandbox.':'거버넌스 샌드박스에서 에이전트 실행을 완료했습니다.',
+        'Governance sandbox run completed.':'거버넌스 샌드박스 실행이 완료되었습니다.',
+        'Execution blocked by policy.':'정책에 의해 실행이 차단되었습니다.',
+        'Execution paused for approval.':'승인을 위해 실행이 일시 중지되었습니다.',
+        'No action required.':'추가 조치가 필요하지 않습니다.',
+        'Review tool allowlists and blocked policy decisions.':'도구 허용 목록과 차단된 정책 판정을 검토하세요.',
+        'Assign approvers and define an approval-time SLA.':'승인 담당자를 지정하고 승인 처리 SLA를 정의하세요.',
+        'Run regression cases and inspect the latest failed trace.':'회귀 테스트를 실행하고 최근 실패 트레이스를 확인하세요.',
+        'at least one source data asset must be linked before publishing a strict-gated product':'엄격한 출시 통제 상품에는 원천 데이터 자산을 하나 이상 연결해야 합니다.',
+        'evidence pack must be generated before publishing':'출시 전에 상품 근거 패키지를 생성해야 합니다.',
+        'sample response masking policy is not configured for sensitive product':'민감 상품의 샘플 응답 마스킹 정책이 설정되지 않았습니다.'
+      };
+      if(exact[raw])return exact[raw];
+      if(raw.indexOf('missing asset readiness score for ')===0)return '데이터 자산 '+raw.slice(34)+'의 준비도 점검 결과가 없습니다.';
+      if(raw.indexOf('missing required approval: ')===0)return dwApprovalLabel(raw.slice(27))+' 승인이 필요합니다.';
+      let match=raw.match(/^asset (.+) readiness score (\d+) is below (\d+)$/);if(match)return '데이터 자산 '+match[1]+'의 준비도 점수 '+match[2]+'점이 기준 '+match[3]+'점보다 낮습니다.';
+      if(raw.indexOf('data quality rule failed: ')===0)return '데이터 품질 규칙 실패: '+raw.slice(26);
+      return raw;
+    }
     function dwWorkspaceOptions(workspaces, selected) {
       return '<option value="">공통 영역</option>' + (workspaces || []).map(w => '<option value="' + escapeAttr(w.id) + '"' + (w.id === selected ? ' selected' : '') + '>' + escapeHTML(w.name) + '</option>').join('');
     }
@@ -13815,7 +13891,57 @@ const adminHTML = `<!doctype html>
       select.addEventListener('change', render); render();
     }
     function dwField(label, help, control, errorID, wide) {
-      return '<div class="dw-field' + (wide ? ' wide' : '') + '"><div class="field-label">' + escapeHTML(label) + '</div><div class="field-help">' + escapeHTML(help || '') + '</div>' + control + '<div class="field-error"' + (errorID ? ' id="' + escapeAttr(errorID) + '"' : '') + '></div></div>';
+      let controlHTML = String(control || '');
+      const controlMatch = controlHTML.match(/<(?:input|select|textarea)\b[^>]*\bid="([^"]+)"/i);
+      const controlID = controlMatch ? controlMatch[1] : '';
+      const required = /<(?:input|select|textarea)\b[^>]*\brequired(?:\s|>|=)/i.test(controlHTML);
+      const helpID = controlID ? controlID + '-field-help' : '';
+      if (controlID && helpID && controlHTML.indexOf('aria-describedby=') < 0) {
+        controlHTML = controlHTML.replace('id="' + controlID + '"', 'id="' + controlID + '" aria-describedby="' + helpID + (errorID ? ' ' + errorID : '') + '"');
+      }
+      return '<div class="dw-field' + (wide ? ' wide' : '') + '">' +
+        '<label class="field-label' + (required ? ' required' : '') + '"' + (controlID ? ' for="' + escapeAttr(controlID) + '"' : '') + '><span class="field-label-text">' + escapeHTML(label) + '</span></label>' +
+        '<span class="field-help"' + (helpID ? ' id="' + escapeAttr(helpID) + '"' : '') + '>' + escapeHTML(help || '') + '</span>' +
+        '<div class="field-control">' + controlHTML + '</div>' +
+        '<span class="field-error" aria-live="polite"' + (errorID ? ' id="' + escapeAttr(errorID) + '"' : '') + '></span></div>';
+    }
+    function dwCanvasField(label, help, control, wide) {
+      return dwField(label, help, control, '', wide).replace('class="dw-field', 'class="canvas-block dw-field');
+    }
+    function standardizeFormComponents(root) {
+      if (!root || !root.querySelectorAll) return;
+      root.querySelectorAll('form').forEach(form => {
+        const hasLabeledControl = Array.from(form.querySelectorAll('label')).some(label => {
+          if (label.matches('.ct-check,.reference-option')) return false;
+          const parent = label.parentElement;
+          return !!label.querySelector('input,select,textarea') || !!(parent && Array.from(parent.children).some(child => child.matches && child.matches('input,select,textarea')));
+        });
+        if (hasLabeledControl && !form.matches('.dw-form,.platform-form-grid,.inline-form,.ct-form')) form.classList.add('dw-form');
+      });
+      root.querySelectorAll('label').forEach(label => {
+        const choiceLabel = label.matches('.ct-check,.reference-option');
+        Array.from(label.childNodes).filter(node => node.nodeType === 3 && node.textContent.trim()).forEach(node => {
+          const span = document.createElement('span');
+          span.className = choiceLabel ? 'control-copy' : 'field-label-text';
+          span.textContent = node.textContent.trim();
+          label.replaceChild(span, node);
+        });
+        if (choiceLabel) return;
+        label.classList.add('field-label');
+        const directControl = Array.from(label.children).find(child => child.matches && child.matches('input,select,textarea'));
+        if (directControl) {
+          label.classList.add('control-label');
+          if (directControl.required) label.classList.add('required');
+          return;
+        }
+        const parent = label.parentElement;
+        if (!parent) return;
+        const control = Array.from(parent.children).find(child => child.matches && child.matches('input,select,textarea'));
+        if (!control) return;
+        parent.classList.add('dw-field');
+        if (control.id && !label.htmlFor) label.htmlFor = control.id;
+        if (control.required) label.classList.add('required');
+      });
     }
     function dwEmpty(title, actionLabel, actionHref) {
       return '<div class="empty"><strong style="display:block;color:var(--ink);margin-bottom:5px">' + escapeHTML(title) + '</strong>' + (actionHref ? '<a href="' + escapeAttr(actionHref) + '"><button type="button" class="secondary">' + escapeHTML(actionLabel || '새로 만들기') + '</button></a>' : '') + '</div>';
@@ -14075,8 +14201,8 @@ const adminHTML = `<!doctype html>
     window.dataWorksPromoteFlow = async (id) => { if(!confirm('이 플로우를 다음 환경으로 승격하시겠습니까? 감사 로그에 기록됩니다.'))return;try { const r = await api('/admin/dataworks/flows/' + encodeURIComponent(id) + '/promote', {method:'POST',body:'{}'}); alert((dwStatusLabels[r.flow.status]||r.flow.status)+' 환경으로 승격했습니다.'); renderDataWorksFlows(id); } catch(e){alert('승격하지 못했습니다. 실행 검증과 승인 상태를 확인해 주세요.\n'+e.message);} };
 
     function dwTraceTimeline(traces) {
-      if (!(traces || []).length) return '<div class="empty">Trace가 없습니다.</div>';
-      return '<div class="trace-timeline">' + traces.map(t => '<div class="trace-step"><div class="trace-index">' + fmt(t.step_no) + '</div><div><strong>' + escapeHTML(t.name || t.trace_type) + '</strong><div class="muted" style="font-size:11px">' + escapeHTML(t.trace_type) + '</div></div><div><div>' + escapeHTML(t.reasoning_summary || '') + '</div>' + (t.output_summary ? '<div class="muted" style="font-size:11px;margin-top:4px">' + escapeHTML(t.output_summary) + '</div>' : '') + '</div><div>' + dwStatus(t.status) + '<div class="muted" style="font-size:10px;margin-top:4px">' + escapeHTML(t.policy_decision || '') + '</div></div></div>').join('') + '</div>';
+      if (!(traces || []).length) return dwEmpty('실행 트레이스가 없습니다.');
+      return '<div class="trace-timeline">' + traces.map(t => '<div class="trace-step"><div class="trace-index">' + fmt(t.step_no) + '</div><div><strong>' + escapeHTML(dwLocalizedText(t.name || t.trace_type)) + '</strong><div class="muted" style="font-size:11px">' + escapeHTML(dwLocalizedText(t.trace_type)) + '</div></div><div><div>' + escapeHTML(dwLocalizedText(t.reasoning_summary)) + '</div>' + (t.output_summary ? '<div class="muted" style="font-size:11px;margin-top:4px">' + escapeHTML(dwLocalizedText(t.output_summary)) + '</div>' : '') + '</div><div>' + dwStatus(t.status) + (t.policy_decision?'<div style="margin-top:4px">'+dwStatus(t.policy_decision)+'</div>':'') + '</div></div>').join('') + '</div>';
     }
 
     async function renderDataWorksAgents(selectedID) {
@@ -14206,7 +14332,7 @@ const adminHTML = `<!doctype html>
     async function renderDataWorksAgentOps() {
       const view=document.getElementById('view');view.innerHTML=section('에이전트 운영 센터','<div class="empty">불러오는 중...</div>');let data;try{data=await api('/admin/dataworks/agentops');}catch(e){view.innerHTML=section('에이전트 운영 센터','<div class="empty">'+escapeHTML(e.message)+'</div>');return;}
       const rows=data.agents||[],t=data.totals||{};
-      const table=rows.length?'<table><thead><tr><th>에이전트</th><th>실행</th><th>성공률</th><th>실패 / 차단</th><th>승인 대기</th><th>평균 지연</th><th>비용</th><th>운영 권고</th></tr></thead><tbody>'+rows.map(x=>{const a=x.agent||{};return'<tr><td><a href="#/dataworks/agents/'+encodeURIComponent(a.id)+'"><strong>'+escapeHTML(a.name||a.agent_key)+'</strong></a><div class="muted">오너 '+escapeHTML(a.owner||'-')+'</div></td><td>'+fmt(x.runs)+'</td><td>'+((x.success_rate||0)*100).toFixed(1)+'%</td><td>'+fmt(x.failed)+' / '+fmt(x.blocked)+'</td><td>'+fmt(x.pending_approval)+'</td><td>'+fmt(x.avg_latency_ms)+'ms</td><td>'+dwWon(x.cost)+'</td><td>'+escapeHTML(x.recommendation||'추가 조치가 필요하지 않습니다.')+'</td></tr>';}).join('')+'</tbody></table>':dwEmpty('에이전트 실행 데이터가 없습니다.','에이전트 테스트','#/dataworks/agents');
+      const table=rows.length?'<table><thead><tr><th>에이전트</th><th>실행</th><th>성공률</th><th>실패 / 차단</th><th>승인 대기</th><th>평균 지연</th><th>비용</th><th>운영 권고</th></tr></thead><tbody>'+rows.map(x=>{const a=x.agent||{};return'<tr><td><a href="#/dataworks/agents/'+encodeURIComponent(a.id)+'"><strong>'+escapeHTML(a.name||a.agent_key)+'</strong></a><div class="muted">오너 '+escapeHTML(a.owner||'-')+'</div></td><td>'+fmt(x.runs)+'</td><td>'+((x.success_rate||0)*100).toFixed(1)+'%</td><td>'+fmt(x.failed)+' / '+fmt(x.blocked)+'</td><td>'+fmt(x.pending_approval)+'</td><td>'+fmt(x.avg_latency_ms)+'ms</td><td>'+dwWon(x.cost)+'</td><td>'+escapeHTML(dwLocalizedText(x.recommendation||'No action required.'))+'</td></tr>';}).join('')+'</tbody></table>':dwEmpty('에이전트 실행 데이터가 없습니다.','에이전트 테스트','#/dataworks/agents');
       view.innerHTML=section('에이전트 운영 센터','<div class="kpis">'+kpi('전체 실행',fmt(t.runs||0))+kpi('성공',fmt(t.success||0))+kpi('실패',fmt(t.failed||0))+kpi('정책 차단',fmt(t.blocked||0))+kpi('승인 대기',fmt(t.pending_approval||0))+kpi('누적 비용',dwWon(t.cost||0))+'</div>')+card('에이전트 신뢰성',dwTable(table));
     }
 
@@ -14231,7 +14357,7 @@ const adminHTML = `<!doctype html>
 
     async function renderDataWorksHome() {
       const view = document.getElementById('view');
-      view.innerHTML = section('Data Works Control Tower', '<div class="empty">불러오는 중...</div>');
+      view.innerHTML = section('플랫폼 관제센터', '<div class="empty">불러오는 중...</div>');
       let d, act, platform;
       try {
         [d, act, platform] = await Promise.all([
@@ -14240,7 +14366,7 @@ const adminHTML = `<!doctype html>
           api('/admin/dataworks/platform/overview').catch(() => ({ kpis: {} })),
         ]);
       } catch (e) {
-        view.innerHTML = section('Data Works Control Tower', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
+        view.innerHTML = section('플랫폼 관제센터', '<div class="card-body"><p class="muted">' + escapeHTML(e.message) + '</p></div>');
         return;
       }
       const dash = d.dashboard || {};
@@ -14302,7 +14428,7 @@ const adminHTML = `<!doctype html>
         '<a href="#/dataworks/risk"><button type="button" class="secondary">리스크 센터</button></a>' +
       '</div>');
 
-      view.innerHTML = section('Data Works Control Tower', '<p class="muted" style="margin:-4px 0 12px">내부 데이터 자산의 판매 상품화 파이프라인 통합 관제 대시보드</p>') + alertsWidget + kpis + platformCard + topCard + quickLinks;
+      view.innerHTML = section('플랫폼 관제센터', '<p class="muted" style="margin:-4px 0 12px">내부 데이터 자산의 판매 상품화 파이프라인 통합 관제 대시보드</p>') + alertsWidget + kpis + platformCard + topCard + quickLinks;
     }
 
     async function renderDataWorksActions() {
@@ -14367,7 +14493,7 @@ const adminHTML = `<!doctype html>
         const severityBadge = a.severity === 'high' ? '<span class="status error">High</span>' : (a.severity === 'medium' ? '<span class="status warn">Medium</span>' : '<span class="status">Low</span>');
         let details = '';
         if (a.blocked_reasons && a.blocked_reasons.length) {
-          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad);overflow-wrap:anywhere">차단 사유: ' + a.blocked_reasons.map(r => '<code style="white-space:normal">' + escapeHTML(r) + '</code>').join(', ') + '</div>';
+          details += '<div style="margin-top:6px;font-size:12px;color:var(--bad);overflow-wrap:anywhere">차단 사유: ' + a.blocked_reasons.map(r => '<code style="white-space:normal">' + escapeHTML(dwLocalizedText(r)) + '</code>').join(', ') + '</div>';
         }
         if (a.missing_approvals && a.missing_approvals.length) {
           details += '<div style="margin-top:4px;font-size:12px;color:var(--warn)">미승인 부서: ' + a.missing_approvals.map(m => '<code>' + escapeHTML(m) + '</code>').join(', ') + '</div>';
@@ -14859,8 +14985,8 @@ const adminHTML = `<!doctype html>
       window.renderTwinGatePanel = (gate) => {
         const blocked=(gate.blocked_reasons||[]), approvals=(gate.missing_approvals||[]), allowed=!!gate.allowed;
         return '<div class="validation-panel ' + (allowed?'ok':'error') + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><strong>' + (allowed?'출시 가능':'출시 조건을 충족하지 못했습니다.') + '</strong>' + (allowed?'모든 필수 근거와 승인이 준비되었습니다.':'아래 차단 사유를 해결해 주세요.') + '</div>' + dwStatus(allowed?'ready':'blocked') + '</div>' +
-          (blocked.length?'<ul style="margin:8px 0 0;padding-left:18px">'+blocked.map(reason=>'<li>'+escapeHTML(reason)+'</li>').join('')+'</ul>':'') +
-          (approvals.length?'<div style="margin-top:8px"><strong>필요 승인</strong><div class="reference-meta">'+approvals.map(role=>'<span class="pill">'+escapeHTML(role)+'</span>').join('')+'</div></div>':'') +
+          (blocked.length?'<ul style="margin:8px 0 0;padding-left:18px">'+blocked.map(reason=>'<li>'+escapeHTML(dwLocalizedText(reason))+'</li>').join('')+'</ul>':'') +
+          (approvals.length?'<div style="margin-top:8px"><strong>필요 승인</strong><div class="reference-meta">'+approvals.map(role=>'<span class="pill">'+escapeHTML(dwApprovalLabel(role))+'</span>').join('')+'</div></div>':'') +
           (!allowed?'<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="secondary" onclick="twinTabFilter(\'evidence\')">근거 확인</button><button type="button" class="secondary" onclick="twinTabFilter(\'risk\')">리스크 해결</button><button type="button" class="secondary" onclick="twinTabFilter(\'contract\')">계약 확인</button></div>':'') + '</div>';
       };
       const headerHtml = '<div class="twin-header">' +
@@ -14992,14 +15118,14 @@ const adminHTML = `<!doctype html>
 
         const canvasAssetPicker=(refs.assets||[]).map(asset=>'<label class="reference-option"><input type="checkbox" name="canvas-asset" value="'+escapeAttr(asset.asset_key)+'"'+(canvasAssetKeys.includes(asset.asset_key)?' checked':'')+' onchange="syncCanvasAssetPreview()"><span><strong>'+escapeHTML(asset.name||asset.asset_key)+'</strong><small>'+escapeHTML(asset.domain||'-')+' · '+escapeHTML(asset.owner||'-')+'</small><span style="display:block;margin-top:4px">'+dwStatus(asset.sensitivity||'internal')+'</span></span></label>').join('');
         activeContent = '<form id="canvas-form" onsubmit="saveCanvas(event)"><div id="canvas-validation" class="validation-panel"><strong>자동 저장 꺼짐</strong>수정 내용을 검토한 뒤 저장해 주세요.</div><div class="twin-canvas-grid" style="margin-top:12px">' +
-          '<div class="canvas-block"><label>고객 문제</label><small>고객이 해결하려는 업무 문제를 작성합니다.</small><textarea id="can-prob" rows="4">' + escapeHTML(canvas.customer_problem || '') + '</textarea></div>' +
-          '<div class="canvas-block"><label>고객군</label><small>등록된 고객군에서 선택합니다.</small><select id="can-buyer" required>' + dwReferenceOptions('segment',refs.customer_segments,selectedBuyer?selectedBuyer.segment_key:'','고객군 선택') + '</select><div id="can-buyer-preview"></div></div>' +
-          '<div class="canvas-block"><label>사용 시나리오</label><small>상품이 적용되는 업무 흐름을 작성합니다.</small><textarea id="can-use" rows="4">' + escapeHTML(canvas.use_cases || '') + '</textarea></div>' +
-          '<div class="canvas-block" style="grid-column:span 2"><label>데이터 자산</label><small>카탈로그에 등록된 데이터 자산만 선택할 수 있습니다.</small><div class="reference-picker">' + (canvasAssetPicker||dwEmpty('등록된 데이터 자산이 없습니다.','새 자산 등록 요청','#/dataworks/assets')) + '</div><div id="canvas-asset-preview" class="reference-grid" style="margin-top:8px"></div></div>' +
-          '<div class="canvas-block"><label>차별화 포인트</label><small>기존 상품과 다른 가치를 작성합니다.</small><textarea id="can-diff" rows="4">' + escapeHTML(canvas.differentiation || '') + '</textarea></div>' +
-          '<div class="canvas-block"><label>가격 모델</label><small>구조화된 과금 방식을 선택합니다.</small><select id="can-price"><option value="subscription">월 구독형</option><option value="usage">호출당 과금</option><option value="tiered">티어형</option><option value="poc">PoC 후 협의</option></select></div>' +
-          '<div class="canvas-block"><label>리스크 및 완화 조치</label><small>민감정보와 외부 제공 위험을 작성합니다.</small><textarea id="can-risk" rows="4">' + escapeHTML(canvas.risk_notes || '') + '</textarea></div>' +
-          '<div class="canvas-block"><label>PoC 성공 기준</label><small>측정 가능한 성공 조건을 작성합니다.</small><textarea id="can-poc" rows="4">' + escapeHTML(canvas.poc_success_criteria || '') + '</textarea></div>' +
+          dwCanvasField('고객 문제','고객이 해결하려는 업무 문제를 작성합니다.','<textarea id="can-prob" rows="4">' + escapeHTML(canvas.customer_problem || '') + '</textarea>') +
+          dwCanvasField('고객군','등록된 고객군에서 선택합니다.','<select id="can-buyer" required>' + dwReferenceOptions('segment',refs.customer_segments,selectedBuyer?selectedBuyer.segment_key:'','고객군 선택') + '</select><div id="can-buyer-preview"></div>') +
+          dwCanvasField('사용 시나리오','상품이 적용되는 업무 흐름을 작성합니다.','<textarea id="can-use" rows="4">' + escapeHTML(canvas.use_cases || '') + '</textarea>') +
+          dwCanvasField('데이터 자산','카탈로그에 등록된 데이터 자산만 선택할 수 있습니다.','<div class="reference-picker">' + (canvasAssetPicker||dwEmpty('등록된 데이터 자산이 없습니다.','새 자산 등록 요청','#/dataworks/assets')) + '</div><div id="canvas-asset-preview" class="reference-grid"></div>',true) +
+          dwCanvasField('차별화 포인트','기존 상품과 다른 가치를 작성합니다.','<textarea id="can-diff" rows="4">' + escapeHTML(canvas.differentiation || '') + '</textarea>') +
+          dwCanvasField('가격 모델','구조화된 과금 방식을 선택합니다.','<select id="can-price"><option value="subscription">월 구독형</option><option value="usage">호출당 과금</option><option value="tiered">티어형</option><option value="poc">PoC 후 협의</option></select>') +
+          dwCanvasField('리스크 및 완화 조치','민감정보와 외부 제공 위험을 작성합니다.','<textarea id="can-risk" rows="4">' + escapeHTML(canvas.risk_notes || '') + '</textarea>') +
+          dwCanvasField('PoC 성공 기준','측정 가능한 성공 조건을 작성합니다.','<textarea id="can-poc" rows="4">' + escapeHTML(canvas.poc_success_criteria || '') + '</textarea>') +
         '</div><details style="margin-top:12px"><summary>고급 설정</summary><div class="platform-form-grid" style="padding:12px 0">' +
           dwField('기대 매출', '예상 계약 규모 또는 산정 근거를 작성합니다.', '<input id="can-rev" value="'+escapeAttr(canvas.expected_revenue||'')+'"><small class="muted">예: 연 5천만원</small>') +
           dwField('오너', '등록된 오너에서 선택합니다.', '<select id="can-owner" required>'+dwOwnerOptions(refs.owners,canvas.owner||product.owner||'')+'</select>') +
@@ -15412,6 +15538,7 @@ const adminHTML = `<!doctype html>
       view.innerHTML = section('상품 통합 보기', '') +
         '<div style="padding:0 14px 10px"><a href="#/factory" class="muted">← 상품 팩토리로 이동</a></div>' +
         headerHtml + subTabs + card((dataWorksTwinTabLabels[activeTab] || activeTab) + ' 상세', activeContent);
+      standardizeFormComponents(view);
       if(activeTab==='canvas'){
         const price=document.getElementById('can-price');if(price){const current=String(canvas.pricing_model||'').toLowerCase();price.value=['subscription','usage','tiered','poc'].includes(current)?current:'subscription';}
         dwBindReferenceSelect('can-buyer','can-buyer-preview','segment',refs.customer_segments);
@@ -15558,7 +15685,9 @@ const adminHTML = `<!doctype html>
 
       window.createPromptTemplate = async (event) => {
         event.preventDefault();
+        const validation = document.getElementById('pr-validation');
         try {
+          validation.innerHTML = '<div class="validation-panel">프롬프트 계약을 검증하고 있습니다.</div>';
           await api('/admin/dataworks/prompt-templates', {
             method: 'POST',
             body: JSON.stringify({
@@ -15568,14 +15697,17 @@ const adminHTML = `<!doctype html>
               status: 'active'
             })
           });
-          alert('프롬프트 템플릿 저장 성공!');
-          renderDataWorksPromptRegistry();
-        } catch (e) { alert('템플릿 저장 실패: ' + e.message); }
+          await renderDataWorksPromptRegistry();
+          const next = document.getElementById('pr-validation');
+          if (next) next.innerHTML = '<div class="validation-panel ok"><strong>프롬프트를 저장했습니다.</strong>새 버전이 레지스트리에 등록되었습니다.</div>';
+        } catch (e) { validation.innerHTML = '<div class="validation-panel error"><strong>프롬프트를 저장하지 못했습니다.</strong>' + escapeHTML(e.message) + '</div>'; }
       };
 
       window.createPolicyRule = async (event) => {
         event.preventDefault();
+        const validation = document.getElementById('pol-validation');
         try {
+          validation.innerHTML = '<div class="validation-panel">정책 표현식과 동작을 검증하고 있습니다.</div>';
           await api('/admin/dataworks/policy/rules', {
             method: 'POST',
             body: JSON.stringify({
@@ -15586,9 +15718,10 @@ const adminHTML = `<!doctype html>
               enabled: true
             })
           });
-          alert('정책 룰 등록 성공!');
-          renderDataWorksPromptRegistry();
-        } catch (e) { alert('정책 등록 실패: ' + e.message); }
+          await renderDataWorksPromptRegistry();
+          const next = document.getElementById('pol-validation');
+          if (next) next.innerHTML = '<div class="validation-panel ok"><strong>정책 규칙을 등록했습니다.</strong>활성 정책 목록에 반영되었습니다.</div>';
+        } catch (e) { validation.innerHTML = '<div class="validation-panel error"><strong>정책 규칙을 등록하지 못했습니다.</strong>' + escapeHTML(e.message) + '</div>'; }
       };
 
       const tRows = templates.length
@@ -15604,28 +15737,29 @@ const adminHTML = `<!doctype html>
         : '<p class="muted">등록된 컴플라이언스 정책 규칙이 없습니다.</p>';
 
       const promptForm = card('신규 프롬프트 템플릿 등록',
-        '<form onsubmit="createPromptTemplate(event)">' +
-          '<div><label>Template Key</label><input id="pr-key" placeholder="dw_product_definition" required></div>' +
-          '<div><label>실행 유형</label><select id="pr-type"><option value="ideas.generate">ideas.generate</option><option value="products.define">products.define</option></select></div>' +
-          '<div><label>프롬프트 본문</label><textarea id="pr-content" rows="4" placeholder="You are an AI..." required></textarea></div>' +
-          '<div style="margin-top:10px"><button type="submit">프롬프트 저장</button></div>' +
+        '<form class="dw-form" onsubmit="createPromptTemplate(event)">' +
+          dwField('템플릿 키', '실행 코드에서 참조할 고유 식별자입니다.', '<input id="pr-key" placeholder="dw_product_definition" required>', 'pr-key-error') +
+          dwField('실행 유형', '이 프롬프트를 사용할 Factory 실행 단계를 선택합니다.', '<select id="pr-type"><option value="ideas.generate">아이디어 생성</option><option value="products.define">상품 정의</option></select>') +
+          dwField('프롬프트 본문', '역할, 입력 조건, 출력 계약을 포함해 작성합니다.', '<textarea id="pr-content" rows="6" placeholder="상품 정의에 사용할 지시문을 입력해 주세요." required></textarea>', 'pr-content-error') +
+          '<div id="pr-validation" aria-live="polite"></div><div class="form-actions"><button type="submit">프롬프트 저장</button></div>' +
         '</form>');
 
       const policyForm = card('신규 거버넌스 정책 규칙 등록',
-        '<form onsubmit="createPolicyRule(event)">' +
-          '<div><label>Rule ID</label><input id="pol-id" placeholder="prule_governance_limit" required></div>' +
-          '<div><label>정책 분류</label><select id="pol-type"><option value="privacy">privacy</option><option value="credit_info">credit_info</option><option value="ai_usage">ai_usage</option><option value="external_sharing">external_sharing</option><option value="security">security</option></select></div>' +
-          '<div><label>규칙 표현식</label><textarea id="pol-body" rows="4" placeholder="sensitivity=personal_credit -> require_compliance_approval" required></textarea></div>' +
-          '<div><label>위반 시 동작</label><select id="pol-action"><option value="block">block</option><option value="warn">warn</option><option value="approve">approve</option></select></div>' +
-          '<div style="margin-top:10px"><button type="submit">정책 규칙 등록</button></div>' +
+        '<form class="dw-form" onsubmit="createPolicyRule(event)">' +
+          dwField('규칙 ID', '감사 로그와 정책 판정에서 사용할 고유 식별자입니다.', '<input id="pol-id" placeholder="prule_governance_limit" required>', 'pol-id-error') +
+          dwField('정책 분류', '규칙이 통제하는 거버넌스 영역입니다.', '<select id="pol-type"><option value="privacy">개인정보</option><option value="credit_info">신용정보</option><option value="ai_usage">AI 활용</option><option value="external_sharing">외부 공유</option><option value="security">정보보호</option></select>') +
+          dwField('규칙 표현식', '조건과 필요한 통제 동작을 한 계약으로 작성합니다.', '<textarea id="pol-body" rows="6" placeholder="sensitivity=personal_credit -> require_compliance_approval" required></textarea>', 'pol-body-error') +
+          dwField('위반 시 동작', '규칙이 충족되지 않았을 때 적용할 기본 동작입니다.', '<select id="pol-action"><option value="block">차단</option><option value="warn">경고</option><option value="approve">승인 요청</option></select>') +
+          '<div id="pol-validation" aria-live="polite"></div><div class="form-actions"><button type="submit">정책 규칙 등록</button></div>' +
         '</form>');
 
       const promptListCard = card('등록된 프롬프트 템플릿 목록', '<div class="card-body">' + tRows + '</div>');
       const policyListCard = card('등록된 거버넌스 정책 규칙 목록', '<div class="card-body">' + rRows + '</div>');
 
       view.innerHTML = section('프롬프트 및 거버넌스 레지스트리', '<p class="muted" style="margin:-4px 0 12px">AI Product Factory에서 사용하는 전역 프롬프트 템플릿 및 Policy-as-Code 엔진 설정</p>') +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' + promptForm + policyForm + '</div>' +
-        '<div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px">' + promptListCard + policyListCard + '</div>';
+        '<div class="dw-two-column">' + promptForm + policyForm + '</div>' +
+        '<div class="dw-two-column">' + promptListCard + policyListCard + '</div>';
+      standardizeFormComponents(view);
     }
 
 

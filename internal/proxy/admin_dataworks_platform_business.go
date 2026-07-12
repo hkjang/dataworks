@@ -572,13 +572,13 @@ func (s *Server) handleDataWorksAgentOps(w http.ResponseWriter, r *http.Request)
 			rate = float64(success) / float64(len(items))
 			avgLatency = latency / int64(len(items))
 		}
-		recommendation := "No action required."
+		recommendation := "추가 조치가 필요하지 않습니다."
 		if blocked > 0 {
-			recommendation = "Review tool allowlists and blocked policy decisions."
+			recommendation = "도구 허용 목록과 차단된 정책 판정을 검토하세요."
 		} else if pending > 0 {
-			recommendation = "Assign approvers and define an approval-time SLA."
+			recommendation = "승인 담당자를 지정하고 승인 처리 SLA를 정의하세요."
 		} else if rate < 0.9 && len(items) > 0 {
-			recommendation = "Run regression cases and inspect the latest failed trace."
+			recommendation = "회귀 테스트를 실행하고 최근 실패 트레이스를 확인하세요."
 		}
 		rows = append(rows, map[string]any{
 			"agent": agent, "runs": len(items), "success_rate": rate, "failed": failed,
