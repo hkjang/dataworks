@@ -189,6 +189,12 @@ func (s *Server) handleDataWorksWorkspaces(w http.ResponseWriter, r *http.Reques
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
+		if rejectCorruptedCatalogText(w,
+			dataWorksCatalogTextField{name: "name", value: in.Name},
+			dataWorksCatalogTextField{name: "owner", value: in.Owner},
+			dataWorksCatalogTextField{name: "description", value: in.Description}) {
+			return
+		}
 		if in.ID == "" {
 			in.ID = newID("dwws")
 		}
@@ -295,6 +301,12 @@ func (s *Server) handleDataWorksMetadataEntities(w http.ResponseWriter, r *http.
 		var entity store.MetadataEntity
 		if err := json.NewDecoder(r.Body).Decode(&entity); err != nil {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
+			return
+		}
+		if rejectCorruptedCatalogText(w,
+			dataWorksCatalogTextField{name: "name", value: entity.Name},
+			dataWorksCatalogTextField{name: "owner", value: entity.Owner},
+			dataWorksCatalogTextField{name: "description", value: entity.Description}) {
 			return
 		}
 		if entity.ID == "" {
@@ -437,6 +449,12 @@ func (s *Server) handleDataWorksSemanticMetrics(w http.ResponseWriter, r *http.R
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
+		if rejectCorruptedCatalogText(w,
+			dataWorksCatalogTextField{name: "name", value: in.Name},
+			dataWorksCatalogTextField{name: "owner", value: in.Owner},
+			dataWorksCatalogTextField{name: "description", value: in.Description}) {
+			return
+		}
 		if in.ID == "" {
 			in.ID = newID("dwmetric")
 		}
@@ -522,6 +540,12 @@ func (s *Server) handleDataWorksSemanticGlossary(w http.ResponseWriter, r *http.
 		var term store.Text2SQLBusinessTerm
 		if err := json.NewDecoder(r.Body).Decode(&term); err != nil {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
+			return
+		}
+		if rejectCorruptedCatalogText(w,
+			dataWorksCatalogTextField{name: "term", value: term.Term},
+			dataWorksCatalogTextField{name: "mapping", value: term.Mapping},
+			dataWorksCatalogTextField{name: "description", value: term.Description}) {
 			return
 		}
 		if term.ID == "" {

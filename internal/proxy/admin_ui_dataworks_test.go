@@ -39,6 +39,7 @@ func TestAdminUIDataWorksAPIContractKeys(t *testing.T) {
 	required := []string{
 		`/admin/dataworks/platform/overview`,
 		`/admin/dataworks/reference-catalog`,
+		`/admin/dataworks/catalog-health`,
 		`/admin/dataworks/metadata/search`,
 		`/admin/dataworks/semantic/metrics`,
 		`/admin/dataworks/flows`,
@@ -76,6 +77,30 @@ func TestAdminUIDataWorksAPIContractKeys(t *testing.T) {
 		if strings.Contains(adminHTML, stale) {
 			t.Errorf("admin UI still contains stale Data Works API key %q", stale)
 		}
+	}
+}
+
+func TestAdminUIDataWorksToolRegistryContract(t *testing.T) {
+	required := []string{
+		`class="catalog-health-band`,
+		`class="tool-registry-toolbar"`,
+		`class="platform-table tool-registry-table"`,
+		`id="dwt-filter" type="search"`,
+		`id="dwt-type-filter"`,
+		`id="dwt-open-form"`,
+		`id="dwt-filter-empty"`,
+		`openModal('새 도구 계약'`,
+		`마스킹 없음`,
+		`카탈로그 품질 정상`,
+	}
+	for _, fragment := range required {
+		if !strings.Contains(adminHTML, fragment) {
+			t.Errorf("admin UI missing tool registry contract %q", fragment)
+		}
+	}
+
+	if strings.Contains(adminHTML, `card('새 도구 계약','<div style="padding:14px">'+form`) {
+		t.Error("tool registration form must not compete with the registry table in a split layout")
 	}
 }
 

@@ -322,6 +322,7 @@ var apiEndpoints = []apiEndpoint{
 	{"/admin/dataworks/products/{key}/archive", []string{"post"}, "dataworks", "Archive a published product", false},
 	{"/admin/dataworks/platform/overview", []string{"get"}, "dataworks-platform", "Integrated workspace, metadata, flow, agent, tool, and policy KPIs", false},
 	{"/admin/dataworks/reference-catalog", []string{"get"}, "dataworks-platform", "Active assets, products, customer segments, owners, flows, agents, tools, and policies for governed UI selectors", false},
+	{"/admin/dataworks/catalog-health", []string{"get"}, "dataworks-platform", "Catalog text integrity and ownership health summary", false},
 	{"/admin/dataworks/workspaces", []string{"get", "post"}, "dataworks-platform", "List or create Data Works project workspaces", false},
 	{"/admin/dataworks/workspaces/{id}", []string{"get"}, "dataworks-platform", "Workspace detail with members and connected assets", false},
 	{"/admin/dataworks/workspaces/{id}/members", []string{"get", "post"}, "dataworks-platform", "List or assign workspace members and roles", false},

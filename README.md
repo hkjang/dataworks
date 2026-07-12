@@ -21,6 +21,7 @@
 | Evidence Pack | 상품 정의, 자산 출처, 준비도, 리스크 검토, 승인, API 계약, PoC 계획을 감사 가능한 JSON pack으로 생성 |
 | 출시 Gate | high-risk/sensitive 상품은 준비도, 승인, 증적 없이는 `published` 전환 차단 |
 | 운영 분석 | funnel, portfolio graph, factory run, 매출/리스크 지표 조회 |
+| 카탈로그 품질 | 자산·상품·워크스페이스·플로우·에이전트·도구의 이름, 오너, 설명 무결성 점검 |
 
 ## 주요 API
 
@@ -29,6 +30,7 @@
 | `POST` | `/admin/dataworks/assets/{key}/readiness/check` | 데이터 자산 상품화 준비도 평가 |
 | `GET` | `/admin/dataworks/assets/{key}/lineage` | 데이터 자산 기반 상품 lineage 조회 |
 | `GET` | `/admin/dataworks/home` | Data Works Home KPI |
+| `GET` | `/admin/dataworks/catalog-health` | 전체 등록소 텍스트 무결성, 이름·오너 누락 상태 점검 |
 | `GET` | `/admin/dataworks/action-center` | 운영 액션 센터: 출시 차단, 승인 대기, 만료 임박 계약, 비활성 권한 |
 | `GET/POST` | `/admin/dataworks/customer-segments` | 고객 세그먼트 등록 및 조회 |
 | `GET/POST` | `/admin/dataworks/assets` | 데이터 자산 목록 조회 및 업서트 |

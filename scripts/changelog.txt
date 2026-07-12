@@ -1,3 +1,6 @@
+v0.9.30:
+- **Data Works 카탈로그 품질 및 등록소 UX 고도화 (v0.9.30)**: 자산·상품·워크스페이스·메타데이터·시맨틱 지표·플로우·에이전트·도구·고객군 등록 API에 손상 텍스트 차단을 공통 적용하고, 저장된 전체 등록 개체의 이름·오너·설명을 검사하는 `GET /admin/dataworks/catalog-health` 상태 API를 추가. 도구 등록소를 전체 폭 목록 중심으로 재구성하고 검색·유형 필터·카탈로그 품질 상태·한글 통제 라벨을 제공하며, 신규 도구 계약은 넓은 모달 입력 흐름으로 분리. UTF-8 JSON 응답과 기존 손상 데이터 복구를 포함한 이전 품질 수정, 공통 텍스트/폼 컴포넌트, Product Twin 반응형 개선을 이번 릴리즈에 통합하고 API·UI 계약·브라우저 회귀 테스트를 보강.
+
 v0.9.26:
 - **Data Works 운영 플랫폼 고도화 (v0.9.26)**: Data Product Factory MVP에 운영형 백엔드 기능을 추가. 신규 Data Asset Readiness Score, Product Canvas, Product Evidence Pack, Regulatory Trace Matrix, API Contract/OpenAPI 생성, Mock API sandbox 로그, Proposal Feedback Loop, PoC Outcome, 상품/전체 funnel 분석, 포트폴리오 graph API를 제공. 고위험 또는 민감 상품은 자산 준비도와 법무·준법·데이터오너 승인 trace가 없으면 published 전환을 차단하는 Data Works publish gate를 추가. 신규 `dw_asset_quality_scores`, `dw_product_canvas`, `dw_product_evidence`, `dw_regulatory_trace`, `dw_api_contracts`, `dw_mock_api_logs`, `dw_proposal_feedback`, `dw_poc_outcomes` 테이블과 OpenAPI/README 문서, store/HTTP 테스트를 반영.
 

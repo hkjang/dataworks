@@ -28,6 +28,17 @@ func (s *Server) handleDataWorksFlows(w http.ResponseWriter, r *http.Request) {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
+		fields := []dataWorksCatalogTextField{
+			{name: "name", value: flow.Name},
+			{name: "owner", value: flow.Owner},
+			{name: "description", value: flow.Description},
+		}
+		for _, node := range flow.Nodes {
+			fields = append(fields, dataWorksCatalogTextField{name: "node_name", value: node.Name})
+		}
+		if rejectCorruptedCatalogText(w, fields...) {
+			return
+		}
 		if flow.ID == "" {
 			flow.ID = newID("dwflow")
 		}
@@ -267,6 +278,12 @@ func (s *Server) handleDataWorksAgents(w http.ResponseWriter, r *http.Request) {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
+		if rejectCorruptedCatalogText(w,
+			dataWorksCatalogTextField{name: "name", value: agent.Name},
+			dataWorksCatalogTextField{name: "owner", value: agent.Owner},
+			dataWorksCatalogTextField{name: "purpose", value: agent.Purpose}) {
+			return
+		}
 		if agent.ID == "" {
 			agent.ID = newID("dwagent")
 		}
@@ -480,6 +497,12 @@ func (s *Server) handleDataWorksTools(w http.ResponseWriter, r *http.Request) {
 		tool, err := decodeDataWorksTool(r)
 		if err != nil {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
+			return
+		}
+		if rejectCorruptedCatalogText(w,
+			dataWorksCatalogTextField{name: "name", value: tool.Name},
+			dataWorksCatalogTextField{name: "owner", value: tool.Owner},
+			dataWorksCatalogTextField{name: "description", value: tool.Description}) {
 			return
 		}
 		if tool.ID == "" {

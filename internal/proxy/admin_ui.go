@@ -375,6 +375,32 @@ const adminHTML = `<!doctype html>
     .dw-form > .form-actions { margin:2px -16px -16px; }
     .platform-table { width:100%; overflow-x:auto; overscroll-behavior-x:contain; }
     .platform-table table { min-width:640px; table-layout:auto; }
+    .tool-registry-content { padding:14px; }
+    .tool-registry-toolbar {
+      display:grid; grid-template-columns:minmax(220px,1fr) 180px auto; gap:8px;
+      align-items:center; padding:12px 14px; border-bottom:1px solid var(--line);
+    }
+    .tool-registry-toolbar input, .tool-registry-toolbar select { width:100%; min-width:0; }
+    .tool-registry-toolbar button { white-space:nowrap; }
+    .tool-registry-table table { min-width:860px; table-layout:fixed; }
+    .tool-registry-table th:nth-child(1) { width:21%; }
+    .tool-registry-table th:nth-child(2) { width:20%; }
+    .tool-registry-table th:nth-child(3) { width:11%; }
+    .tool-registry-table th:nth-child(4) { width:19%; }
+    .tool-registry-table th:nth-child(5) { width:15%; }
+    .tool-registry-table th:nth-child(6) { width:14%; }
+    .tool-registry-table td:last-child button { min-width:92px; white-space:nowrap; }
+    .catalog-health-band {
+      display:flex; justify-content:space-between; align-items:center; gap:16px;
+      padding:12px 14px; border-top:1px solid var(--line); background:var(--good-bg);
+    }
+    .catalog-health-band.attention { background:var(--warn-bg); }
+    .catalog-health-band.critical { background:var(--bad-bg); }
+    .catalog-health-copy { display:grid; gap:3px; min-width:0; }
+    .catalog-health-copy .message-text { color:var(--muted); font-size:12px; }
+    .catalog-health-stats { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+    .tool-registration-dialog { padding:2px; }
+    .tool-registration-dialog .platform-form-grid { grid-template-columns:repeat(3,minmax(180px,1fr)); }
     .workspace-tile, .market-item { border:1px solid var(--line); border-radius:6px; padding:13px; background:var(--panel); min-width:0; }
     .workspace-tile h3, .market-item h3 { margin:0 0 6px; font-size:15px; }
     .flow-palette { display:flex; gap:6px; flex-wrap:wrap; padding:10px 0; }
@@ -493,6 +519,12 @@ const adminHTML = `<!doctype html>
       .platform-split { grid-template-columns:1fr; padding:10px; }
       .platform-grid { grid-template-columns:1fr; padding:10px; }
       .dw-two-column { grid-template-columns:1fr; }
+      .tool-registry-content { padding:10px; }
+      .tool-registry-toolbar { grid-template-columns:1fr; }
+      .tool-registry-toolbar button { width:100%; }
+      .catalog-health-band { align-items:flex-start; flex-direction:column; }
+      .catalog-health-stats { justify-content:flex-start; }
+      .tool-registration-dialog .platform-form-grid { grid-template-columns:1fr; }
       .flow-canvas { flex-direction:column; min-height:0; }
       .flow-node { flex:0 0 auto; min-height:74px; width:auto; }
       .flow-link { flex:0 0 20px; transform:rotate(90deg); }
@@ -14319,7 +14351,7 @@ const adminHTML = `<!doctype html>
 
     async function renderDataWorksTools() {
       const view=document.getElementById('view');view.innerHTML=section('도구 등록소','<div class="empty">불러오는 중...</div>');
-      let data,refs;try{[data,refs]=await Promise.all([api('/admin/dataworks/tools'),loadDataWorksReferenceCatalog()]);}catch(e){view.innerHTML=section('도구 등록소','<div class="empty">'+escapeHTML(e.message)+'</div>');return;}
+      let data,refs,health;try{[data,refs,health]=await Promise.all([api('/admin/dataworks/tools'),loadDataWorksReferenceCatalog(),api('/admin/dataworks/catalog-health')]);}catch(e){view.innerHTML=section('도구 등록소','<div class="empty">'+escapeHTML(e.message)+'</div>');return;}
       const tools=data.tools||[];
       const form='<form id="dw-tool-form" class="platform-form-grid">'+
         dwField('도구 키','새 도구를 식별하는 고유 키입니다.','<input id="dwt-key" required placeholder="catalog_lookup">','dwt-key-error')+
@@ -14336,12 +14368,26 @@ const adminHTML = `<!doctype html>
         dwField('입력 스키마','JSON Schema 형식으로 새 입력 계약을 정의합니다.','<textarea id="dwt-input" rows="3">{&quot;type&quot;:&quot;object&quot;,&quot;properties&quot;:{}}</textarea>','dwt-schema-error',true)+
         dwField('허용 매개변수','정책으로 제한할 매개변수 값을 JSON으로 정의합니다.','<textarea id="dwt-params" rows="2">{}</textarea>',null,true)+
         '<div class="wide" id="dwt-validation"></div><div class="wide form-actions"><button type="submit">도구 등록</button></div></form>';
-      const table=tools.length?'<table><thead><tr><th>도구</th><th>유형 / 서버</th><th>위험도</th><th>통제</th><th>최근 테스트</th><th>작업</th></tr></thead><tbody>'+tools.map(t=>'<tr><td><strong>'+escapeHTML(t.name)+'</strong><div class="muted">'+escapeHTML(t.tool_key)+'</div></td><td>'+escapeHTML(dwStatusLabels[t.tool_type]||t.tool_type)+'<div class="muted">'+escapeHTML(t.server_label||t.endpoint||'-')+'</div></td><td>'+dwStatus(t.risk_level)+'</td><td>'+escapeHTML(t.masking_level||'none')+(t.requires_approval?' · 승인 필요':'')+'</td><td>'+dwStatus(t.last_test_status||'not_tested')+'<div class="muted">'+(t.last_tested_at?ago(t.last_tested_at):'')+'</div></td><td><button type="button" class="secondary" onclick="dataWorksTestTool(\''+escapeAttr(t.id)+'\')">연결 테스트</button></td></tr>').join('')+'</tbody></table>':dwEmpty('등록된 도구가 없습니다.');
-      view.innerHTML=section('도구 등록소','<div class="kpis">'+kpi('전체 도구',fmt(tools.length))+kpi('MCP',fmt(tools.filter(t=>t.tool_type==='mcp').length))+kpi('고위험',fmt(tools.filter(t=>t.risk_level==='high'||t.risk_level==='critical').length))+kpi('승인 통제',fmt(tools.filter(t=>t.requires_approval).length))+'</div>')+'<div class="platform-split"><div>'+card('새 도구 계약','<div style="padding:14px">'+form+'</div>')+'</div><div>'+card('등록 목록',dwTable(table))+'</div></div>';
-      document.getElementById('dw-tool-form').addEventListener('submit',async(event)=>{event.preventDefault();const validation=document.getElementById('dwt-validation');let inputSchema,params;try{inputSchema=JSON.parse(document.getElementById('dwt-input').value||'{}');params=JSON.parse(document.getElementById('dwt-params').value||'{}');}catch(e){validation.innerHTML='<div class="validation-panel error"><strong>JSON 형식을 확인해 주세요.</strong>'+escapeHTML(e.message)+'</div>';return;}try{validation.innerHTML='<div class="validation-panel">도구 계약을 검증하고 있습니다.</div>';await api('/admin/dataworks/tools',{method:'POST',body:JSON.stringify({tool_key:document.getElementById('dwt-key').value.trim(),name:document.getElementById('dwt-name').value.trim(),workspace_id:document.getElementById('dwt-workspace').value,tool_type:document.getElementById('dwt-type').value,server_label:document.getElementById('dwt-server').value.trim(),endpoint:document.getElementById('dwt-endpoint').value.trim(),owner:document.getElementById('dwt-owner').value,risk_level:document.getElementById('dwt-risk').value,masking_level:document.getElementById('dwt-masking').value,requires_approval:document.getElementById('dwt-approval').checked,description:document.getElementById('dwt-description').value.trim(),input_schema:inputSchema,output_schema:{type:'object'},allowed_parameters:params,enabled:true})});dwReferenceCatalogCache=null;renderDataWorksTools();}catch(e){validation.innerHTML='<div class="validation-panel error"><strong>도구를 등록하지 못했습니다.</strong>'+escapeHTML(e.message)+'</div>';}});
-      dwBindReferenceSelect('dwt-workspace','dwt-workspace-preview','workspace',refs.workspaces);
+      const maskingLabels={none:'마스킹 없음',partial:'부분 마스킹',strict:'엄격 마스킹'};
+      const table=tools.length?'<table><thead><tr><th>도구</th><th>유형 / 서버</th><th>위험도</th><th>통제</th><th>최근 테스트</th><th>작업</th></tr></thead><tbody>'+tools.map(t=>'<tr data-tool-type="'+escapeAttr(t.tool_type)+'"><td><strong>'+escapeHTML(t.name)+'</strong><div class="muted">'+escapeHTML(t.tool_key)+'</div></td><td>'+escapeHTML(dwStatusLabels[t.tool_type]||t.tool_type)+'<div class="muted">'+escapeHTML(t.server_label||t.endpoint||'-')+'</div></td><td>'+dwStatus(t.risk_level)+'</td><td><span class="pill">'+escapeHTML(maskingLabels[t.masking_level]||t.masking_level||maskingLabels.none)+'</span>'+(t.requires_approval?' '+dwStatus('approval_required'):'')+'</td><td>'+dwStatus(t.last_test_status||'not_tested')+'<div class="muted">'+(t.last_tested_at?ago(t.last_tested_at):'테스트 기록 없음')+'</div></td><td><button type="button" class="secondary" onclick="dataWorksTestTool(\''+escapeAttr(t.id)+'\')">연결 테스트</button></td></tr>').join('')+'</tbody></table>':dwEmpty('등록된 도구가 없습니다.');
+      const summary=health.summary||{},issues=health.issues||[],healthState=summary.status||'healthy';
+      const healthTitle=healthState==='healthy'?'카탈로그 품질 정상':healthState==='critical'?'카탈로그 손상 발견':'카탈로그 보완 필요';
+      const healthCopy=healthState==='healthy'?'등록 개체의 이름과 오너 텍스트가 정상입니다.':'등록소 품질 이슈를 확인하고 원본 데이터를 정리해 주세요.';
+      const healthBand='<div class="catalog-health-band '+escapeAttr(healthState)+'"><div class="catalog-health-copy"><strong><span class="message-title-text">'+healthTitle+'</span></strong><span class="message-text">'+healthCopy+'</span></div><div class="catalog-health-stats"><span class="pill">개체 '+fmt(summary.total_entities||0)+'</span><span class="pill">점검 필드 '+fmt(summary.checked_fields||0)+'</span><span class="pill">손상 '+fmt(summary.critical_count||0)+'</span><span class="pill">오너/이름 보완 '+fmt(summary.warning_count||0)+'</span></div></div>';
+      const issueTable=issues.length?card('카탈로그 품질 이슈','<div class="platform-table"><table><thead><tr><th>유형</th><th>개체 키</th><th>필드</th><th>심각도</th><th>조치</th></tr></thead><tbody>'+issues.map(issue=>'<tr><td>'+escapeHTML(issue.entity_type)+'</td><td><code>'+escapeHTML(issue.entity_key)+'</code></td><td>'+escapeHTML(issue.field)+'</td><td>'+dwStatus(issue.severity)+'</td><td>'+escapeHTML(issue.message)+'</td></tr>').join('')+'</tbody></table></div>'):'';
+      const toolbar='<div class="tool-registry-toolbar"><input id="dwt-filter" type="search" aria-label="도구 검색" placeholder="도구명, 키, 서버 검색"><select id="dwt-type-filter" aria-label="도구 유형 필터"><option value="">전체 유형</option><option value="mcp">MCP</option><option value="internal_api">내부 API</option><option value="sql">SQL</option><option value="rag">RAG</option><option value="product">상품</option></select><button id="dwt-open-form" type="button">새 도구 등록</button></div>';
+      view.innerHTML=section('도구 등록소','<div class="kpis">'+kpi('전체 도구',fmt(tools.length))+kpi('MCP',fmt(tools.filter(t=>t.tool_type==='mcp').length))+kpi('고위험',fmt(tools.filter(t=>t.risk_level==='high'||t.risk_level==='critical').length))+kpi('승인 통제',fmt(tools.filter(t=>t.requires_approval).length))+'</div>'+healthBand)+'<div class="tool-registry-content">'+card('등록 목록',toolbar+'<div class="platform-table tool-registry-table">'+table+'</div><div id="dwt-filter-empty" class="empty" style="display:none">검색 조건과 일치하는 도구가 없습니다.</div>')+issueTable+'</div>';
+      const bindToolForm=()=>{
+        const toolForm=document.getElementById('dw-tool-form');if(!toolForm)return;
+        toolForm.addEventListener('submit',async(event)=>{event.preventDefault();const validation=document.getElementById('dwt-validation');let inputSchema,params;try{inputSchema=JSON.parse(document.getElementById('dwt-input').value||'{}');params=JSON.parse(document.getElementById('dwt-params').value||'{}');}catch(e){validation.innerHTML='<div class="validation-panel error"><strong>JSON 형식을 확인해 주세요.</strong>'+escapeHTML(e.message)+'</div>';return;}try{validation.innerHTML='<div class="validation-panel">도구 계약을 검증하고 있습니다.</div>';await api('/admin/dataworks/tools',{method:'POST',body:JSON.stringify({tool_key:document.getElementById('dwt-key').value.trim(),name:document.getElementById('dwt-name').value.trim(),workspace_id:document.getElementById('dwt-workspace').value,tool_type:document.getElementById('dwt-type').value,server_label:document.getElementById('dwt-server').value.trim(),endpoint:document.getElementById('dwt-endpoint').value.trim(),owner:document.getElementById('dwt-owner').value,risk_level:document.getElementById('dwt-risk').value,masking_level:document.getElementById('dwt-masking').value,requires_approval:document.getElementById('dwt-approval').checked,description:document.getElementById('dwt-description').value.trim(),input_schema:inputSchema,output_schema:{type:'object'},allowed_parameters:params,enabled:true})});closeModal();dwReferenceCatalogCache=null;await renderDataWorksTools();}catch(e){validation.innerHTML='<div class="validation-panel error"><strong>도구를 등록하지 못했습니다.</strong>'+escapeHTML(e.message)+'</div>';}});
+        dwBindReferenceSelect('dwt-workspace','dwt-workspace-preview','workspace',refs.workspaces);
+      };
+      document.getElementById('dwt-open-form').addEventListener('click',()=>{openModal('새 도구 계약','<div class="tool-registration-dialog">'+form+'</div>',null,{wide:true});bindToolForm();});
+      const filter=document.getElementById('dwt-filter'),typeFilter=document.getElementById('dwt-type-filter');
+      const applyFilter=()=>{const query=filter.value.trim().toLowerCase(),type=typeFilter.value,rows=Array.from(document.querySelectorAll('.tool-registry-table tbody tr'));let visible=0;rows.forEach(row=>{const matchesText=!query||row.textContent.toLowerCase().includes(query),matchesType=!type||row.dataset.toolType===type,show=matchesText&&matchesType;row.style.display=show?'':'none';if(show)visible++;});const empty=document.getElementById('dwt-filter-empty');if(empty)empty.style.display=rows.length&&!visible?'block':'none';};
+      filter.addEventListener('input',applyFilter);typeFilter.addEventListener('change',applyFilter);
     }
-    window.dataWorksTestTool=async(id)=>{try{const r=await api('/admin/dataworks/tools/'+encodeURIComponent(id)+'/test',{method:'POST',body:'{}'});openModal('도구 연결 테스트','<div class="validation-panel '+(r.status==='passed'?'ok':'error')+'"><strong>'+escapeHTML(dwStatusLabels[r.status]||r.status)+'</strong>'+(r.issues&&r.issues.length?escapeHTML(r.issues.join(' · ')):'등록된 계약과 연결 정보가 유효합니다.')+'</div>');dwReferenceCatalogCache=null;}catch(e){openModal('도구 연결 테스트','<div class="validation-panel error"><strong>테스트에 실패했습니다.</strong>'+escapeHTML(e.message)+'</div>');}};
+    window.dataWorksTestTool=async(id)=>{try{const r=await api('/admin/dataworks/tools/'+encodeURIComponent(id)+'/test',{method:'POST',body:'{}'});dwReferenceCatalogCache=null;await renderDataWorksTools();openModal('도구 연결 테스트','<div class="validation-panel '+(r.status==='passed'?'ok':'error')+'"><strong>'+escapeHTML(dwStatusLabels[r.status]||r.status)+'</strong>'+(r.issues&&r.issues.length?escapeHTML(r.issues.join(' · ')):'등록된 계약과 연결 정보가 유효합니다.')+'</div>');}catch(e){openModal('도구 연결 테스트','<div class="validation-panel error"><strong>테스트에 실패했습니다.</strong>'+escapeHTML(e.message)+'</div>');}};
 
     function dwPolicyResult(sim) {
       if (!sim) return dwEmpty('아직 정책 판정 결과가 없습니다.');

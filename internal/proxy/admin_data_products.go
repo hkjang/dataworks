@@ -76,6 +76,14 @@ func (s *Server) handleAdminDataProducts(w http.ResponseWriter, r *http.Request)
 			writeOpenAIError(w, http.StatusBadRequest, "product_key and name_ko are required", "invalid_request_error", "missing_fields")
 			return
 		}
+		if rejectCorruptedCatalogText(w,
+			dataWorksCatalogTextField{name: "name_ko", value: p.NameKO},
+			dataWorksCatalogTextField{name: "name_en", value: p.NameEN},
+			dataWorksCatalogTextField{name: "short_name", value: p.ShortName},
+			dataWorksCatalogTextField{name: "owner", value: p.Owner},
+			dataWorksCatalogTextField{name: "description", value: p.Description}) {
+			return
+		}
 		sourceType := strings.TrimSpace(p.SourceType)
 		if sourceType == "" {
 			sourceType = "custom"

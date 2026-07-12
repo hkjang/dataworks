@@ -31,7 +31,7 @@ import (
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
-const AppVersion = "v0.9.26"
+const AppVersion = "v0.9.30"
 
 type Server struct {
 	cfg            config.Config
@@ -403,6 +403,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/dataworks/home", s.handleDataWorksHome)
 	mux.HandleFunc("/admin/dataworks/platform/overview", s.handleDataWorksPlatformOverview)
 	mux.HandleFunc("/admin/dataworks/reference-catalog", s.handleDataWorksReferenceCatalog)
+	mux.HandleFunc("/admin/dataworks/catalog-health", s.handleDataWorksCatalogHealth)
 	mux.HandleFunc("/admin/dataworks/workspaces", s.handleDataWorksWorkspaces)
 	mux.HandleFunc("/admin/dataworks/workspaces/", s.handleDataWorksWorkspaceByID)
 	mux.HandleFunc("/admin/dataworks/metadata/search", s.handleDataWorksMetadataSearch)
