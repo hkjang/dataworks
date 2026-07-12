@@ -119,8 +119,14 @@ func TestAdminUIDataWorksTextComponentContract(t *testing.T) {
 		`class="entity-summary-text"`,
 		`class="message-title-text"`,
 		`class="message-text"`,
+		`function sectionIntro(text)`,
 		`function standardizeTextComponents(root)`,
-		`운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업</span>`,
+		`.section-intro {`,
+		`padding:10px 14px`,
+		`.kv .k, .kv .v {`,
+		`min-height:40px`,
+		`class="twin-detail-body"`,
+		`운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업`,
 	}
 	for _, fragment := range required {
 		if !strings.Contains(adminHTML, fragment) {
@@ -130,6 +136,7 @@ func TestAdminUIDataWorksTextComponentContract(t *testing.T) {
 
 	for _, stale := range []string{
 		`<p class="muted" style="margin:-4px 0 12px">운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업</p>`,
+		`style="margin:-4px 0 12px"`,
 		`return '<div class="k">' + escapeHTML(k) + '</div><div class="v">' + v + '</div>';`,
 		`<h2 style="margin:0;font-size:20px">' + escapeHTML(product.name_ko`,
 	} {

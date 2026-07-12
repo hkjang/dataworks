@@ -119,8 +119,12 @@ const adminHTML = `<!doctype html>
       display: flex; justify-content: space-between; align-items: center; gap: 8px;
     }
     .section-title-text { display:inline-block; min-width:0; }
-    .section-intro { margin:-4px 0 12px; color:var(--muted); }
-    .section-intro-text, .entity-summary-text, .message-text, .message-title-text, .meta-text, .identifier-text,
+    .section-intro {
+      margin:0; padding:10px 14px; color:var(--muted); background:var(--panel-alt);
+      border-bottom:1px solid var(--line); font-size:12px; line-height:1.5;
+    }
+    .section-intro-text { display:block; }
+    .entity-summary-text, .message-text, .message-title-text, .meta-text, .identifier-text,
     .body-text, .heading-text, .strong-text, .list-item-text, .secondary-text { display:inline; min-width:0; }
     .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px; border-bottom: 1px solid var(--line); }
     /* Indented content body for panels whose content would otherwise sit flush to the section edge. */
@@ -301,10 +305,18 @@ const adminHTML = `<!doctype html>
     .ct-check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
     .ct-check input[type="checkbox"] { width: auto; height: auto; min-width: 0; margin: 0; }
     .ct-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .kv { display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; }
-    .kv .k { color: var(--muted); font-size: 12px; font-weight: 700; }
-    .kv .v { overflow-wrap: anywhere; }
-    .kv-label-text, .kv-value-text { display:inline-block; min-width:0; max-width:100%; overflow-wrap:anywhere; }
+    .kv {
+      display:grid; grid-template-columns:minmax(120px,160px) minmax(0,1fr); gap:0;
+      border:1px solid var(--line); border-radius:6px; overflow:hidden; background:var(--panel);
+    }
+    .kv .k, .kv .v {
+      min-height:40px; padding:9px 12px; border-bottom:1px solid var(--line);
+      display:flex; align-items:flex-start; line-height:1.45; min-width:0;
+    }
+    .kv .k { color:var(--muted); font-size:12px; font-weight:700; background:var(--panel-alt); border-right:1px solid var(--line); }
+    .kv .v { overflow-wrap:anywhere; }
+    .kv > :nth-last-child(-n+2) { border-bottom:0; }
+    .kv-label-text, .kv-value-text { display:block; min-width:0; max-width:100%; overflow-wrap:anywhere; }
     .prompt-block {
       padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px;
       background: var(--panel-alt); white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -449,6 +461,8 @@ const adminHTML = `<!doctype html>
     .run-console textarea { height:auto; min-height:78px; width:100%; }
     .twin-header { padding:16px; border:1px solid var(--line); border-radius:8px; background:var(--panel); margin-bottom:12px; }
     .entity-title-text { display:inline-block; min-width:0; overflow-wrap:anywhere; }
+    .twin-detail-body { padding:16px; }
+    .twin-detail-body > :first-child { margin-top:0; }
     .twin-header-main { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; }
     .twin-scores { display:grid; grid-template-columns:repeat(3,minmax(90px,1fr)); gap:1px; background:var(--line); min-width:330px; }
     .twin-score { background:var(--panel-alt); padding:9px 11px; }
@@ -495,6 +509,9 @@ const adminHTML = `<!doctype html>
       .twin-canvas-grid { grid-template-columns:1fr; }
       .canvas-block.wide { grid-column:auto; }
       .next-action { align-items:flex-start; flex-direction:column; }
+      .kv { grid-template-columns:minmax(104px,.42fr) minmax(0,1fr); }
+      .kv .k, .kv .v { padding:8px 9px; }
+      .twin-detail-body { padding:12px; }
     }
   </style>
 </head>
@@ -3765,6 +3782,7 @@ const adminHTML = `<!doctype html>
     function section(title, inner) { return '<section><h2><span class="section-title-text">' + escapeHTML(title) + '</span></h2>' + inner + '</section>'; }
     function card(title, inner)    { return '<section><h2><span class="section-title-text">' + escapeHTML(title) + '</span></h2>' + inner + '</section>'; }
     function cardWithID(id, title, inner) { return '<section id="' + escapeHTML(id) + '"><h2><span class="section-title-text">' + escapeHTML(title) + '</span></h2>' + inner + '</section>'; }
+    function sectionIntro(text) { return '<p class="section-intro"><span class="section-intro-text">' + escapeHTML(text) + '</span></p>'; }
 
     // ---------- LLM observability ----------
     const llmState = {
@@ -14479,7 +14497,7 @@ const adminHTML = `<!doctype html>
         '<a href="#/dataworks/risk"><button type="button" class="secondary">리스크 센터</button></a>' +
       '</div>');
 
-      view.innerHTML = section('플랫폼 관제센터', '<p class="muted" style="margin:-4px 0 12px">내부 데이터 자산의 판매 상품화 파이프라인 통합 관제 대시보드</p>') + alertsWidget + kpis + platformCard + topCard + quickLinks;
+      view.innerHTML = section('플랫폼 관제센터', sectionIntro('내부 데이터 자산의 판매 상품화 파이프라인 통합 관제 대시보드')) + alertsWidget + kpis + platformCard + topCard + quickLinks;
     }
 
     async function renderDataWorksActions() {
@@ -14514,7 +14532,7 @@ const adminHTML = `<!doctype html>
         '<button class="' + (currentFilter === 'retire' ? '' : 'secondary') + '" onclick="actionTabFilter(\'retire\')">폐기 추천 (' + (summary.retirement_candidates || 0) + ')</button>' +
       '</div>';
 
-      view.innerHTML = section('조치 센터', '<p class="section-intro"><span class="section-intro-text">운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업</span></p>') + tabHeader + '<div id="action-list-container" class="card-body"></div>';
+      view.innerHTML = section('조치 센터', sectionIntro('운영자가 즉시 후속 조치해야 할 상품화 경고 및 대기 작업')) + tabHeader + '<div id="action-list-container" class="card-body"></div>';
       renderDataWorksActionsList(actions);
       standardizeTextComponents(view);
     }
@@ -14984,7 +15002,7 @@ const adminHTML = `<!doctype html>
       const riskCard = card('법무 / 컴플라이언스 리스크 검토 대기 (' + riskReviewPending.length + ')', '<div class="card-body">' + makeRows(riskReviewPending) + '</div>');
       const reviewCard = card('데이터 오너 출시 최종 승인 대기 (' + reviewPending.length + ')', '<div class="card-body">' + makeRows(reviewPending) + '</div>');
 
-      view.innerHTML = section('리스크 & 컴플라이언스 승인 센터', '<p class="muted" style="margin:-4px 0 12px">개인신용정보/가명처리 법적 컴플라이언스 검토 및 오너십 승인 대기열</p>') + riskCard + reviewCard;
+      view.innerHTML = section('리스크 & 컴플라이언스 승인 센터', sectionIntro('개인신용정보/가명처리 법적 컴플라이언스 검토 및 오너십 승인 대기열')) + riskCard + reviewCard;
     }
 
     async function renderDataWorksProductTwin(productKey) {
@@ -15589,7 +15607,7 @@ const adminHTML = `<!doctype html>
 
       view.innerHTML = section('상품 통합 보기', '') +
         '<div style="padding:0 14px 10px"><a href="#/factory" class="muted">← 상품 팩토리로 이동</a></div>' +
-        headerHtml + subTabs + card((dataWorksTwinTabLabels[activeTab] || activeTab) + ' 상세', activeContent);
+        headerHtml + subTabs + card((dataWorksTwinTabLabels[activeTab] || activeTab) + ' 상세', '<div class="twin-detail-body">' + activeContent + '</div>');
       standardizeFormComponents(view);
       if(activeTab==='canvas'){
         const price=document.getElementById('can-price');if(price){const current=String(canvas.pricing_model||'').toLowerCase();price.value=['subscription','usage','tiered','poc'].includes(current)?current:'subscription';}
@@ -15655,7 +15673,7 @@ const adminHTML = `<!doctype html>
           breakdownRows +
         '</tbody></table></div>');
 
-      view.innerHTML = section('성과 및 깔때기 분석 (Analytics)', '<p class="muted" style="margin:-4px 0 12px">KCB Data Works 플랫폼의 실적 통계 및 데이터 상품 전환 지표 관제</p>') + statsHtml + funnelHtml + breakdownCard;
+      view.innerHTML = section('성과 및 깔때기 분석 (Analytics)', sectionIntro('KCB Data Works 플랫폼의 실적 통계 및 데이터 상품 전환 지표 관제')) + statsHtml + funnelHtml + breakdownCard;
     }
 
     async function renderDataWorksFactoryRuns() {
@@ -15717,7 +15735,7 @@ const adminHTML = `<!doctype html>
           '</tbody></table>'
         : '<p class="muted">최근 30일 내에 생성된 AI 파이프라인 실행 이력이 없습니다.</p>';
 
-      view.innerHTML = section('AI 실행 이력 (Factory Runs)', '<p class="muted" style="margin:-4px 0 12px">AI Product Factory가 수행한 LLM 추론 로그 및 토큰 비용 수집 감사 이력</p>') +
+      view.innerHTML = section('AI 실행 이력 (Factory Runs)', sectionIntro('AI Product Factory가 수행한 LLM 추론 로그 및 토큰 비용 수집 감사 이력')) +
         card('AI 파이프라인 실행 감사 기록', '<div class="card-body">' + rows + '</div>');
     }
 
@@ -15808,7 +15826,7 @@ const adminHTML = `<!doctype html>
       const promptListCard = card('등록된 프롬프트 템플릿 목록', '<div class="card-body">' + tRows + '</div>');
       const policyListCard = card('등록된 거버넌스 정책 규칙 목록', '<div class="card-body">' + rRows + '</div>');
 
-      view.innerHTML = section('프롬프트 및 거버넌스 레지스트리', '<p class="muted" style="margin:-4px 0 12px">AI Product Factory에서 사용하는 전역 프롬프트 템플릿 및 Policy-as-Code 엔진 설정</p>') +
+      view.innerHTML = section('프롬프트 및 거버넌스 레지스트리', sectionIntro('AI Product Factory에서 사용하는 전역 프롬프트 템플릿 및 Policy-as-Code 엔진 설정')) +
         '<div class="dw-two-column">' + promptForm + policyForm + '</div>' +
         '<div class="dw-two-column">' + promptListCard + policyListCard + '</div>';
       standardizeFormComponents(view);
