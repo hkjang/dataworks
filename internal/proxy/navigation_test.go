@@ -55,7 +55,7 @@ func TestAccessibleMenusByRole(t *testing.T) {
 
 	// ai_admin: admin:read but NOT security:read -> product operations + settings, but no risk center.
 	aiTabs := tabSet(roleScopes["ai_admin"], features)
-	for _, want := range []string{"dataworks-home", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "settings"} {
+	for _, want := range []string{"dataworks-home", "dataworks-workspaces", "dataworks-metadata", "dataworks-semantic", "dataworks-flows", "dataworks-agents", "dataworks-tools", "dataworks-policy-simulator", "dataworks-synthetic", "dataworks-marketplace", "dataworks-agentops", "dataworks-executive", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "settings"} {
 		if !aiTabs[want] {
 			t.Errorf("ai_admin should see %q", want)
 		}
@@ -66,7 +66,7 @@ func TestAccessibleMenusByRole(t *testing.T) {
 
 	// admin: all Data Works factory/risk areas + nested settings children; K8s remains feature-gated off.
 	adminTabs := tabSet(roleScopes["admin"], features)
-	for _, want := range []string{"dataworks-home", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-risk", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "security", "safety", "settings"} {
+	for _, want := range []string{"dataworks-home", "dataworks-workspaces", "dataworks-metadata", "dataworks-semantic", "dataworks-flows", "dataworks-agents", "dataworks-tools", "dataworks-policy-simulator", "dataworks-synthetic", "dataworks-marketplace", "dataworks-agentops", "dataworks-executive", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-risk", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "security", "safety", "settings"} {
 		if !adminTabs[want] {
 			t.Errorf("admin should see %q", want)
 		}
@@ -110,14 +110,14 @@ func TestMeNavigationLegacyModeReturnsFullMenu(t *testing.T) {
 	if nav.DefaultHome != "#/dataworks/home" {
 		t.Errorf("legacy default_home = %q, want #/dataworks/home", nav.DefaultHome)
 	}
-	if len(nav.Menus) != 10 {
-		t.Errorf("legacy mode should expose 10 Data Works menus, got %d", len(nav.Menus))
+	if len(nav.Menus) != 21 {
+		t.Errorf("legacy mode should expose 21 Data Works menus, got %d", len(nav.Menus))
 	}
 	tabs := map[string]bool{}
 	for _, tb := range nav.AllowedTabs {
 		tabs[tb] = true
 	}
-	for _, want := range []string{"dataworks-home", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-risk", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "security", "settings", "runtimesettings"} {
+	for _, want := range []string{"dataworks-home", "dataworks-workspaces", "dataworks-metadata", "dataworks-semantic", "dataworks-flows", "dataworks-agents", "dataworks-tools", "dataworks-policy-simulator", "dataworks-synthetic", "dataworks-marketplace", "dataworks-agentops", "dataworks-executive", "dataworks-actions", "dataworks-assets", "factory", "dataworks-portfolio", "dataworks-risk", "dataworks-analytics", "dataworks-factory-runs", "dataworks-prompt-registry", "data-products", "text2sql", "dwdashboard", "security", "settings", "runtimesettings"} {
 		if !tabs[want] {
 			t.Errorf("legacy allowed_tabs missing %q", want)
 		}

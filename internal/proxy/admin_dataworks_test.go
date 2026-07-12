@@ -62,6 +62,28 @@ func TestDataWorksOperationalAPIs(t *testing.T) {
 		t.Fatal("expected generated evidence pack")
 	}
 
+	previewProduct := store.DataProduct{
+		ID: "dprod_preview_only", ProductKey: "preview_only", NameKO: "미리보기 전용 상품",
+		Description: "Canvas preview persistence guard", SourceType: "dataset", SourceRef: "loan_history",
+		Owner: "data-business", Status: "review",
+	}
+	if err := db.UpsertDataProduct(context.Background(), previewProduct); err != nil {
+		t.Fatal(err)
+	}
+	resp = postJSON(t, srv.URL+"/admin/dataworks/products/preview_only/canvas/generate?preview=1", "", map[string]any{})
+	requireStatus(t, resp, http.StatusOK)
+	var previewBody struct {
+		Canvas  store.ProductCanvas `json:"canvas"`
+		Preview bool                `json:"preview"`
+	}
+	decodeAndClose(t, resp, &previewBody)
+	if !previewBody.Preview || previewBody.Canvas.ProductKey != "preview_only" {
+		t.Fatalf("unexpected canvas preview: %+v", previewBody)
+	}
+	if _, ok, err := db.GetProductCanvas(context.Background(), "preview_only"); err != nil || ok {
+		t.Fatalf("canvas preview was persisted: ok=%v err=%v", ok, err)
+	}
+
 	resp = postJSON(t, srv.URL+"/admin/dataworks/products/dw_credit_risk_api/canvas/generate", "", map[string]any{})
 	requireStatus(t, resp, http.StatusOK)
 	resp.Body.Close()

@@ -836,6 +836,8 @@ func (s *Server) handleDataWorksProductActions(w http.ResponseWriter, r *http.Re
 		s.handleDataWorksDataWatermarks(w, r, product)
 	case "costs":
 		s.handleDataWorksProductCosts(w, r, product)
+	case "unit-economics":
+		s.handleDataWorksProductUnitEconomics(w, r, product)
 	case "proposal-ab":
 		s.handleDataWorksProposalAB(w, r, product)
 	case "retirement":

@@ -7,7 +7,7 @@ import (
 
 // menuVersion is bumped whenever the menu registry or its access rules change, so the
 // SPA can detect a stale navigation and refresh /me/navigation without a full reload.
-const menuVersion = 23
+const menuVersion = 24
 
 // menuItem is one navigable destination in the admin SPA. Access is decided server-side
 // from the caller's scopes + enabled feature flags — the same registry drives both the
@@ -28,6 +28,17 @@ type menuItem struct {
 var menuRegistry = []menuItem{
 	// Data Works product operations (admin:read), with risk review scoped separately.
 	{ID: "dataworks.home", Label: "Home", Path: "#/dataworks/home", Tab: "dataworks-home", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.workspaces", Label: "Workspaces", Path: "#/dataworks/workspaces", Tab: "dataworks-workspaces", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.metadata", Label: "Metadata", Path: "#/dataworks/metadata", Tab: "dataworks-metadata", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.semantic", Label: "Semantic Layer", Path: "#/dataworks/semantic", Tab: "dataworks-semantic", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.flows", Label: "Flow Studio", Path: "#/dataworks/flows", Tab: "dataworks-flows", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.agents", Label: "Agent Builder", Path: "#/dataworks/agents", Tab: "dataworks-agents", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.tools", Label: "Tool Registry", Path: "#/dataworks/tools", Tab: "dataworks-tools", Group: "governance", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.policy_simulator", Label: "Policy Simulator", Path: "#/dataworks/policy-simulator", Tab: "dataworks-policy-simulator", Group: "governance", Scopes: []string{"admin:read", "security:read"}, DataScope: "all"},
+	{ID: "dataworks.synthetic", Label: "Synthetic Lab", Path: "#/dataworks/synthetic", Tab: "dataworks-synthetic", Group: "governance", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.marketplace", Label: "Marketplace", Path: "#/dataworks/marketplace", Tab: "dataworks-marketplace", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.agentops", Label: "AgentOps", Path: "#/dataworks/agentops", Tab: "dataworks-agentops", Group: "governance", Scopes: []string{"admin:read"}, DataScope: "all"},
+	{ID: "dataworks.executive", Label: "Executive Simulator", Path: "#/dataworks/executive", Tab: "dataworks-executive", Group: "business", Scopes: []string{"admin:read"}, DataScope: "all"},
 	{ID: "dataworks.actions", Label: "Action Center", Path: "#/dataworks/actions", Tab: "dataworks-actions", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
 	{ID: "dataworks.assets", Label: "데이터 자산", Path: "#/dataworks/assets", Tab: "dataworks-assets", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},
 	{ID: "dataworks.factory", Label: "Product Factory", Path: "#/factory", Tab: "factory", Group: "dataworks", Scopes: []string{"admin:read"}, DataScope: "all"},

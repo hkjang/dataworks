@@ -214,10 +214,13 @@ func (s *Server) handleFactoryGenerateIdeas(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	ideas := buildFactoryIdeas(req, adminID(r))
-	for _, idea := range ideas {
-		if err := s.db.InsertProductIdea(r.Context(), idea); err != nil {
-			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "idea_insert_failed")
-			return
+	preview := r.URL.Query().Get("preview") == "1"
+	if !preview {
+		for _, idea := range ideas {
+			if err := s.db.InsertProductIdea(r.Context(), idea); err != nil {
+				writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "idea_insert_failed")
+				return
+			}
 		}
 	}
 	_ = s.insertDataWorksFactoryRun(r.Context(), store.FactoryRun{
@@ -225,8 +228,12 @@ func (s *Server) handleFactoryGenerateIdeas(w http.ResponseWriter, r *http.Reque
 		InputHash: factoryShortHash(req.Industry + "|" + req.MarketNeed + "|" + strings.Join(req.DataAssets, ",")),
 		OutputRef: strings.Join(productIdeaIDs(ideas), ","), LatencyMS: 0, CreatedBy: adminID(r),
 	})
-	s.auditAdmin(r, "factory.ideas.generate", "", auditJSON(map[string]any{"count": len(ideas), "industry": req.Industry}))
-	writeJSON(w, http.StatusOK, map[string]any{"ideas": ideas})
+	action := "factory.ideas.generate"
+	if preview {
+		action = "factory.ideas.preview"
+	}
+	s.auditAdmin(r, action, "", auditJSON(map[string]any{"count": len(ideas), "industry": req.Industry, "preview": preview}))
+	writeJSON(w, http.StatusOK, map[string]any{"ideas": ideas, "preview": preview})
 }
 
 func (s *Server) handleFactoryDefineProduct(w http.ResponseWriter, r *http.Request) {

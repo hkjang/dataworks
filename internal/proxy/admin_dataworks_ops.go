@@ -110,6 +110,11 @@ func (s *Server) handleDataWorksProductByKey(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		canvas := buildProductCanvas(product, adminID(r))
+		if r.URL.Query().Get("preview") == "1" {
+			s.auditAdmin(r, "dataworks.product.canvas.preview", "", auditJSON(map[string]any{"product_key": productKey}))
+			writeJSON(w, http.StatusOK, map[string]any{"canvas": canvas, "preview": true})
+			return
+		}
 		if err := s.db.UpsertProductCanvas(r.Context(), canvas); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "canvas_failed")
 			return
