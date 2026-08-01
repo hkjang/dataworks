@@ -7,7 +7,7 @@
   
   <!-- Primary Meta Tags -->
   <meta name="title" content="Data Works - Enterprise Data Product Factory Platform">
-  <meta name="description" content="Data Works는 기업 내 스키마, 데이터셋, 리포트 자산을 수익성 높은 데이터 상품 및 런타임 API로 전환하는 Enterprise Data Product Factory입니다. 자산 준비도 평가, AI Product Canvas 생성, Evidence Pack 승인 증적 및 Publish Gate 지원.">
+  <meta name="description" content="Data Works는 기업 내 스키마, 데이터셋, 리포트 자산을 수익성 높은 데이터 상품 및 런타임 API로 전환하는 Enterprise Data Product Factory입니다. 자산 준비도 평가, AI Product Canvas Generation, Evidence Pack 승인 증적 및 Publish Gate 지원.">
   <meta name="keywords" content="Data Works, Data Product Factory, 데이터 상품화, 데이터 모네타이제이션, Data Monetization, Readiness Score, Evidence Pack, Publish Gate, OpenAPI 3.1, Data Governance, gagagiga@naver.com">
   <meta name="author" content="Data Works Team (gagagiga@naver.com)">
   <meta name="robots" content="index, follow">
@@ -71,26 +71,26 @@
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "Data Works는 기존 DB 및 Kubernetes 인프라와 어떻게 연동되나요?",
+            "name": "Data WorksSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry DB System Operational Engine & Enterprise Telemetry Kubernetes System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Data Works는 기존 게이트웨이 코어, Admin UI, PostgreSQL/SQLite 저장소, ClickHouse 분석 엔진을 그대로 재활용하면서 데이터 Productization Workflow에 최적화된 RESTful API 엔드포인트를 제공합니다."
+              "text": "Data WorksSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, Admin UI, PostgreSQL/SQLite System Operational Engine & Enterprise Telemetry, ClickHouse System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Productization WorkflowSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry RESTful API System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry."
             }
           },
           {
             "@type": "Question",
-            "name": "Publish Gate가 데이터 상품 출식을 차단하는 조건은 무엇인가요?",
+            "name": "Publish GateSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "risk_score가 70 이상이거나 개인신용정보(personal_credit), 가명정보(pseudonymized) 등 민감 프로필 상품인 경우, 준비도 70점 미만 또는 3대 필수 승인(오너, 법무, 컴플라이언스) 미비 시 409 Conflict 응답을 반환하여 출식을 자동 차단합니다."
+              "text": "risk_scoreSystem Operational Engine & Enterprise Telemetry 70 System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(personal_credit), System Operational Engine & Enterprise Telemetry(pseudonymized) System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry 70System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry 3System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry) System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry 409 Conflict System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry."
             }
           },
           {
             "@type": "Question",
-            "name": "생성되는 OpenAPI 3.1 규격과 런타임 API는 어떻게 호출하나요?",
+            "name": "GenerationSystem Operational Engine & Enterprise Telemetry OpenAPI 3.1 System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry APISystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "/admin/dataworks/products/{key}/openapi 엔드포인트를 통해 OpenAPI 규격을 발급받고, /v1/data-products/{key}/query 엔드포인트를 통해 유효한 API Key 및 Entitlement 검증 후 런타임 조회가 수행됩니다."
+              "text": "/admin/dataworks/products/{key}/openapi System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry OpenAPI System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, /v1/data-products/{key}/query System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry API Key System Operational Engine & Enterprise Telemetry Entitlement System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry."
             }
           }
         ]
@@ -124,7 +124,7 @@
         var lang = btn.getAttribute('data-lang') || (btn.textContent || '').trim().toLowerCase();
         if (lang.indexOf('en') !== -1) {
           localStorage.setItem(SAVED_KEY, 'en');
-        } else if (lang.indexOf('ko') !== -1 || lang.indexOf('한') !== -1) {
+        } else if (lang.indexOf('ko') !== -1 || lang.indexOf('System Operational Engine & Enterprise Telemetry') !== -1) {
           localStorage.setItem(SAVED_KEY, 'ko');
         }
       });
@@ -171,12 +171,12 @@
       </div>
       
       <h1 class="hero-title" data-i18n="heroTitle">
-        내부 데이터 자산을 <br/>
+        System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry <br/>
         <span class="gradient-text">Profitable Data Products & APIs</span>로 전환
       </h1>
       
       <p class="hero-subtitle" data-i18n="heroSubtitle">
-        Data Works는 기업 내 스키마, 데이터셋, 리포트를 수집하여 준비도 평가, AI Product Canvas 생성, 컴플라이언스 승인 증적(Evidence Pack), 런타임 API 배포까지 데이터 수익화를 일괄 자동화합니다.
+        Data WorksSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Readiness Scoring, AI Product Canvas Generation, System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(Evidence Pack), System Operational Engine & Enterprise Telemetry API System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.
       </p>
 
       <div class="hero-cta-group">
@@ -218,45 +218,45 @@
   <section id="features" class="features-section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="featTitle">Enterprise 데이터 상품화의 Key Features</h2>
-        <p class="section-desc" data-i18n="featDesc">단순 데이터 조회를 넘어 비즈니스 가치 창출과 규제 준수를 완벽히 결합한 팩토리 시스템</p>
+        <h2 class="section-title" data-i18n="featTitle">Key Features of Enterprise Data Productization</h2>
+        <p class="section-desc" data-i18n="featDesc">Data factory system bridging business value creation and regulatory compliance beyond simple queries.</p>
       </div>
 
       <div class="features-grid">
         <div class="glass-panel feature-card">
           <div class="feature-icon">🔍</div>
-          <h3 class="feature-title" data-i18n="f1Title">자산 수집 & 준비도 평가</h3>
-          <p class="feature-desc" data-i18n="f1Desc">스키마, 최신성, 샘플, 결측률, 민감도 및 API 준비도를 100 Score 기준으로 자동 정밀 평가합니다.</p>
+          <h3 class="feature-title" data-i18n="f1Title">Asset Harvesting & Readiness Scoring</h3>
+          <p class="feature-desc" data-i18n="f1Desc">Automatically evaluates schema, freshness, sampling, missing rates, sensitivity, and API readiness on a 100-point scale..</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">🤖</div>
-          <h3 class="feature-title" data-i18n="f2Title">AI Product Canvas 생성</h3>
-          <p class="feature-desc" data-i18n="f2Desc">업종 및 고객군 니즈를 분석하여 상품 아이디어, 고객 시나리오, 가격 및 리스크 검토서를 자동 작성합니다.</p>
+          <h3 class="feature-title" data-i18n="f2Title">AI Product Canvas Generation</h3>
+          <p class="feature-desc" data-i18n="f2Desc">Analyzes industry and client requirements to auto-generate product ideas, customer scenarios, pricing, and risk assessments.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">🛡️</div>
-          <h3 class="feature-title" data-i18n="f3Title">컴플라이언스 승인 Trace</h3>
-          <p class="feature-desc" data-i18n="f3Desc">데이터 오너, 법무, 보안 승인을 매트릭스로 연결하고 감사 가능한 JSON Evidence Pack으로 보관합니다.</p>
+          <h3 class="feature-title" data-i18n="f3Title">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Trace</h3>
+          <p class="feature-desc" data-i18n="f3Desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry JSON Evidence PackSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">🚫</div>
-          <h3 class="feature-title" data-i18n="f4Title">엄격한 Publish Gate</h3>
-          <p class="feature-desc" data-i18n="f4Desc">민감 정보(개인신용정보/가명정보) 및 risk_score >= 70 상품의 준비도/승인 미비 시 출식을 자동 차단합니다.</p>
+          <h3 class="feature-title" data-i18n="f4Title">System Operational Engine & Enterprise Telemetry Publish Gate</h3>
+          <p class="feature-desc" data-i18n="f4Desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(System Operational Engine & Enterprise Telemetry/System Operational Engine & Enterprise Telemetry) System Operational Engine & Enterprise Telemetry risk_score >= 70 System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry/System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">⚡</div>
-          <h3 class="feature-title" data-i18n="f5Title">런타임 API & Entitlements</h3>
-          <p class="feature-desc" data-i18n="f5Desc">계약별 호출 한도, 유효 기간, 허용 필드(Scope) 및 API 키를 런타임 엔드포인트에 즉시 바인딩합니다.</p>
+          <h3 class="feature-title" data-i18n="f5Title">System Operational Engine & Enterprise Telemetry API & Entitlements</h3>
+          <p class="feature-desc" data-i18n="f5Desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(Scope) System Operational Engine & Enterprise Telemetry API System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">📊</div>
-          <h3 class="feature-title" data-i18n="f6Title">운영 & Funnel 분석</h3>
-          <p class="feature-desc" data-i18n="f6Desc">아이디어부터 출시까지의 전환 퍼널, 팩토리 재실행(Replay) 계보 및 매출/리스크 성과를 한눈에 파악합니다.</p>
+          <h3 class="feature-title" data-i18n="f6Title">System Operational Engine & Enterprise Telemetry & Funnel System Operational Engine & Enterprise Telemetry</h3>
+          <p class="feature-desc" data-i18n="f6Desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(Replay) System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry/System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
       </div>
     </div>
@@ -266,22 +266,22 @@
   <section id="simulator" class="sim-section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="simTitle">데이터 상품화 파이프라인 시뮬레이터</h2>
-        <p class="section-desc" data-i18n="simDesc">단계별 탭을 클릭하여 Data Works가 데이터 자산을 어떻게 파이프라인으로 처리하는지 확인해보세요.</p>
+        <h2 class="section-title" data-i18n="simTitle">Data Productization System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry</h2>
+        <p class="section-desc" data-i18n="simDesc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Data WorksSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
       </div>
 
       <div class="glass-panel sim-container">
         <div class="sim-tabs">
-          <button class="sim-tab-btn active" data-tab="tab1" data-i18n="tab1">1. 자산 수집 & 준비도 점수</button>
-          <button class="sim-tab-btn" data-tab="tab2" data-i18n="tab2">2. AI Idea & Canvas 생성</button>
-          <button class="sim-tab-btn" data-tab="tab3" data-i18n="tab3">3. Evidence Pack & 승인</button>
-          <button class="sim-tab-btn" data-tab="tab4" data-i18n="tab4">4. Publish Gate & API 배포</button>
+          <button class="sim-tab-btn active" data-tab="tab1" data-i18n="tab1">1. Asset Harvesting & System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry</button>
+          <button class="sim-tab-btn" data-tab="tab2" data-i18n="tab2">2. AI Idea & Canvas Generation</button>
+          <button class="sim-tab-btn" data-tab="tab3" data-i18n="tab3">3. Evidence Pack & System Operational Engine & Enterprise Telemetry</button>
+          <button class="sim-tab-btn" data-tab="tab4" data-i18n="tab4">4. Publish Gate & API System Operational Engine & Enterprise Telemetry</button>
         </div>
 
         <div class="sim-content-box">
           <div class="sim-info">
-            <h3 id="sim-title">데이터 자산 수집 & 준비도 평가</h3>
-            <p id="sim-desc">내부 데이터셋/테이블/API를 수집하여 스키마 완결성, 결측률, 최신성, 민감도(Personal/Pseudonymized)를 다각도로 평가합니다.</p>
+            <h3 id="sim-title">System Operational Engine & Enterprise Telemetry Asset Harvesting & Readiness Scoring</h3>
+            <p id="sim-desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry/System Operational Engine & Enterprise Telemetry/APISystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry(Personal/Pseudonymized)System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
             <div id="sim-badges" class="sim-badge-list">
               <!-- Populated dynamically -->
             </div>
@@ -305,26 +305,26 @@
   <section id="publish-gate" class="arch-section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="gateTitle">안전한 데이터 유통을 위한 Publish Gate 기준</h2>
-        <p class="section-desc" data-i18n="gateDesc">고위험(risk_score >= 70) 및 민감 프로필 데이터 상품은 다음 4가지 검증을 필수로 통과해야 합니다.</p>
+        <h2 class="section-title" data-i18n="gateTitle">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Publish Gate System Operational Engine & Enterprise Telemetry</h2>
+        <p class="section-desc" data-i18n="gateDesc">System Operational Engine & Enterprise Telemetry(risk_score >= 70) System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry 4System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
       </div>
 
       <div class="arch-grid">
         <div class="glass-panel gate-card">
           <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g1Title">1. Asset Readiness Score >= 70</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g1Desc">연결된 모든 원천 자산의 품질 및 준비도 점수가 기준점 이상이어야 합니다.</p>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g1Desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
         <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g2Title">2. 필수 승인 Trace Matrix 완료</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g2Desc">Data Owner, Legal, Compliance 3개 주체의 승인(Approved/Waived) 증적이 유효해야 합니다.</p>
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g2Title">2. System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Trace Matrix System Operational Engine & Enterprise Telemetry</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g2Desc">Data Owner, Legal, Compliance 3System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(Approved/Waived) System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
         <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g3Title">3. Evidence Pack 생성 검증</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g3Desc">상품 정의, 리스크 검토 및 계약 조건이 포함된 완결된 JSON Pack이 생성되어야 합니다.</p>
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g3Title">3. Evidence Pack Generation System Operational Engine & Enterprise Telemetry</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g3Desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry JSON PackSystem Operational Engine & Enterprise Telemetry GenerationSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
         <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g4Title">4. 승인 만료일 자동 감지</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g4Desc">승인 기한이 만료된 증적은 통과로 인정하지 않으며 409 Conflict 오류를 반환합니다.</p>
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g4Title">4. System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g4Desc">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry 409 Conflict System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
         </div>
       </div>
     </div>
@@ -335,37 +335,37 @@
     <div class="container">
       <div class="section-header">
         <h2 class="section-title" data-i18n="faqTitle">Frequently Asked Questions (FAQ & AI Knowledge)</h2>
-        <p class="section-desc" data-i18n="faqDesc">Data Works 도입 및 운영에 관한 핵심 답변입니다.</p>
+        <p class="section-desc" data-i18n="faqDesc">Data Works System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
       </div>
 
       <div class="faq-list">
         <div class="faq-item active">
           <button class="faq-question">
-            <span data-i18n="q1">Q1. Data Works는 기존 Kubernetes Hub 및 DB와 어떻게 연동되나요?</span>
+            <span data-i18n="q1">Q1. Data WorksSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Kubernetes Hub System Operational Engine & Enterprise Telemetry DBSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry?</span>
             <span class="faq-icon">▼</span>
           </button>
           <div class="faq-answer">
-            <p data-i18n="a1">Data Works는 기존 게이트웨이 코어, Admin UI, PostgreSQL/SQLite 저장소, ClickHouse 분석 엔진을 그대로 재활용하면서 데이터 Productization Workflow에 최적화된 RESTful API 집합을 제공합니다.</p>
+            <p data-i18n="a1">Data WorksSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, Admin UI, PostgreSQL/SQLite System Operational Engine & Enterprise Telemetry, ClickHouse System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry Productization WorkflowSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry RESTful API System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
           </div>
         </div>
 
         <div class="faq-item">
           <button class="faq-question">
-            <span data-i18n="q2">Q2. Publish Gate가 상품 출식을 차단하는 기준은 무엇인가요?</span>
+            <span data-i18n="q2">Q2. Publish GateSystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry?</span>
             <span class="faq-icon">▼</span>
           </button>
           <div class="faq-answer">
-            <p data-i18n="a2">risk_score가 70 이상이거나 개인신용정보(personal_credit), 가명정보(pseudonymized) 등 민감 프로필 상품인 경우, 준비도 70점 미만 또는 3대 필수 승인(오너, 법무, 컴플라이언스) 미비 시 409 Conflict 응답을 남기며 출식을 자동 차단합니다.</p>
+            <p data-i18n="a2">risk_scoreSystem Operational Engine & Enterprise Telemetry 70 System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(personal_credit), System Operational Engine & Enterprise Telemetry(pseudonymized) System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry 70System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry 3System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry(System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry, System Operational Engine & Enterprise Telemetry) System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry 409 Conflict System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
           </div>
         </div>
 
         <div class="faq-item">
           <button class="faq-question">
-            <span data-i18n="q3">Q3. 생성되는 OpenAPI 3.1 규격과 런타임 API는 어떻게 호출하나요?</span>
+            <span data-i18n="q3">Q3. GenerationSystem Operational Engine & Enterprise Telemetry OpenAPI 3.1 System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry APISystem Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry?</span>
             <span class="faq-icon">▼</span>
           </button>
           <div class="faq-answer">
-            <p data-i18n="a3">/admin/dataworks/products/{key}/openapi 엔드포인트를 통해 OpenAPI 규격을 발급받고, /v1/data-products/{key}/query 엔드포인트를 통해 유효한 API Key 및 Entitlement 검증 후 런타임 조회가 수행됩니다.</p>
+            <p data-i18n="a3">/admin/dataworks/products/{key}/openapi System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry OpenAPI System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry, /v1/data-products/{key}/query System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry API Key System Operational Engine & Enterprise Telemetry Entitlement System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry.</p>
           </div>
         </div>
       </div>
@@ -382,8 +382,8 @@
         </div>
 
         <div class="footer-contact">
-          <strong data-i18n="footerContactTitle">데이터 상품화 및 제휴 문의</strong><br>
-          <span data-i18n="footerEmailText">이메일 문의:</span> 
+          <strong data-i18n="footerContactTitle">Data Productization System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry</strong><br>
+          <span data-i18n="footerEmailText">System Operational Engine & Enterprise Telemetry System Operational Engine & Enterprise Telemetry:</span> 
           <a href="mailto:gagagiga@naver.com">gagagiga@naver.com</a>
         </div>
       </div>
