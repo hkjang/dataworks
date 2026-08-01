@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Works - Enterprise Data Product Factory Platform</title>
+  
+  <!-- Primary Meta Tags -->
+  <meta name="title" content="Data Works - Enterprise Data Product Factory Platform">
+  <meta name="description" content="Data Works는 기업 내 스키마, 데이터셋, 리포트 자산을 수익성 높은 데이터 상품 및 런타임 API로 전환하는 Enterprise Data Product Factory입니다. 자산 준비도 평가, AI Product Canvas 생성, Evidence Pack 승인 증적 및 Publish Gate 지원.">
+  <meta name="keywords" content="Data Works, Data Product Factory, 데이터 상품화, 데이터 모네타이제이션, Data Monetization, Readiness Score, Evidence Pack, Publish Gate, OpenAPI 3.1, Data Governance, gagagiga@naver.com">
+  <meta name="author" content="Data Works Team (gagagiga@naver.com)">
+  <meta name="robots" content="index, follow">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hkjang.github.io/dataworks/">
+  <meta property="og:title" content="Data Works - Enterprise Data Product Factory Platform">
+  <meta property="og:description" content="내부 데이터 자산을 수익성 높은 데이터 상품과 API로 전환하는 데이터 팩토리 플랫폼. 준비도 평가, AI Product Canvas, 컴플라이언스 Evidence Pack 자동화.">
+  <meta property="og:image" content="assets/hero.jpg">
+
+  <!-- Twitter Cards -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://hkjang.github.io/dataworks/">
+  <meta property="twitter:title" content="Data Works - Enterprise Data Product Factory Platform">
+  <meta property="twitter:description" content="내부 데이터 자산을 수익성 높은 데이터 상품과 API로 전환하는 데이터 팩토리 플랫폼.">
+  <meta property="twitter:image" content="assets/hero.jpg">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- AEO (Answer Engine Optimization) & SEO Structured Data JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://hkjang.github.io/dataworks/#software",
+        "name": "Data Works",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Linux, Kubernetes",
+        "description": "Enterprise Data Product Factory Platform converting internal data assets into monetizable data products and runtime APIs with automated readiness scoring, AI Product Canvas, evidence packs, and publish gates.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Organization",
+          "name": "Data Works Team",
+          "email": "gagagiga@naver.com"
+        }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://hkjang.github.io/dataworks/#organization",
+        "name": "Data Works",
+        "url": "https://hkjang.github.io/dataworks/",
+        "email": "gagagiga@naver.com",
+        "logo": "https://hkjang.github.io/dataworks/assets/hero.jpg"
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://hkjang.github.io/dataworks/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Data Works는 기존 DB 및 Kubernetes 인프라와 어떻게 연동되나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Data Works는 기존 게이트웨이 코어, Admin UI, PostgreSQL/SQLite 저장소, ClickHouse 분석 엔진을 그대로 재활용하면서 데이터 상품화 워크플로우에 최적화된 RESTful API 엔드포인트를 제공합니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Publish Gate가 데이터 상품 출식을 차단하는 조건은 무엇인가요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "risk_score가 70 이상이거나 개인신용정보(personal_credit), 가명정보(pseudonymized) 등 민감 프로필 상품인 경우, 준비도 70점 미만 또는 3대 필수 승인(오너, 법무, 컴플라이언스) 미비 시 409 Conflict 응답을 반환하여 출식을 자동 차단합니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "생성되는 OpenAPI 3.1 규격과 런타임 API는 어떻게 호출하나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "/admin/dataworks/products/{key}/openapi 엔드포인트를 통해 OpenAPI 규격을 발급받고, /v1/data-products/{key}/query 엔드포인트를 통해 유효한 API Key 및 Entitlement 검증 후 런타임 조회가 수행됩니다."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="#" class="logo">
+        <div class="logo-icon">DW</div>
+        <span>Data Works</span>
+      </a>
+      
+      <ul class="nav-links">
+        <li><a href="#features" data-i18n="navFeatures">주요 기능</a></li>
+        <li><a href="#simulator" data-i18n="navWorkflow">상품화 워크플로우</a></li>
+        <li><a href="#publish-gate" data-i18n="navPublishGate">출시 게이트</a></li>
+        <li><a href="#faq" data-i18n="navFaq">자주 묻는 질문</a></li>
+        <li><a href="USER_GUIDE.md" target="_blank" data-i18n="navDocs">문서 바로가기</a></li>
+      </ul>
+
+      <div class="lang-switch">
+        <button id="btn-ko" class="lang-btn active">KO</button>
+        <button id="btn-en" class="lang-btn">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        <span data-i18n="badgeText">Enterprise Data Product Factory Platform v0.9</span>
+      </div>
+      
+      <h1 class="hero-title" data-i18n="heroTitle">
+        내부 데이터 자산을 <br/>
+        <span class="gradient-text">수익성 높은 데이터 상품과 API</span>로 전환
+      </h1>
+      
+      <p class="hero-subtitle" data-i18n="heroSubtitle">
+        Data Works는 기업 내 스키마, 데이터셋, 리포트를 수집하여 준비도 평가, AI Product Canvas 생성, 컴플라이언스 승인 증적(Evidence Pack), 런타임 API 배포까지 데이터 수익화를 일괄 자동화합니다.
+      </p>
+
+      <div class="hero-cta-group">
+        <a href="#simulator" class="btn-primary" data-i18n="btnPrimary">상품화 워크플로우 체험</a>
+        <a href="DataWorks_Product_Guide.pdf" target="_blank" class="btn-secondary" data-i18n="btnDocs">가이드 PDF 보기</a>
+      </div>
+
+      <div class="hero-image-wrapper">
+        <img src="assets/hero.jpg" alt="Data Works Enterprise Dashboard" class="hero-image" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <!-- Metric Stats -->
+  <section class="stats-section">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="glass-panel stat-card">
+          <div class="stat-number" data-i18n="stat1Val">100점</div>
+          <div class="stat-label" data-i18n="stat1Lbl">자동 준비도(Readiness) 점수 산출</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-number" data-i18n="stat2Val">409 Conflict</div>
+          <div class="stat-label" data-i18n="stat2Lbl">승인 미비 시 Publish Gate 차단</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-number" data-i18n="stat3Val">OpenAPI 3.1</div>
+          <div class="stat-label" data-i18n="stat3Lbl">자동 생성 런타임 API 규격</div>
+        </div>
+        <div class="glass-panel stat-card">
+          <div class="stat-number" data-i18n="stat4Val">100%</div>
+          <div class="stat-label" data-i18n="stat4Lbl">감사 가능한 Evidence Pack 보장</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="features-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="featTitle">Enterprise 데이터 상품화의 핵심 기능</h2>
+        <p class="section-desc" data-i18n="featDesc">단순 데이터 조회를 넘어 비즈니스 가치 창출과 규제 준수를 완벽히 결합한 팩토리 시스템</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3 class="feature-title" data-i18n="f1Title">자산 수집 & 준비도 평가</h3>
+          <p class="feature-desc" data-i18n="f1Desc">스키마, 최신성, 샘플, 결측률, 민감도 및 API 준비도를 100점 기준으로 자동 정밀 평가합니다.</p>
+        </div>
+
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3 class="feature-title" data-i18n="f2Title">AI Product Canvas 생성</h3>
+          <p class="feature-desc" data-i18n="f2Desc">업종 및 고객군 니즈를 분석하여 상품 아이디어, 고객 시나리오, 가격 및 리스크 검토서를 자동 작성합니다.</p>
+        </div>
+
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3 class="feature-title" data-i18n="f3Title">컴플라이언스 승인 Trace</h3>
+          <p class="feature-desc" data-i18n="f3Desc">데이터 오너, 법무, 보안 승인을 매트릭스로 연결하고 감사 가능한 JSON Evidence Pack으로 보관합니다.</p>
+        </div>
+
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">🚫</div>
+          <h3 class="feature-title" data-i18n="f4Title">엄격한 Publish Gate</h3>
+          <p class="feature-desc" data-i18n="f4Desc">민감 정보(개인신용정보/가명정보) 및 risk_score >= 70 상품의 준비도/승인 미비 시 출식을 자동 차단합니다.</p>
+        </div>
+
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3 class="feature-title" data-i18n="f5Title">런타임 API & Entitlements</h3>
+          <p class="feature-desc" data-i18n="f5Desc">계약별 호출 한도, 유효 기간, 허용 필드(Scope) 및 API 키를 런타임 엔드포인트에 즉시 바인딩합니다.</p>
+        </div>
+
+        <div class="glass-panel feature-card">
+          <div class="feature-icon">📊</div>
+          <h3 class="feature-title" data-i18n="f6Title">운영 & Funnel 분석</h3>
+          <p class="feature-desc" data-i18n="f6Desc">아이디어부터 출시까지의 전환 퍼널, 팩토리 재실행(Replay) 계보 및 매출/리스크 성과를 한눈에 파악합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Pipeline Simulator -->
+  <section id="simulator" class="sim-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="simTitle">데이터 상품화 파이프라인 시뮬레이터</h2>
+        <p class="section-desc" data-i18n="simDesc">단계별 탭을 클릭하여 Data Works가 데이터 자산을 어떻게 파이프라인으로 처리하는지 확인해보세요.</p>
+      </div>
+
+      <div class="glass-panel sim-container">
+        <div class="sim-tabs">
+          <button class="sim-tab-btn active" data-tab="tab1" data-i18n="tab1">1. 자산 수집 & 준비도 점수</button>
+          <button class="sim-tab-btn" data-tab="tab2" data-i18n="tab2">2. AI Idea & Canvas 생성</button>
+          <button class="sim-tab-btn" data-tab="tab3" data-i18n="tab3">3. Evidence Pack & 승인</button>
+          <button class="sim-tab-btn" data-tab="tab4" data-i18n="tab4">4. Publish Gate & API 배포</button>
+        </div>
+
+        <div class="sim-content-box">
+          <div class="sim-info">
+            <h3 id="sim-title">데이터 자산 수집 & 준비도 평가</h3>
+            <p id="sim-desc">내부 데이터셋/테이블/API를 수집하여 스키마 완결성, 결측률, 최신성, 민감도(Personal/Pseudonymized)를 다각도로 평가합니다.</p>
+            <div id="sim-badges" class="sim-badge-list">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <div class="code-window">
+            <div class="code-header">
+              <span class="code-dot red"></span>
+              <span class="code-dot yellow"></span>
+              <span class="code-dot green"></span>
+              <span class="code-title">dataworks_pipeline_payload.json</span>
+            </div>
+            <pre class="code-body"><code id="sim-code">// Loading payload...</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Publish Gate Criteria -->
+  <section id="publish-gate" class="arch-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="gateTitle">안전한 데이터 유통을 위한 Publish Gate 기준</h2>
+        <p class="section-desc" data-i18n="gateDesc">고위험(risk_score >= 70) 및 민감 프로필 데이터 상품은 다음 4가지 검증을 필수로 통과해야 합니다.</p>
+      </div>
+
+      <div class="arch-grid">
+        <div class="glass-panel gate-card">
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g1Title">1. Asset Readiness Score >= 70</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g1Desc">연결된 모든 원천 자산의 품질 및 준비도 점수가 기준점 이상이어야 합니다.</p>
+        </div>
+        <div class="glass-panel gate-card">
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g2Title">2. 필수 승인 Trace Matrix 완료</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g2Desc">Data Owner, Legal, Compliance 3개 주체의 승인(Approved/Waived) 증적이 유효해야 합니다.</p>
+        </div>
+        <div class="glass-panel gate-card">
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g3Title">3. Evidence Pack 생성 검증</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g3Desc">상품 정의, 리스크 검토 및 계약 조건이 포함된 완결된 JSON Pack이 생성되어야 합니다.</p>
+        </div>
+        <div class="glass-panel gate-card">
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g4Title">4. 승인 만료일 자동 감지</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g4Desc">승인 기한이 만료된 증적은 통과로 인정하지 않으며 409 Conflict 오류를 반환합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section (AEO & Search Optimization) -->
+  <section id="faq" class="faq-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="faqTitle">자주 묻는 질문 (FAQ & AI Knowledge)</h2>
+        <p class="section-desc" data-i18n="faqDesc">Data Works 도입 및 운영에 관한 핵심 답변입니다.</p>
+      </div>
+
+      <div class="faq-list">
+        <div class="faq-item active">
+          <button class="faq-question">
+            <span data-i18n="q1">Q1. Data Works는 기존 Kubernetes Hub 및 DB와 어떻게 연동되나요?</span>
+            <span class="faq-icon">▼</span>
+          </button>
+          <div class="faq-answer">
+            <p data-i18n="a1">Data Works는 기존 게이트웨이 코어, Admin UI, PostgreSQL/SQLite 저장소, ClickHouse 분석 엔진을 그대로 재활용하면서 데이터 상품화 워크플로우에 최적화된 RESTful API 집합을 제공합니다.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span data-i18n="q2">Q2. Publish Gate가 상품 출식을 차단하는 기준은 무엇인가요?</span>
+            <span class="faq-icon">▼</span>
+          </button>
+          <div class="faq-answer">
+            <p data-i18n="a2">risk_score가 70 이상이거나 개인신용정보(personal_credit), 가명정보(pseudonymized) 등 민감 프로필 상품인 경우, 준비도 70점 미만 또는 3대 필수 승인(오너, 법무, 컴플라이언스) 미비 시 409 Conflict 응답을 남기며 출식을 자동 차단합니다.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span data-i18n="q3">Q3. 생성되는 OpenAPI 3.1 규격과 런타임 API는 어떻게 호출하나요?</span>
+            <span class="faq-icon">▼</span>
+          </button>
+          <div class="faq-answer">
+            <p data-i18n="a3">/admin/dataworks/products/{key}/openapi 엔드포인트를 통해 OpenAPI 규격을 발급받고, /v1/data-products/{key}/query 엔드포인트를 통해 유효한 API Key 및 Entitlement 검증 후 런타임 조회가 수행됩니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer & Email Contact -->
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="logo">
+          <div class="logo-icon">DW</div>
+          <span>Data Works</span>
+        </div>
+
+        <div class="footer-contact">
+          <strong data-i18n="footerContactTitle">데이터 상품화 및 제휴 문의</strong><br>
+          <span data-i18n="footerEmailText">이메일 문의:</span> 
+          <a href="mailto:gagagiga@naver.com">gagagiga@naver.com</a>
+        </div>
+      </div>
+
+      <div class="footer-copy" data-i18n="footerRights">
+        © 2026 Data Works Team. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Main JavaScript Application -->
+  <script src="app.js"></script>
+</body>
+</html>
