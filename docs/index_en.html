@@ -7,8 +7,8 @@
   
   <!-- Primary Meta Tags -->
   <meta name="title" content="Data Works - Enterprise Data Product Factory Platform">
-  <meta name="description" content="Data Works는 기업 내 스키마, 데이터셋, 리포트 자산을 수익성 높은 데이터 상품 및 런타임 API로 전환하는 Enterprise Data Product Factory입니다. 자산 준비도 평가, AI Product Canvas 생성, Evidence Pack 승인 증적 및 Publish Gate 지원.">
-  <meta name="keywords" content="Data Works, Data Product Factory, 데이터 상품화, 데이터 모네타이제이션, Data Monetization, Readiness Score, Evidence Pack, Publish Gate, OpenAPI 3.1, Data Governance, gagagiga@naver.com">
+  <meta name="description" content="Data Works is an Enterprise Data Product Factory that converts schemas, datasets, and report assets into monetizable data products and runtime APIs. Supports readiness assessment, AI Product Canvas generation, Evidence Pack approval trails, and Publish Gate.">
+  <meta name="keywords" content="Data Works, Data Product Factory, Data Productization, Data Monetization, Readiness Score, Evidence Pack, Publish Gate, OpenAPI 3.1, Data Governance, gagagiga@naver.com">
   <meta name="author" content="Data Works Team (gagagiga@naver.com)">
   <meta name="robots" content="index, follow">
   
@@ -16,14 +16,14 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hkjang.github.io/dataworks/">
   <meta property="og:title" content="Data Works - Enterprise Data Product Factory Platform">
-  <meta property="og:description" content="내부 데이터 자산을 수익성 높은 데이터 상품과 API로 전환하는 데이터 팩토리 플랫폼. 준비도 평가, AI Product Canvas, 컴플라이언스 Evidence Pack 자동화.">
+  <meta property="og:description" content="A data factory platform converting internal data assets into monetizable data products and APIs. Readiness assessment, AI Product Canvas, and automated compliance Evidence Packs.">
   <meta property="og:image" content="assets/hero.jpg">
 
   <!-- Twitter Cards -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://hkjang.github.io/dataworks/">
   <meta property="twitter:title" content="Data Works - Enterprise Data Product Factory Platform">
-  <meta property="twitter:description" content="내부 데이터 자산을 수익성 높은 데이터 상품과 API로 전환하는 데이터 팩토리 플랫폼.">
+  <meta property="twitter:description" content="A data factory platform converting internal data assets into monetizable data products and APIs.">
   <meta property="twitter:image" content="assets/hero.jpg">
 
   <!-- Google Fonts -->
@@ -71,26 +71,26 @@
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "Data WorksEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform DB Enterprise Telemetry &amp; System Platform Kubernetes Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform?",
+            "name": "How does Data Works integrate with existing DB and Kubernetes infrastructure?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Data WorksEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Admin UI, PostgreSQL/SQLite Enterprise Telemetry &amp; System Platform, ClickHouse Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform RESTful API Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform."
+              "text": "Data Works reuses existing gateway core, Admin UI, PostgreSQL/SQLite storage, and ClickHouse analytics engine while providing RESTful API endpoints optimized for data productization workflows."
             }
           },
           {
             "@type": "Question",
-            "name": "Publish GateEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform?",
+            "name": "What conditions does Publish Gate use to block data product launches?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "risk_scoreEnterprise Telemetry &amp; System Platform 70 Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(personal_credit), Enterprise Telemetry &amp; System Platform(pseudonymized) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform 70Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform 3Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform 409 Conflict Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform."
+              "text": "When risk_score is 70 or above, or for sensitive profile products (personal_credit, pseudonymized), launches are automatically blocked with 409 Conflict responses if readiness is below 70 or the 3 mandatory approvals (Owner, Legal, Compliance) are incomplete."
             }
           },
           {
             "@type": "Question",
-            "name": "Enterprise Telemetry &amp; System Platform OpenAPI 3.1 Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform APIEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform?",
+            "name": "How do you access the generated OpenAPI 3.1 spec and runtime API?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "/admin/dataworks/products/{key}/openapi Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform OpenAPI Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, /v1/data-products/{key}/query Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform API Key Enterprise Telemetry &amp; System Platform Entitlement Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform."
+              "text": "Obtain the OpenAPI spec via the /admin/dataworks/products/{key}/openapi endpoint, and perform runtime queries via /v1/data-products/{key}/query with valid API Key and Entitlement verification."
             }
           }
         ]
@@ -124,7 +124,7 @@
         var lang = btn.getAttribute('data-lang') || (btn.textContent || '').trim().toLowerCase();
         if (lang.indexOf('en') !== -1) {
           localStorage.setItem(SAVED_KEY, 'en');
-        } else if (lang.indexOf('ko') !== -1 || lang.indexOf('Enterprise Telemetry &amp; System Platform') !== -1) {
+        } else if (lang.indexOf('ko') !== -1) {
           localStorage.setItem(SAVED_KEY, 'ko');
         }
       });
@@ -152,7 +152,7 @@
         <li><a href="USER_GUIDE.md" target="_blank" data-i18n="navDocs">Docs</a></li>
       </ul>
 
-      <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="메뉴 열기/닫기">
+      <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open/Close Menu">
           <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
         </button>
       <div class="lang-switch">
@@ -171,17 +171,17 @@
       </div>
       
       <h1 class="hero-title" data-i18n="heroTitle">
-        Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform <br/>
-        <span class="gradient-text">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform API</span>Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform
+        Transform Internal Data Assets Into <br/>
+        <span class="gradient-text">Monetizable Data Products & APIs</span>
       </h1>
       
       <p class="hero-subtitle" data-i18n="heroSubtitle">
-        Data WorksEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, AI Product Canvas Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Evidence Pack), Enterprise Telemetry &amp; System Platform API Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.
+        Data Works collects enterprise schemas, datasets, and reports to fully automate data monetization — from readiness assessment and AI Product Canvas generation to compliance Evidence Packs and runtime API deployment.
       </p>
 
       <div class="hero-cta-group">
-        <a href="#simulator" class="btn-primary" data-i18n="btnPrimary">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</a>
-        <a href="DataWorks_Product_Guide.pdf" target="_blank" class="btn-secondary" data-i18n="btnDocs">Enterprise Telemetry &amp; System Platform PDF Enterprise Telemetry &amp; System Platform</a>
+        <a href="#simulator" class="btn-primary" data-i18n="btnPrimary">Try Productization Workflow</a>
+        <a href="DataWorks_Product_Guide.pdf" target="_blank" class="btn-secondary" data-i18n="btnDocs">View Guide PDF</a>
       </div>
 
       <div class="hero-image-wrapper">
@@ -195,20 +195,20 @@
     <div class="container">
       <div class="stats-grid">
         <div class="glass-panel stat-card">
-          <div class="stat-number" data-i18n="stat1Val">100Enterprise Telemetry &amp; System Platform</div>
-          <div class="stat-label" data-i18n="stat1Lbl">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Readiness) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</div>
+          <div class="stat-number" data-i18n="stat1Val">100 Points</div>
+          <div class="stat-label" data-i18n="stat1Lbl">Auto Readiness Score Calculation</div>
         </div>
         <div class="glass-panel stat-card">
           <div class="stat-number" data-i18n="stat2Val">409 Conflict</div>
-          <div class="stat-label" data-i18n="stat2Lbl">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Publish Gate Enterprise Telemetry &amp; System Platform</div>
+          <div class="stat-label" data-i18n="stat2Lbl">Publish Gate Blocks on Missing Approvals</div>
         </div>
         <div class="glass-panel stat-card">
           <div class="stat-number" data-i18n="stat3Val">OpenAPI 3.1</div>
-          <div class="stat-label" data-i18n="stat3Lbl">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform API Enterprise Telemetry &amp; System Platform</div>
+          <div class="stat-label" data-i18n="stat3Lbl">Auto-Generated Runtime API Specification</div>
         </div>
         <div class="glass-panel stat-card">
           <div class="stat-number" data-i18n="stat4Val">100%</div>
-          <div class="stat-label" data-i18n="stat4Lbl">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Evidence Pack Enterprise Telemetry &amp; System Platform</div>
+          <div class="stat-label" data-i18n="stat4Lbl">Auditable Evidence Pack Guaranteed</div>
         </div>
       </div>
     </div>
@@ -218,45 +218,45 @@
   <section id="features" class="features-section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="featTitle">Enterprise Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</h2>
-        <p class="section-desc" data-i18n="featDesc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</p>
+        <h2 class="section-title" data-i18n="featTitle">Core Features of Enterprise Data Productization</h2>
+        <p class="section-desc" data-i18n="featDesc">A factory system perfectly combining business value creation and regulatory compliance beyond simple data queries</p>
       </div>
 
       <div class="features-grid">
         <div class="glass-panel feature-card">
           <div class="feature-icon">🔍</div>
-          <h3 class="feature-title" data-i18n="f1Title">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform & Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</h3>
-          <p class="feature-desc" data-i18n="f1Desc">Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform API Enterprise Telemetry &amp; System Platform 100Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 class="feature-title" data-i18n="f1Title">Asset Collection & Readiness Assessment</h3>
+          <p class="feature-desc" data-i18n="f1Desc">Automatically evaluates schema, freshness, samples, missing rates, sensitivity, and API readiness on a 100-point scale.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">🤖</div>
-          <h3 class="feature-title" data-i18n="f2Title">AI Product Canvas Enterprise Telemetry &amp; System Platform</h3>
-          <p class="feature-desc" data-i18n="f2Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 class="feature-title" data-i18n="f2Title">AI Product Canvas Generation</h3>
+          <p class="feature-desc" data-i18n="f2Desc">Analyzes industry and customer segment needs to auto-generate product ideas, customer scenarios, pricing, and risk review reports.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">🛡️</div>
-          <h3 class="feature-title" data-i18n="f3Title">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Trace</h3>
-          <p class="feature-desc" data-i18n="f3Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform JSON Evidence PackEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 class="feature-title" data-i18n="f3Title">Compliance Approval Trace</h3>
+          <p class="feature-desc" data-i18n="f3Desc">Links Data Owner, Legal, and Security approvals in a matrix and archives them as auditable JSON Evidence Packs.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">🚫</div>
-          <h3 class="feature-title" data-i18n="f4Title">Enterprise Telemetry &amp; System Platform Publish Gate</h3>
-          <p class="feature-desc" data-i18n="f4Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Enterprise Telemetry &amp; System Platform/Enterprise Telemetry &amp; System Platform) Enterprise Telemetry &amp; System Platform risk_score >= 70 Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform/Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 class="feature-title" data-i18n="f4Title">Strict Publish Gate</h3>
+          <p class="feature-desc" data-i18n="f4Desc">Automatically blocks launches for sensitive data (personal credit/pseudonymized) and risk_score >= 70 products when readiness or approvals are incomplete.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">⚡</div>
-          <h3 class="feature-title" data-i18n="f5Title">Enterprise Telemetry &amp; System Platform API & Entitlements</h3>
-          <p class="feature-desc" data-i18n="f5Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Scope) Enterprise Telemetry &amp; System Platform API Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 class="feature-title" data-i18n="f5Title">Runtime API & Entitlements</h3>
+          <p class="feature-desc" data-i18n="f5Desc">Instantly binds per-contract call limits, validity periods, allowed field scopes, and API keys to runtime endpoints.</p>
         </div>
 
         <div class="glass-panel feature-card">
           <div class="feature-icon">📊</div>
-          <h3 class="feature-title" data-i18n="f6Title">Enterprise Telemetry &amp; System Platform & Funnel Enterprise Telemetry &amp; System Platform</h3>
-          <p class="feature-desc" data-i18n="f6Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Replay) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform/Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 class="feature-title" data-i18n="f6Title">Operations & Funnel Analytics</h3>
+          <p class="feature-desc" data-i18n="f6Desc">Track idea-to-launch conversion funnels, factory replay lineage, and revenue/risk performance at a glance.</p>
         </div>
       </div>
     </div>
@@ -266,22 +266,22 @@
   <section id="simulator" class="sim-section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="simTitle">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</h2>
-        <p class="section-desc" data-i18n="simDesc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Data WorksEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+        <h2 class="section-title" data-i18n="simTitle">Data Productization Pipeline Simulator</h2>
+        <p class="section-desc" data-i18n="simDesc">Click through the step tabs to see how Data Works processes data assets through the pipeline.</p>
       </div>
 
       <div class="glass-panel sim-container">
         <div class="sim-tabs">
-          <button class="sim-tab-btn active" data-tab="tab1" data-i18n="tab1">1. Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform & Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</button>
-          <button class="sim-tab-btn" data-tab="tab2" data-i18n="tab2">2. AI Idea & Canvas Enterprise Telemetry &amp; System Platform</button>
-          <button class="sim-tab-btn" data-tab="tab3" data-i18n="tab3">3. Evidence Pack & Enterprise Telemetry &amp; System Platform</button>
-          <button class="sim-tab-btn" data-tab="tab4" data-i18n="tab4">4. Publish Gate & API Enterprise Telemetry &amp; System Platform</button>
+          <button class="sim-tab-btn active" data-tab="tab1" data-i18n="tab1">1. Asset Collection & Readiness</button>
+          <button class="sim-tab-btn" data-tab="tab2" data-i18n="tab2">2. AI Idea & Canvas</button>
+          <button class="sim-tab-btn" data-tab="tab3" data-i18n="tab3">3. Evidence Pack & Approval</button>
+          <button class="sim-tab-btn" data-tab="tab4" data-i18n="tab4">4. Publish Gate & API Deploy</button>
         </div>
 
         <div class="sim-content-box">
           <div class="sim-info">
-            <h3 id="sim-title">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform & Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</h3>
-            <p id="sim-desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform/Enterprise Telemetry &amp; System Platform/APIEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform(Personal/Pseudonymized)Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+            <h3 id="sim-title">Data Asset Collection & Readiness Assessment</h3>
+            <p id="sim-desc">Collects internal datasets/tables/APIs and evaluates schema completeness, missing rates, freshness, and sensitivity (Personal/Pseudonymized) from multiple angles.</p>
             <div id="sim-badges" class="sim-badge-list">
               <!-- Populated dynamically -->
             </div>
@@ -305,26 +305,26 @@
   <section id="publish-gate" class="arch-section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="gateTitle">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Publish Gate Enterprise Telemetry &amp; System Platform</h2>
-        <p class="section-desc" data-i18n="gateDesc">Enterprise Telemetry &amp; System Platform(risk_score >= 70) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform 4Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+        <h2 class="section-title" data-i18n="gateTitle">Publish Gate Criteria for Safe Data Distribution</h2>
+        <p class="section-desc" data-i18n="gateDesc">High-risk (risk_score >= 70) and sensitive profile data products must pass the following 4 verifications.</p>
       </div>
 
       <div class="arch-grid">
         <div class="glass-panel gate-card">
           <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g1Title">1. Asset Readiness Score >= 70</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g1Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g1Desc">Quality and readiness scores of all connected source assets must meet minimum thresholds.</p>
         </div>
         <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g2Title">2. Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Trace Matrix Enterprise Telemetry &amp; System Platform</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g2Desc">Data Owner, Legal, Compliance 3Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Approved/Waived) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g2Title">2. Required Approval Trace Matrix Complete</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g2Desc">Approval evidence (Approved/Waived) from all 3 stakeholders — Data Owner, Legal, Compliance — must be valid.</p>
         </div>
         <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g3Title">3. Evidence Pack Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g3Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform JSON PackEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g3Title">3. Evidence Pack Generation Verified</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g3Desc">A complete JSON Pack including product definition, risk review, and contract terms must be generated.</p>
         </div>
         <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g4Title">4. Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g4Desc">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform 409 Conflict Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g4Title">4. Approval Expiry Auto-Detection</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g4Desc">Expired approval evidence is not recognized as valid and returns a 409 Conflict error.</p>
         </div>
       </div>
     </div>
@@ -334,38 +334,38 @@
   <section id="faq" class="faq-section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="faqTitle">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform (FAQ & AI Knowledge)</h2>
-        <p class="section-desc" data-i18n="faqDesc">Data Works Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+        <h2 class="section-title" data-i18n="faqTitle">Frequently Asked Questions (FAQ & AI Knowledge)</h2>
+        <p class="section-desc" data-i18n="faqDesc">Key answers about adopting and operating Data Works.</p>
       </div>
 
       <div class="faq-list">
         <div class="faq-item active">
           <button class="faq-question">
-            <span data-i18n="q1">Q1. Data WorksEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Kubernetes Hub Enterprise Telemetry &amp; System Platform DBEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform?</span>
+            <span data-i18n="q1">Q1. How does Data Works integrate with existing Kubernetes Hub and databases?</span>
             <span class="faq-icon">▼</span>
           </button>
           <div class="faq-answer">
-            <p data-i18n="a1">Data WorksEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Admin UI, PostgreSQL/SQLite Enterprise Telemetry &amp; System Platform, ClickHouse Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform RESTful API Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+            <p data-i18n="a1">Data Works reuses existing gateway core, Admin UI, PostgreSQL/SQLite storage, and ClickHouse analytics engine while providing a RESTful API suite optimized for data productization workflows.</p>
           </div>
         </div>
 
         <div class="faq-item">
           <button class="faq-question">
-            <span data-i18n="q2">Q2. Publish GateEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform?</span>
+            <span data-i18n="q2">Q2. What criteria does Publish Gate use to block product launches?</span>
             <span class="faq-icon">▼</span>
           </button>
           <div class="faq-answer">
-            <p data-i18n="a2">risk_scoreEnterprise Telemetry &amp; System Platform 70 Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(personal_credit), Enterprise Telemetry &amp; System Platform(pseudonymized) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform 70Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform 3Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform(Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform, Enterprise Telemetry &amp; System Platform) Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform 409 Conflict Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+            <p data-i18n="a2">For products with risk_score >= 70 or sensitive profiles (personal_credit, pseudonymized), launches are automatically blocked with 409 Conflict when readiness is below 70 or the 3 mandatory approvals (Owner, Legal, Compliance) are missing.</p>
           </div>
         </div>
 
         <div class="faq-item">
           <button class="faq-question">
-            <span data-i18n="q3">Q3. Enterprise Telemetry &amp; System Platform OpenAPI 3.1 Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform APIEnterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform?</span>
+            <span data-i18n="q3">Q3. How do you access the generated OpenAPI 3.1 spec and runtime API?</span>
             <span class="faq-icon">▼</span>
           </button>
           <div class="faq-answer">
-            <p data-i18n="a3">/admin/dataworks/products/{key}/openapi Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform OpenAPI Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform, /v1/data-products/{key}/query Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform API Key Enterprise Telemetry &amp; System Platform Entitlement Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform.</p>
+            <p data-i18n="a3">Obtain the OpenAPI spec via the /admin/dataworks/products/{key}/openapi endpoint, and perform runtime queries via /v1/data-products/{key}/query with valid API Key and Entitlement verification.</p>
           </div>
         </div>
       </div>
@@ -382,8 +382,8 @@
         </div>
 
         <div class="footer-contact">
-          <strong data-i18n="footerContactTitle">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform</strong><br>
-          <span data-i18n="footerEmailText">Enterprise Telemetry &amp; System Platform Enterprise Telemetry &amp; System Platform:</span> 
+          <strong data-i18n="footerContactTitle">Data Productization & Partnership Inquiries</strong><br>
+          <span data-i18n="footerEmailText">Email:</span> 
           <a href="mailto:gagagiga@naver.com">gagagiga@naver.com</a>
         </div>
       </div>
@@ -396,6 +396,5 @@
 
   <!-- Main JavaScript Application -->
   <script src="app.js"></script>
-<script>document.addEventListener("DOMContentLoaded", function() { if(typeof setLanguage === "function") setLanguage("en"); });</script>
 </body>
 </html>
