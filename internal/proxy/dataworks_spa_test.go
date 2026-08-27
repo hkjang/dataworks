@@ -28,6 +28,7 @@ func TestSPAHandlerServesIndexAndClientRoutes(t *testing.T) {
 	for _, requestPath := range []string{
 		"/dataworks/",
 		"/dataworks/index.html",
+		"/dataworks/assets",
 		"/dataworks/products/credit-insight",
 		"/dataworks/products/credit-insight/",
 	} {

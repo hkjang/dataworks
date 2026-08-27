@@ -59,6 +59,10 @@ func (h *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		info, err := fs.Stat(h.files, fileName)
 		if err == nil {
 			if info.IsDir() {
+				if fileName == "assets" {
+					h.serveIndex(w, r)
+					return
+				}
 				http.NotFound(w, r)
 				return
 			}
@@ -74,7 +78,10 @@ func (h *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Missing files and Vite's assets namespace are real 404s. Returning HTML
 	// for them would turn a deployment error into a confusing script/style MIME
 	// failure in the browser. Extensionless locations are React Router routes.
-	if fileName == "assets" || strings.HasPrefix(fileName, "assets/") || path.Ext(fileName) != "" {
+	// `/dataworks/assets` is also the React asset-catalog route. Only the
+	// trailing-slash directory form and descendants belong to Vite's static
+	// namespace; the exact extensionless route must fall back to the SPA.
+	if (fileName == "assets" && hasTrailingSlash) || strings.HasPrefix(fileName, "assets/") || path.Ext(fileName) != "" {
 		http.NotFound(w, r)
 		return
 	}
