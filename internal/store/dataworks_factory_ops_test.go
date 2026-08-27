@@ -97,6 +97,29 @@ func TestDataWorksFactoryOperationsRoundtrip(t *testing.T) {
 	}
 }
 
+func TestDataWorksPOCPlanPrimaryKeyHasPortableType(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: filepath.Join(t.TempDir(), "migration-types.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var columnType string
+	var primaryKey int
+	if err := db.db.QueryRowContext(ctx,
+		`SELECT type, pk FROM pragma_table_info('dw_poc_plans') WHERE name = 'product_key'`,
+	).Scan(&columnType, &primaryKey); err != nil {
+		t.Fatal(err)
+	}
+	if columnType != "TEXT" || primaryKey != 1 {
+		t.Fatalf("dw_poc_plans.product_key type=%q primary_key=%d, want TEXT primary key", columnType, primaryKey)
+	}
+}
+
 func TestDataWorksFactoryOperationsMigrateFromVersion70(t *testing.T) {
 	ctx := context.Background()
 	db, err := Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: filepath.Join(t.TempDir(), "factory-v70.db")})

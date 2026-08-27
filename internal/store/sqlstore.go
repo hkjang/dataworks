@@ -3030,7 +3030,7 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		{
 			version: 8,
 			query: `CREATE TABLE IF NOT EXISTS dw_poc_plans (
-				product_key PRIMARY KEY,
+				product_key TEXT PRIMARY KEY,
 				data_scope TEXT NOT NULL DEFAULT '',
 				success_metric TEXT NOT NULL DEFAULT '',
 				timeline TEXT NOT NULL DEFAULT '',
