@@ -58,7 +58,8 @@ var apiEndpoints = []apiEndpoint{
 	{"/me/recommendations/feedback", []string{"post"}, "self-service", "Record accepted/rejected/later feedback on a recommendation", false},
 	{"/me/recommendations/{id}/feedback", []string{"post"}, "self-service", "Record accepted/rejected/later feedback on a recommendation", false},
 	{"/me/keys", []string{"get", "post"}, "self-service", "List / issue the caller's own API keys", false},
-	{"/me/keys/{id}", []string{"post", "delete"}, "self-service", "Rotate ({id}/rotate) or revoke the caller's key", false},
+	{"/me/keys/{id}", []string{"patch", "delete"}, "self-service", "Change authorization constraints or revoke the caller's own API key", false},
+	{"/me/keys/{id}/rotate", []string{"post"}, "self-service", "Rotate the caller's own API key and return its replacement secret once", false},
 	{"/team/portal", []string{"get"}, "self-service", "Team self-service portal (usage/budget/keys/skills/members)", false},
 	{"/me/data-products", []string{"get"}, "self-service", "Browse published data products visible to the caller's team", false},
 	{"/me/data-products/{key}/request-access", []string{"post"}, "self-service", "Request access to a data product", false},
@@ -590,6 +591,86 @@ var apiEndpoints = []apiEndpoint{
 	{"/admin/notifications/mattermost/test", []string{"post"}, "notifications", "Send a test Mattermost message", false},
 }
 
+func apiKeyPolicyOpenAPIProperties() map[string]any {
+	patterns := func() map[string]any {
+		return map[string]any{"type": "array", "maxItems": 128, "items": map[string]any{"type": "string", "maxLength": 256}}
+	}
+	return map[string]any{
+		"scopes":            map[string]any{"type": "array", "uniqueItems": true, "items": map[string]any{"type": "string", "enum": allScopes}, "description": "명시적 빈 배열은 권한 없음이며 기본 scope로 확대되지 않습니다."},
+		"allowed_ips":       map[string]any{"type": "array", "maxItems": 128, "uniqueItems": true, "items": map[string]any{"type": "string"}, "description": "IPv4/IPv6 주소 또는 CIDR"},
+		"allowed_models":    patterns(),
+		"denied_models":     patterns(),
+		"allowed_providers": patterns(),
+		"denied_providers":  patterns(),
+		"budget_limit_krw":  map[string]any{"type": "number", "format": "double", "minimum": 0},
+		"expires_at":        map[string]any{"type": "string", "description": "미래 RFC3339 시각. PATCH에서 빈 문자열은 만료 제한 제거(호출자 제한 범위 내에서만 허용)."},
+	}
+}
+
+func apiKeyPolicyPatchOpenAPISchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"minProperties":        1,
+		"additionalProperties": false,
+		"properties":           apiKeyPolicyOpenAPIProperties(),
+	}
+}
+
+func apiKeyOpenAPISchemas() map[string]any {
+	keyProperties := apiKeyPolicyOpenAPIProperties()
+	for name, schema := range map[string]any{
+		"id": map[string]any{"type": "string"}, "name": map[string]any{"type": "string"},
+		"owner": map[string]any{"type": "string"}, "team": map[string]any{"type": "string"},
+		"user_id": map[string]any{"type": "string"}, "service_account_id": map[string]any{"type": "string"},
+		"role": map[string]any{"type": "string"}, "status": map[string]any{"type": "string"},
+		"revoked_at": map[string]any{"type": "string"}, "created_at": map[string]any{"type": "string"},
+	} {
+		keyProperties[name] = schema
+	}
+	return map[string]any{
+		"APIKey": map[string]any{
+			"type": "object", "required": []string{"id", "name", "status", "scopes"},
+			"properties": keyProperties,
+		},
+		"APIKeyEnvelope": map[string]any{
+			"type": "object", "required": []string{"api_key"},
+			"properties": map[string]any{"api_key": map[string]any{"$ref": "#/components/schemas/APIKey"}},
+		},
+		"APIKeySecretEnvelope": map[string]any{
+			"type": "object", "required": []string{"api_key", "secret"},
+			"properties": map[string]any{
+				"api_key": map[string]any{"$ref": "#/components/schemas/APIKey"},
+				"secret":  map[string]any{"type": "string", "writeOnly": true, "description": "이 응답에서 한 번만 제공되는 평문 키"},
+			},
+		},
+		"APIKeyListEnvelope": map[string]any{
+			"type": "object", "required": []string{"api_keys", "role", "grantable_scopes"},
+			"properties": map[string]any{
+				"api_keys":         map[string]any{"type": "array", "items": map[string]any{"$ref": "#/components/schemas/APIKey"}},
+				"role":             map[string]any{"type": "string"},
+				"grantable_scopes": map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": allScopes}},
+			},
+		},
+		"APIKeyRotationEnvelope": map[string]any{
+			"type": "object", "required": []string{"rotated_from", "api_key", "secret"},
+			"properties": map[string]any{
+				"rotated_from": map[string]any{"type": "string"},
+				"api_key":      map[string]any{"$ref": "#/components/schemas/APIKey"},
+				"secret":       map[string]any{"type": "string", "writeOnly": true},
+			},
+		},
+	}
+}
+
+func openAPIJSONResponse(description, schemaRef string) map[string]any {
+	return map[string]any{
+		"description": description,
+		"content": map[string]any{"application/json": map[string]any{
+			"schema": map[string]any{"$ref": schemaRef},
+		}},
+	}
+}
+
 // buildOpenAPISpec assembles the full OpenAPI 3.0 document from apiEndpoints.
 func buildOpenAPISpec() map[string]any {
 	paths := map[string]any{}
@@ -604,6 +685,93 @@ func buildOpenAPISpec() map[string]any {
 			}
 			if !e.public {
 				op["security"] = []any{map[string]any{"bearerAuth": []any{}}}
+			}
+			if e.path == "/me/keys" && m == "post" {
+				properties := apiKeyPolicyOpenAPIProperties()
+				properties["name"] = map[string]any{"type": "string", "minLength": 1}
+				op["requestBody"] = map[string]any{
+					"required": true,
+					"content": map[string]any{"application/json": map[string]any{"schema": map[string]any{
+						"type": "object", "required": []string{"name"}, "additionalProperties": false, "properties": properties,
+					}}},
+				}
+				op["responses"] = map[string]any{
+					"201": openAPIJSONResponse("키 발급 완료", "#/components/schemas/APIKeySecretEnvelope"),
+					"400": map[string]any{"description": "잘못된 키 정책"}, "401": map[string]any{"description": "인증 필요"},
+					"403": map[string]any{"description": "호출자가 부여할 수 없는 권한 또는 제약"},
+				}
+			}
+			if e.path == "/me/keys" && m == "get" {
+				op["responses"] = map[string]any{
+					"200": openAPIJSONResponse("본인 소유 키 목록과 부여 가능한 scope", "#/components/schemas/APIKeyListEnvelope"),
+					"401": map[string]any{"description": "인증 필요"},
+				}
+			}
+			if e.path == "/me/keys/{id}" && m == "patch" {
+				op["requestBody"] = map[string]any{
+					"required": true,
+					"content": map[string]any{"application/json": map[string]any{
+						"schema": apiKeyPolicyPatchOpenAPISchema(),
+					}},
+				}
+				op["description"] = "본인 소유의 활성 키 정책을 부분 수정합니다. 최종 정책 전체가 호출자의 grantable subset이어야 합니다."
+				op["responses"] = map[string]any{
+					"200": openAPIJSONResponse("수정된 키", "#/components/schemas/APIKey"),
+					"400": map[string]any{"description": "잘못된 정책 필드"}, "401": map[string]any{"description": "인증 필요"},
+					"403": map[string]any{"description": "권한 확대 거부"}, "404": map[string]any{"description": "본인 소유 키를 찾을 수 없음"},
+					"409": map[string]any{"description": "키 상태가 동시 변경됨"},
+				}
+			}
+			if e.path == "/me/keys/{id}" && m == "delete" {
+				op["responses"] = map[string]any{
+					"200": map[string]any{"description": "키 폐기 완료"}, "401": map[string]any{"description": "인증 필요"},
+					"404": map[string]any{"description": "본인 소유 키를 찾을 수 없음"}, "409": map[string]any{"description": "이미 비활성인 키"},
+				}
+			}
+			if e.path == "/me/keys/{id}/rotate" && m == "post" {
+				op["description"] = "기존 키의 모든 identity/권한 제약(scope, IP, 모델·공급자 allow/deny, 예산, 만료)을 그대로 보존한 replacement를 생성하고 기존 키를 같은 트랜잭션에서 폐기합니다. 새 평문 secret은 한 번만 반환됩니다."
+				op["responses"] = map[string]any{
+					"200": openAPIJSONResponse("키 회전 완료", "#/components/schemas/APIKeyRotationEnvelope"),
+					"401": map[string]any{"description": "인증 필요"}, "403": map[string]any{"description": "현재 호출자 정책 범위를 벗어난 키"},
+					"404": map[string]any{"description": "본인 소유 키를 찾을 수 없음"}, "409": map[string]any{"description": "키가 비활성이거나 동시 회전됨"},
+				}
+			}
+			if e.path == "/admin/api-keys" && m == "post" {
+				properties := apiKeyPolicyOpenAPIProperties()
+				for name, schema := range map[string]any{
+					"name": map[string]any{"type": "string", "minLength": 1}, "key": map[string]any{"type": "string", "writeOnly": true},
+					"owner": map[string]any{"type": "string"}, "team": map[string]any{"type": "string"},
+					"user_id": map[string]any{"type": "string"}, "service_account_id": map[string]any{"type": "string"},
+					"role": map[string]any{"type": "string"},
+				} {
+					properties[name] = schema
+				}
+				op["requestBody"] = map[string]any{"required": true, "content": map[string]any{"application/json": map[string]any{
+					"schema": map[string]any{"type": "object", "required": []string{"name"}, "additionalProperties": false, "properties": properties},
+				}}}
+				op["responses"] = map[string]any{
+					"201": openAPIJSONResponse("키 발급 완료", "#/components/schemas/APIKeySecretEnvelope"),
+					"400": map[string]any{"description": "잘못된 키 정책"}, "401": map[string]any{"description": "관리자 인증 필요"},
+					"403": map[string]any{"description": "RBAC/팀 범위 위반"},
+				}
+			}
+			if e.path == "/admin/api-keys/{id}" && m == "patch" {
+				properties := apiKeyPolicyOpenAPIProperties()
+				for name, schema := range map[string]any{
+					"status": map[string]any{"type": "string", "enum": []string{"active", "disabled"}},
+					"name":   map[string]any{"type": "string"}, "owner": map[string]any{"type": "string"},
+					"team": map[string]any{"type": "string"}, "role": map[string]any{"type": "string"},
+				} {
+					properties[name] = schema
+				}
+				op["requestBody"] = map[string]any{"required": true, "content": map[string]any{"application/json": map[string]any{
+					"schema": map[string]any{"type": "object", "minProperties": 1, "additionalProperties": false, "properties": properties},
+				}}}
+				op["responses"] = map[string]any{
+					"200": openAPIJSONResponse("수정된 키", "#/components/schemas/APIKey"),
+					"400": map[string]any{"description": "잘못된 키 정책"}, "401": map[string]any{"description": "관리자 인증 필요"},
+					"403": map[string]any{"description": "RBAC/팀 범위 위반"}, "404": map[string]any{"description": "키를 찾을 수 없음"},
+				}
 			}
 			ops[m] = op
 		}
@@ -640,6 +808,7 @@ func buildOpenAPISpec() map[string]any {
 			"securitySchemes": map[string]any{
 				"bearerAuth": map[string]any{"type": "http", "scheme": "bearer", "bearerFormat": "JWT or API key"},
 			},
+			"schemas": apiKeyOpenAPISchemas(),
 		},
 	}
 }

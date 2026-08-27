@@ -2,6 +2,9 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
 	"testing"
 
 	"dataworks/internal/config"
@@ -98,5 +101,96 @@ func TestEffectiveKeycloakRoleMap(t *testing.T) {
 	m := s.effectiveKeycloakRoleMap()
 	if m["x"] != "team_admin" || len(m) != 1 {
 		t.Errorf("custom overlay map expected, got %v", m)
+	}
+}
+
+func TestKeycloakConfigRoleGrantCeiling(t *testing.T) {
+	_, proxy := newAuthTestServer(t, "http://example.invalid")
+	defer proxy.Close()
+
+	login := func(email, password string) string {
+		t.Helper()
+		resp := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{"email": email, "password": password})
+		defer resp.Body.Close()
+		var out struct {
+			AccessToken string `json:"access_token"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK || out.AccessToken == "" {
+			t.Fatalf("login %s status=%d token_set=%v", email, resp.StatusCode, out.AccessToken != "")
+		}
+		return out.AccessToken
+	}
+	rootToken := login("root@example.com", "correct-password")
+	created := postJSON(t, proxy.URL+"/admin/users", rootToken, map[string]string{
+		"email": "sso-admin@example.com", "password": "admin-password", "name": "SSO Admin", "role": "admin",
+	})
+	created.Body.Close()
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create admin status=%d", created.StatusCode)
+	}
+	adminToken := login("sso-admin@example.com", "admin-password")
+
+	putConfig := func(token, defaultRole string, roleMap map[string]string) *http.Response {
+		t.Helper()
+		body, err := json.Marshal(map[string]any{
+			"enabled": false, "issuer_url": "", "client_id": "", "redirect_uri": "",
+			"scopes": []string{"openid", "profile", "email"}, "default_role": defaultRole,
+			"role_claim": "realm_access.roles", "group_claim": "groups", "allow_local_login": true,
+			"role_map": roleMap,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		req, err := http.NewRequest(http.MethodPut, proxy.URL+"/admin/sso/keycloak/config", strings.NewReader(string(body)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+
+	for name, tc := range map[string]struct {
+		defaultRole string
+		roleMap     map[string]string
+		want        int
+	}{
+		"default super admin":  {defaultRole: "super_admin", roleMap: map[string]string{}, want: http.StatusForbidden},
+		"mapped super admin":   {defaultRole: "developer", roleMap: map[string]string{"attacker-role": "super_admin"}, want: http.StatusForbidden},
+		"new peer admin map":   {defaultRole: "developer", roleMap: map[string]string{"attacker-role": "admin"}, want: http.StatusForbidden},
+		"unknown default role": {defaultRole: "not-a-role", roleMap: map[string]string{}, want: http.StatusBadRequest},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resp := putConfig(adminToken, tc.defaultRole, tc.roleMap)
+			resp.Body.Close()
+			if resp.StatusCode != tc.want {
+				t.Fatalf("status=%d want=%d", resp.StatusCode, tc.want)
+			}
+		})
+	}
+
+	// The settings UI posts the effective built-in map. An ordinary admin may
+	// preserve its existing peer-admin entry while changing unrelated SSO fields.
+	preserve := putConfig(adminToken, "developer", map[string]string{
+		"vibe-admin": "admin", "vibe-team-admin": "team_admin",
+		"vibe-developer": "developer", "vibe-auditor": "readonly_admin",
+	})
+	preserve.Body.Close()
+	if preserve.StatusCode != http.StatusNoContent {
+		t.Fatalf("preserving built-in role map status=%d want=%d", preserve.StatusCode, http.StatusNoContent)
+	}
+
+	// A super admin remains able to establish the top-level break-glass mapping.
+	super := putConfig(rootToken, "super_admin", map[string]string{"break-glass": "super_admin"})
+	super.Body.Close()
+	if super.StatusCode != http.StatusNoContent {
+		t.Fatalf("super-admin config status=%d want=%d", super.StatusCode, http.StatusNoContent)
 	}
 }

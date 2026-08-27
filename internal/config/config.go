@@ -31,12 +31,25 @@ type Config struct {
 	PricingConf PricingConfig
 	Skills      SkillsConfig
 	Limits      LimitsConfig
+	AI          AIConfig
 	MCP         MCPConfig
 	Keycloak    KeycloakConfig
 	Features    FeaturesConfig
 	// RuntimeReloadInterval is how often each pod polls the DB for admin-settings changes made on
 	// other pods (multi-replica convergence). 0 disables polling (single-pod / local dev).
 	RuntimeReloadInterval time.Duration
+}
+
+// MaxSupportedOutputTokens is the service-wide maximum completion-token budget.
+// 256 Ki tokens covers current long-output model APIs while keeping admin-entered
+// limits and the built-in chat console bounded to a documented value.
+const MaxSupportedOutputTokens = 256 * 1024
+
+// AIConfig contains request-level AI defaults that operators can change at runtime.
+type AIConfig struct {
+	// DefaultStream is injected into /v1/chat/completions only when the caller omits
+	// the stream field. An explicit stream=false always takes precedence.
+	DefaultStream bool
 }
 
 // FeaturesConfig controls which domain modules are enabled.
@@ -259,8 +272,9 @@ type PricingConfig struct {
 }
 
 // LimitsConfig holds request-shaping guardrails applied in the pipeline. MaxOutputTokens,
-// when > 0, clamps a chat request's max_tokens/max_completion_tokens to that ceiling
-// (injecting it when the client omits one) — a cost/runaway-generation guard.
+// when > 0, clamps Chat Completions max_tokens/max_completion_tokens and Responses API
+// max_output_tokens to that ceiling (injecting the endpoint-native field when omitted).
+// The service absolute maximum is enforced even when this configurable limit is disabled.
 type LimitsConfig struct {
 	MaxOutputTokens int
 	MaxRequestBytes int // reject chat request bodies larger than this many bytes; 0 = disabled
@@ -335,6 +349,21 @@ func Load() (Config, error) {
 		addr = ":" + addr
 	}
 
+	// The short BOOTSTRAP_* / ENCRYPTION_KEY names are the supported offline
+	// deployment contract. Existing AUTH_* / GATEWAY_SECRET names remain valid and
+	// take effect when the short alias is not supplied.
+	bootstrapEmail := strings.TrimSpace(firstNonEmpty(
+		os.Getenv("BOOTSTRAP_ADMIN"),
+		os.Getenv("AUTH_ADMIN_BOOTSTRAP_EMAIL"),
+	))
+	bootstrapPassword := firstNonEmpty(
+		os.Getenv("BOOTSTRAP_ADMIN_PASSWORD"),
+		os.Getenv("AUTH_ADMIN_BOOTSTRAP_PASSWORD"),
+	)
+	encryptionKey := strings.TrimSpace(os.Getenv("ENCRYPTION_KEY"))
+	authDefault := bootstrapEmail != "" && bootstrapPassword != ""
+	authEnabled := boolEnv("AUTH_ENABLED", authDefault)
+
 	cfg := Config{
 		ListenAddr:            addr,
 		RuntimeReloadInterval: durationEnv("SETTINGS_RELOAD_INTERVAL", 10*time.Second),
@@ -381,15 +410,15 @@ func Load() (Config, error) {
 			AdminToken:            os.Getenv("ADMIN_TOKEN"),
 			AdminReadonlyToken:    os.Getenv("ADMIN_READONLY_TOKEN"),
 			AttributeExternalKeys: boolEnv("ATTRIBUTE_EXTERNAL_KEYS", true),
-			Enabled:               boolEnv("AUTH_ENABLED", false),
-			JWTSecret:             os.Getenv("AUTH_JWT_SECRET"),
+			Enabled:               authEnabled,
+			JWTSecret:             firstNonEmpty(os.Getenv("AUTH_JWT_SECRET"), encryptionKey),
 			AccessTokenTTL:        durationEnv("AUTH_ACCESS_TOKEN_TTL", 15*time.Minute),
 			RefreshTokenTTL:       durationEnv("AUTH_REFRESH_TOKEN_TTL", 168*time.Hour),
 			APIKeyPrefix:          getEnv("AUTH_API_KEY_PREFIX", "vc_sk_"),
 			ServiceKeyPrefix:      getEnv("AUTH_SERVICE_KEY_PREFIX", "vc_sa_"),
-			BootstrapEmail:        strings.TrimSpace(os.Getenv("AUTH_ADMIN_BOOTSTRAP_EMAIL")),
-			BootstrapPassword:     os.Getenv("AUTH_ADMIN_BOOTSTRAP_PASSWORD"),
-			SelfServiceKeys:       boolEnv("SELF_SERVICE_KEYS_ENABLED", false),
+			BootstrapEmail:        bootstrapEmail,
+			BootstrapPassword:     bootstrapPassword,
+			SelfServiceKeys:       boolEnv("SELF_SERVICE_KEYS_ENABLED", authEnabled),
 		},
 		Keycloak: KeycloakConfig{
 			Enabled:         boolEnv("SSO_KEYCLOAK_ENABLED", false),
@@ -404,7 +433,7 @@ func Load() (Config, error) {
 			AllowLocalLogin: boolEnv("SSO_KEYCLOAK_ALLOW_LOCAL_LOGIN", true),
 		},
 		Secret: SecretConfig{
-			GatewaySecret: getEnv("GATEWAY_SECRET", DefaultGatewaySecret),
+			GatewaySecret: firstNonEmpty(os.Getenv("GATEWAY_SECRET"), encryptionKey, DefaultGatewaySecret),
 		},
 		Session: SessionConfig{
 			InferenceEnabled: boolEnv("SESSION_INFERENCE_ENABLED", true),
@@ -489,6 +518,9 @@ func Load() (Config, error) {
 			MaxMessages:     intEnv("LIMITS_MAX_MESSAGES", 0),
 			AgentMaxTokens:  intEnv("LIMITS_AGENT_MAX_TOKENS", 16384),
 		},
+		AI: AIConfig{
+			DefaultStream: boolEnv("AI_DEFAULT_STREAM", true),
+		},
 		MCP: MCPConfig{
 			AgenticModel:   os.Getenv("MCP_AGENTIC_MODEL"),
 			MaxAgentSteps:  intEnv("MCP_MAX_AGENT_STEPS", 8),
@@ -502,6 +534,11 @@ func Load() (Config, error) {
 			AIGateway: boolEnv("FEATURE_AI_GATEWAY", true),
 		},
 	}
+	// Environment variables are legacy-compatible, but they cannot bypass the service-wide
+	// completion budget. Runtime admin settings apply the same ceiling in the proxy layer.
+	cfg.Limits.MaxOutputTokens = CapSupportedOutputTokens(cfg.Limits.MaxOutputTokens)
+	cfg.Limits.AgentMaxTokens = CapSupportedOutputTokens(cfg.Limits.AgentMaxTokens)
+	cfg.MCP.MaxTokens = CapSupportedOutputTokens(cfg.MCP.MaxTokens)
 
 	if cfg.Upstream.BaseURL == "" {
 		return Config{}, fmt.Errorf("UPSTREAM_BASE_URL cannot be empty")
@@ -520,6 +557,15 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// CapSupportedOutputTokens preserves disabled/non-positive values and clamps positive token
+// budgets to the service-wide 256 Ki-token ceiling.
+func CapSupportedOutputTokens(value int) int {
+	if value > MaxSupportedOutputTokens {
+		return MaxSupportedOutputTokens
+	}
+	return value
 }
 
 func databaseConfig() DatabaseConfig {

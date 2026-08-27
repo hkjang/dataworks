@@ -57,11 +57,63 @@ func TestOpenAPISwaggerAndVersion(t *testing.T) {
 	}
 	for _, p := range []string{
 		"/admin/text2sql/golden", "/admin/okf/documents", "/admin/llm/traces",
-		"/me/keys", "/admin/settings/by-key/{key}", "/admin/dw/clickhouse/overview",
+		"/me/keys", "/me/keys/{id}", "/me/keys/{id}/rotate", "/admin/settings/by-key/{key}", "/admin/dw/clickhouse/overview",
 		"/admin/mcp/policies/{server}", "/admin/routing/decisions/{id}",
 	} {
 		if _, ok := pathsMap[p]; !ok {
 			t.Errorf("openapi.json missing expected path %s", p)
+		}
+	}
+	myKeyPath := pathsMap["/me/keys/{id}"].(map[string]any)
+	if _, ok := myKeyPath["patch"]; !ok {
+		t.Error("openapi.json must document PATCH /me/keys/{id}")
+	}
+	patchOp, patchOK := myKeyPath["patch"].(map[string]any)
+	if !patchOK || patchOp["requestBody"] == nil {
+		t.Error("PATCH /me/keys/{id} must document its scopes request body")
+	}
+	if patchOK {
+		requestBody := patchOp["requestBody"].(map[string]any)
+		content := requestBody["content"].(map[string]any)
+		schema := content["application/json"].(map[string]any)["schema"].(map[string]any)
+		properties := schema["properties"].(map[string]any)
+		for _, field := range []string{"scopes", "allowed_ips", "allowed_models", "denied_models", "allowed_providers", "denied_providers", "budget_limit_krw", "expires_at"} {
+			if _, ok := properties[field]; !ok {
+				t.Errorf("PATCH /me/keys/{id} missing policy field %s", field)
+			}
+		}
+		responses := patchOp["responses"].(map[string]any)
+		for _, status := range []string{"200", "400", "401", "403", "404", "409"} {
+			if _, ok := responses[status]; !ok {
+				t.Errorf("PATCH /me/keys/{id} missing response status %s", status)
+			}
+		}
+	}
+	if _, ok := myKeyPath["post"]; ok {
+		t.Error("openapi.json must not document unsupported POST /me/keys/{id}")
+	}
+	rotatePath := pathsMap["/me/keys/{id}/rotate"].(map[string]any)
+	rotateOp, ok := rotatePath["post"].(map[string]any)
+	if !ok {
+		t.Error("openapi.json must document POST /me/keys/{id}/rotate")
+	} else {
+		responses := rotateOp["responses"].(map[string]any)
+		if _, ok := responses["200"]; !ok {
+			t.Error("rotate must document its secret response")
+		}
+		if _, ok := responses["409"]; !ok {
+			t.Error("rotate must document inactive/concurrent conflict")
+		}
+	}
+	adminKeyPatch := pathsMap["/admin/api-keys/{id}"].(map[string]any)["patch"].(map[string]any)
+	if adminKeyPatch["requestBody"] == nil {
+		t.Error("admin key PATCH must document mutable policy fields")
+	}
+	components := spec["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	for _, name := range []string{"APIKey", "APIKeyEnvelope", "APIKeySecretEnvelope", "APIKeyRotationEnvelope"} {
+		if _, ok := schemas[name]; !ok {
+			t.Errorf("OpenAPI components missing %s", name)
 		}
 	}
 

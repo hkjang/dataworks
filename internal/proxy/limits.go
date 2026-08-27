@@ -4,13 +4,40 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+
+	"dataworks/internal/config"
 )
 
-// clampMaxOutputTokens enforces an output-token ceiling on a chat body: if the body sets
-// max_tokens or max_completion_tokens above the cap it's reduced; if it sets neither, the cap
-// is injected as max_tokens. Returns (newBody, from, to, changed). from is -1 when the field
-// was absent (injected). Safe no-op on parse failure or cap <= 0.
+// clampMaxOutputTokens enforces an output-token ceiling on a Chat Completions body. Every
+// supported field present in the request is clamped, including requests that send both
+// max_tokens and max_completion_tokens. If neither field is present, max_tokens is injected.
+// Returns (newBody, from, to, changed). from is -1 when the field was absent (injected), and
+// is the largest original value when multiple fields were clamped. Safe no-op on parse failure
+// or cap <= 0.
 func clampMaxOutputTokens(body []byte, maxOut int) ([]byte, int, int, bool) {
+	return clampTokenFields(body, maxOut, true, "max_tokens", "max_tokens", "max_completion_tokens")
+}
+
+// clampExplicitMaxOutputTokens applies an absolute safety ceiling only when the client sent
+// a token field. It deliberately does not inject a field, preserving the historical meaning
+// of limits.max_output_tokens=0 while still preventing values above the service maximum.
+func clampExplicitMaxOutputTokens(body []byte, maxOut int) ([]byte, int, int, bool) {
+	return clampTokenFields(body, maxOut, false, "max_tokens", "max_tokens", "max_completion_tokens")
+}
+
+// clampResponsesMaxOutputTokens applies the configured Responses API ceiling and injects the
+// native max_output_tokens field when it is absent.
+func clampResponsesMaxOutputTokens(body []byte, maxOut int) ([]byte, int, int, bool) {
+	return clampTokenFields(body, maxOut, true, "max_output_tokens", "max_output_tokens")
+}
+
+// clampExplicitResponsesMaxOutputTokens applies only the service absolute ceiling to an
+// explicitly supplied Responses API max_output_tokens value.
+func clampExplicitResponsesMaxOutputTokens(body []byte, maxOut int) ([]byte, int, int, bool) {
+	return clampTokenFields(body, maxOut, false, "max_output_tokens", "max_output_tokens")
+}
+
+func clampTokenFields(body []byte, maxOut int, inject bool, injectField string, fields ...string) ([]byte, int, int, bool) {
 	if maxOut <= 0 || len(body) == 0 {
 		return body, 0, 0, false
 	}
@@ -18,26 +45,39 @@ func clampMaxOutputTokens(body []byte, maxOut int) ([]byte, int, int, bool) {
 	if err := json.Unmarshal(body, &root); err != nil {
 		return body, 0, 0, false
 	}
-	field := "max_tokens"
-	cur, present := numField(root, "max_tokens")
+	present := false
+	changed := false
+	from := 0
+	for _, field := range fields {
+		cur, ok := numField(root, field)
+		if !ok {
+			continue
+		}
+		present = true
+		if cur > maxOut {
+			root[field] = maxOut
+			changed = true
+			if cur > from {
+				from = cur
+			}
+		}
+	}
 	if !present {
-		if c2, ok := numField(root, "max_completion_tokens"); ok {
-			field, cur, present = "max_completion_tokens", c2, true
+		if !inject {
+			return body, 0, 0, false
 		}
+		root[injectField] = maxOut
+		from = -1
+		changed = true
 	}
-	if present {
-		if cur <= maxOut {
-			return body, 0, 0, false // already within the cap
-		}
-	} else {
-		cur = -1 // absent → will inject
+	if !changed {
+		return body, 0, 0, false
 	}
-	root[field] = maxOut
 	out, err := json.Marshal(root)
 	if err != nil {
 		return body, 0, 0, false
 	}
-	return out, cur, maxOut, true
+	return out, from, maxOut, true
 }
 
 // countMessages returns the length of the chat request's messages array (0 on parse failure
@@ -67,8 +107,11 @@ func numField(root map[string]any, key string) (int, bool) {
 	return 0, false
 }
 
-// stepLimits clamps the request's output-token ceiling to limits.max_output_tokens (when set).
-// Runs after deprecation, before governance, so the clamped body flows downstream. Chat POST only.
+// stepLimits clamps supported output-token fields to limits.max_output_tokens (when set), while
+// always enforcing the service absolute maximum. Token mutation is endpoint-specific: Chat
+// Completions uses max_tokens/max_completion_tokens and Responses uses max_output_tokens.
+// Other POST endpoints still receive the body-size guard but never get a token field injected.
+// Runs after deprecation, before governance, so the clamped body flows downstream.
 func (rc *requestPipeline) stepLimits() bool {
 	s, r, w := rc.s, rc.r, rc.w
 	if r.Method != http.MethodPost {
@@ -98,11 +141,31 @@ func (rc *requestPipeline) stepLimits() bool {
 		}
 	}
 
-	maxOut := lim.MaxOutputTokens
-	if maxOut <= 0 {
+	configuredMax := lim.MaxOutputTokens
+	inject := configuredMax > 0
+	maxOut := config.MaxSupportedOutputTokens
+	if configuredMax > 0 && configuredMax < maxOut {
+		maxOut = configuredMax
+	}
+	var newBody []byte
+	var from, to int
+	var changed bool
+	switch r.URL.Path {
+	case "/v1/chat/completions":
+		if inject {
+			newBody, from, to, changed = clampMaxOutputTokens(rc.body, maxOut)
+		} else {
+			newBody, from, to, changed = clampExplicitMaxOutputTokens(rc.body, maxOut)
+		}
+	case "/v1/responses":
+		if inject {
+			newBody, from, to, changed = clampResponsesMaxOutputTokens(rc.body, maxOut)
+		} else {
+			newBody, from, to, changed = clampExplicitResponsesMaxOutputTokens(rc.body, maxOut)
+		}
+	default:
 		return true
 	}
-	newBody, from, to, changed := clampMaxOutputTokens(rc.body, maxOut)
 	if !changed {
 		return true
 	}

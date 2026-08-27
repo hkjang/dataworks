@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"dataworks/internal/config"
 	"dataworks/internal/store"
 )
 
@@ -345,9 +346,9 @@ func (s *Server) prepareChatTestRequest(w http.ResponseWriter, r *http.Request, 
 	if input.MaxTokens <= 0 {
 		input.MaxTokens = 64
 	}
-	// Cap generously so modern large-context models (≈128K) can be exercised.
-	if input.MaxTokens > 131072 {
-		input.MaxTokens = 131072
+	// Keep the console aligned with the service-wide 256 Ki completion budget.
+	if input.MaxTokens > config.MaxSupportedOutputTokens {
+		input.MaxTokens = config.MaxSupportedOutputTokens
 	}
 	messages := input.Messages
 	if len(messages) == 0 {

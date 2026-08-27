@@ -108,6 +108,19 @@ func buildSettingRegistry() []settingDef {
 		}
 		return nil
 	}
+	tokenBudget := func(allowZero bool) func(string) error {
+		return func(v string) error {
+			n, err := strconv.Atoi(v)
+			minimum := 1
+			if allowZero {
+				minimum = 0
+			}
+			if err != nil || n < minimum || n > config.MaxSupportedOutputTokens {
+				return fmt.Errorf("must be between %d and %d", minimum, config.MaxSupportedOutputTokens)
+			}
+			return nil
+		}
+	}
 	return []settingDef{
 		// ---- ClickHouse ----
 		{Key: "clickhouse.url", Category: "clickhouse", Type: stString, Restart: true, envValue: func(c config.Config) string { return c.ClickHouse.URL }},
@@ -198,15 +211,18 @@ func buildSettingRegistry() []settingDef {
 		// ---- MCP (discovery / grounding agentic loop) ----
 		{Key: "mcp.agentic_model", Category: "mcp", Type: stString, envValue: func(c config.Config) string { return c.MCP.AgenticModel }},
 		{Key: "mcp.max_agent_steps", Category: "mcp", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.MCP.MaxAgentSteps) }},
-		{Key: "mcp.max_tokens", Category: "mcp", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.MCP.MaxTokens) }},
+		{Key: "mcp.max_tokens", Category: "mcp", Type: stInt, validate: tokenBudget(false), envValue: func(c config.Config) string { return strconv.Itoa(c.MCP.MaxTokens) }},
 		{Key: "mcp.force_tool_first", Category: "mcp", Type: stBool, envValue: func(c config.Config) string { return strconv.FormatBool(c.MCP.ForceToolFirst) }},
 		{Key: "mcp.max_tools", Category: "mcp", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.MCP.MaxTools) }},
 
 		// ---- Limits (request guardrails) ----
-		{Key: "limits.max_output_tokens", Category: "limits", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.Limits.MaxOutputTokens) }},
-		{Key: "limits.agent_max_tokens", Category: "limits", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.Limits.AgentMaxTokens) }},
+		{Key: "limits.max_output_tokens", Category: "limits", Type: stInt, validate: tokenBudget(true), envValue: func(c config.Config) string { return strconv.Itoa(c.Limits.MaxOutputTokens) }},
+		{Key: "limits.agent_max_tokens", Category: "limits", Type: stInt, validate: tokenBudget(false), envValue: func(c config.Config) string { return strconv.Itoa(c.Limits.AgentMaxTokens) }},
 		{Key: "limits.max_request_bytes", Category: "limits", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.Limits.MaxRequestBytes) }},
 		{Key: "limits.max_messages", Category: "limits", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.Limits.MaxMessages) }},
+
+		// ---- AI request defaults ----
+		{Key: "ai.default_stream", Category: "ai", Type: stBool, envValue: func(c config.Config) string { return strconv.FormatBool(c.AI.DefaultStream) }},
 
 		// ---- Logging (runtime-adjustable capture flags) ----
 		{Key: "logging.response_text", Category: "logging", Type: stBool, envValue: func(c config.Config) string { return strconv.FormatBool(c.Logging.ResponseText) }},
@@ -332,14 +348,16 @@ var settingDescriptions = map[string]string{
 	// MCP
 	"mcp.agentic_model":    "vibe/grounded·vibe/research·vibe/all-mcp가 MCP 도구 선택/합성에 사용할 백킹 Chat 모델. 비워두면 auto-router가 정책 기반으로 선택. 설정하면 해당 모델을 provider 설정에서 해석해 사용.",
 	"mcp.max_agent_steps":  "에이전틱 MCP 루프의 최대 LLM 턴 수(기본 8, 상한 16). 한 턴에 여러 도구를 호출할 수 있으며, 이 수를 넘으면 도구 없이 최종 답변을 강제 생성.",
-	"mcp.max_tokens":       "에이전틱 MCP 루프의 턴당 completion 토큰 예산(기본 2048). 너무 작으면 도구 호출 인자 JSON이나 최종 답변이 잘려 간헐적 실패의 원인이 됨.",
+	"mcp.max_tokens":       "에이전틱 MCP 루프의 턴당 completion 토큰 예산(기본 2048, 최대 262144). 너무 작으면 도구 호출 인자 JSON이나 최종 답변이 잘려 간헐적 실패의 원인이 됨.",
 	"mcp.force_tool_first": "true면 첫 턴에 MCP 도구를 최소 1회 호출하도록 강제(tool_choice=required)해 근거 기반 답변을 보장. false면 모델이 도구 사용 여부를 자유 판단(기본 true).",
 	"mcp.max_tools":        "에이전틱 루프에서 모델에 노출할 MCP 도구 최대 개수(기본 32). vibe/all-mcp처럼 도구가 많으면 선택 정확도·토큰 비용이 나빠지므로 상위 랭크 후보의 도구만 노출.",
 	// Limits
-	"limits.max_output_tokens": "응답 최대 출력 토큰 상한(0=비활성). >0이면 chat 요청의 max_tokens/max_completion_tokens를 이 값으로 클램프(없으면 주입). 런어웨이 생성·비용 폭주 가드.",
-	"limits.agent_max_tokens":  "Ops Agent 및 K8s AI 답변 생성의 최대 출력 토큰 제한 (기본 16384). 너무 작으면 답변이 잘립니다.",
+	"limits.max_output_tokens": "응답 최대 출력 토큰 상한(0=관리 상한 비활성, 서비스 절대 상한 262144). Chat Completions의 max_tokens/max_completion_tokens와 Responses API의 max_output_tokens를 모두 클램프하며, >0이고 필드가 없으면 엔드포인트별 필드를 주입. 런어웨이 생성·비용 폭주 가드.",
+	"limits.agent_max_tokens":  "Ops Agent 및 K8s AI 답변 생성의 최대 출력 토큰 제한(기본 16384, 최대 262144). 너무 작으면 답변이 잘립니다.",
 	"limits.max_request_bytes": "chat 요청 본문 최대 바이트(0=비활성). 초과 시 413 payload_too_large로 거부. 비정상적으로 큰 프롬프트·남용 차단.",
 	"limits.max_messages":      "chat 요청 messages 배열 최대 개수(0=비활성). 초과 시 400 too_many_messages로 거부. 컨텍스트 스터핑·과도한 멀티턴 누적 차단.",
+	// AI defaults
+	"ai.default_stream": "Chat Completions 요청에서 stream 필드가 생략되면 적용할 기본값. 기본 true이며, 호출자가 명시한 stream=false는 항상 유지됩니다.",
 	// Logging
 	"logging.response_text":      "AI 응답 본문 캡처 여부(LOG_RESPONSE_TEXT). true면 response_text_optional에 전체 응답 텍스트를 저장, 요청 상세에서 조회 가능. 저장 공간 증가 주의.",
 	"logging.raw_prompts":        "프롬프트 원문 캡처 여부(LOG_RAW_PROMPTS). true면 content_text(원문)도 별도 저장. false면 redacted_text(리덕션)만 보관.",
@@ -412,10 +430,23 @@ func (s *Server) skillsConf() config.SkillsConfig {
 
 // limitsConf returns the effective Limits config (admin-settings overlay over env/default).
 func (s *Server) limitsConf() config.LimitsConfig {
+	var out config.LimitsConfig
 	if p := s.limitsRuntime.Load(); p != nil {
+		out = *p
+	} else {
+		out = s.cfg.Limits
+	}
+	out.MaxOutputTokens = config.CapSupportedOutputTokens(out.MaxOutputTokens)
+	out.AgentMaxTokens = config.CapSupportedOutputTokens(out.AgentMaxTokens)
+	return out
+}
+
+// aiConf returns the effective AI request defaults.
+func (s *Server) aiConf() config.AIConfig {
+	if p := s.aiRuntime.Load(); p != nil {
 		return *p
 	}
-	return s.cfg.Limits
+	return s.cfg.AI
 }
 
 // loggingConf returns the effective Logging config (admin-settings overlay over env/default).
@@ -428,10 +459,14 @@ func (s *Server) loggingConf() config.LoggingConfig {
 
 // mcpConf returns the effective MCP discovery config (admin-settings overlay over env/default).
 func (s *Server) mcpConf() config.MCPConfig {
+	var out config.MCPConfig
 	if p := s.mcpRuntime.Load(); p != nil {
-		return *p
+		out = *p
+	} else {
+		out = s.cfg.MCP
 	}
-	return s.cfg.MCP
+	out.MaxTokens = config.CapSupportedOutputTokens(out.MaxTokens)
+	return out
 }
 
 // runtimeReloadLoop periodically polls the admin_settings change token and, when it differs from
@@ -516,6 +551,7 @@ func (s *Server) reloadRuntimeConfig(ctx context.Context) {
 	pricing := s.cfg.PricingConf
 	skills := s.cfg.Skills
 	limits := s.cfg.Limits
+	ai := s.cfg.AI
 	logging := s.cfg.Logging
 	mcp := s.cfg.MCP
 	for _, d := range settingRegistry {
@@ -529,7 +565,7 @@ func (s *Server) reloadRuntimeConfig(ctx context.Context) {
 		if source != "admin" {
 			continue
 		}
-		applyRuntimeSetting(&t2s, &ch, &carbon, &ins, &cache, &ret, &pricing, &skills, &limits, &logging, &mcp, d.Key, val)
+		applyRuntimeSetting(&t2s, &ch, &carbon, &ins, &cache, &ret, &pricing, &skills, &limits, &ai, &logging, &mcp, d.Key, val)
 	}
 	s.t2sRuntime.Store(&t2s)
 	s.chRuntime.Store(&ch)
@@ -539,6 +575,7 @@ func (s *Server) reloadRuntimeConfig(ctx context.Context) {
 	s.pricingRuntime.Store(&pricing)
 	s.skillsRuntime.Store(&skills)
 	s.limitsRuntime.Store(&limits)
+	s.aiRuntime.Store(&ai)
 	s.loggingRuntime.Store(&logging)
 	s.mcpRuntime.Store(&mcp)
 	audit.SetFallbackPriceModel(pricing.FallbackModel) // apply the runtime fallback model
@@ -570,7 +607,7 @@ func (s *Server) reloadRuntimeConfig(ctx context.Context) {
 	}
 }
 
-func applyRuntimeSetting(t2s *config.Text2SQLConfig, ch *config.ClickHouseConfig, carbon *config.CarbonConfig, ins *config.InsuranceConfig, cache *config.CacheConfig, ret *config.RetentionConfig, pricing *config.PricingConfig, skills *config.SkillsConfig, limits *config.LimitsConfig, logging *config.LoggingConfig, mcp *config.MCPConfig, key, val string) {
+func applyRuntimeSetting(t2s *config.Text2SQLConfig, ch *config.ClickHouseConfig, carbon *config.CarbonConfig, ins *config.InsuranceConfig, cache *config.CacheConfig, ret *config.RetentionConfig, pricing *config.PricingConfig, skills *config.SkillsConfig, limits *config.LimitsConfig, ai *config.AIConfig, logging *config.LoggingConfig, mcp *config.MCPConfig, key, val string) {
 	val = strings.TrimSpace(val)
 	atoi := func() int { n, _ := strconv.Atoi(val); return n }
 	atof := func() float64 { f, _ := strconv.ParseFloat(val, 64); return f }
@@ -751,6 +788,8 @@ func applyRuntimeSetting(t2s *config.Text2SQLConfig, ch *config.ClickHouseConfig
 		limits.MaxRequestBytes = atoi()
 	case "limits.max_messages":
 		limits.MaxMessages = atoi()
+	case "ai.default_stream":
+		ai.DefaultStream = atob()
 	case "logging.response_text":
 		logging.ResponseText = atob()
 	case "logging.raw_prompts":
@@ -780,7 +819,7 @@ func settingPermissionGroup(d settingDef) string {
 	switch {
 	case strings.HasPrefix(d.Category, "clickhouse"), strings.HasPrefix(d.Category, "retention"), strings.HasPrefix(d.Category, "cache"), strings.HasPrefix(d.Category, "limits"):
 		return "ops"
-	case strings.HasPrefix(d.Category, "text2sql"), strings.HasPrefix(d.Category, "mcp"):
+	case strings.HasPrefix(d.Category, "text2sql"), strings.HasPrefix(d.Category, "mcp"), strings.HasPrefix(d.Category, "ai"):
 		return "ai"
 	case strings.HasPrefix(d.Category, "logging"):
 		return "security" // captures sensitive content (prompts/responses)

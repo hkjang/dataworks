@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -12,10 +12,17 @@ import (
 // meIdentity is the resolved calling user with the role/scopes that cap what keys they
 // may mint for themselves.
 type meIdentity struct {
-	UserID string
-	TeamID string
-	Role   string
-	Scopes []string
+	UserID           string
+	TeamID           string
+	Role             string
+	Scopes           []string
+	AllowedIPs       []string
+	AllowedModels    []string
+	DeniedModels     []string
+	AllowedProviders []string
+	DeniedProviders  []string
+	BudgetLimitKRW   float64
+	ExpiresAt        time.Time
 }
 
 // meKeyContext resolves the caller's identity for self-service key management, preferring
@@ -25,7 +32,23 @@ func (s *Server) meKeyContext(r *http.Request) (meIdentity, bool) {
 		return meIdentity{UserID: claims.Subject, TeamID: claims.TeamID, Role: claims.Role, Scopes: claims.Scopes}, true
 	}
 	if _, authCtx, ok := s.authenticateProxyContext(r); ok && authCtx != nil && strings.TrimSpace(authCtx.UserID) != "" {
-		return meIdentity{UserID: authCtx.UserID, TeamID: authCtx.TeamID, Role: authCtx.Role, Scopes: authCtx.Scopes}, true
+		me := meIdentity{
+			UserID: authCtx.UserID, TeamID: authCtx.TeamID, Role: authCtx.Role, Scopes: authCtx.Scopes,
+			AllowedIPs: authCtx.AllowedIPs, AllowedModels: authCtx.AllowedModels, DeniedModels: authCtx.DeniedModels,
+			AllowedProviders: authCtx.AllowedProviders, DeniedProviders: authCtx.DeniedProviders,
+			BudgetLimitKRW: authCtx.BudgetLimitKRW,
+		}
+		// AuthContext intentionally contains only request-enforcement fields. Fetch the
+		// authenticating record's expiry as a grant bound so a short-lived key cannot mint a
+		// non-expiring or longer-lived child key.
+		if authCtx.APIKeyID != "" {
+			source, found, err := s.db.GetAPIKey(r.Context(), authCtx.APIKeyID)
+			if err != nil || !found {
+				return meIdentity{}, false
+			}
+			me.ExpiresAt = source.ExpiresAt
+		}
+		return me, true
 	}
 	return meIdentity{}, false
 }
@@ -74,21 +97,20 @@ func (s *Server) handleMyKeys(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"api_keys": mine, "role": me.Role, "grantable_scopes": grantable})
 	case http.MethodPost:
 		var payload struct {
-			Name      string   `json:"name"`
-			Scopes    []string `json:"scopes"`
-			ExpiresAt string   `json:"expires_at"`
+			Name string `json:"name"`
+			apiKeyPolicyPatch
 		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		if err := decodeStrictJSON(r.Body, &payload); err != nil {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
-		secret, rec, errResp := s.issueSelfServiceKey(r, me, strings.TrimSpace(payload.Name), payload.Scopes, payload.ExpiresAt)
+		secret, rec, errResp := s.issueSelfServiceKey(r, me, strings.TrimSpace(payload.Name), payload.apiKeyPolicyPatch)
 		if errResp != nil {
 			writeOpenAIError(w, errResp.status, errResp.msg, errResp.typ, errResp.code)
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{
-			"api_key": map[string]any{"id": rec.ID, "name": rec.Name, "user_id": rec.UserID, "team": rec.Team, "role": rec.Role, "scopes": rec.Scopes, "status": rec.Status},
+			"api_key": apiKeyResponse(rec),
 			"secret":  secret,
 		})
 	default:
@@ -130,55 +152,87 @@ func (s *Server) handleMyKeyByID(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case action == "rotate" && r.Method == http.MethodPost:
-		// Issue a replacement carrying the same name/scopes, then revoke the old key.
-		secret, rec, errResp := s.issueSelfServiceKey(r, me, existing.Name, existing.Scopes, "")
-		if errResp != nil {
+		if existing.Status != "active" {
+			writeOpenAIError(w, http.StatusConflict, "only an active api key can be rotated", "invalid_request_error", "key_not_active")
+			return
+		}
+		// Rotation is not a new grant: preserve the complete identity and policy record
+		// byte-for-byte (including an intentionally empty scope set), changing only secret,
+		// id, lifecycle timestamps and status. Validate against the current caller before the
+		// atomic store transaction so a formerly broader sibling key cannot be laundered.
+		if errResp := validatePolicyWithinCaller(existing, me); errResp != nil {
+			s.auditAuthEvent(r.Context(), "key_policy_denied", me.UserID, id, me.TeamID, "self-service rotate exceeds caller policy")
 			writeOpenAIError(w, errResp.status, errResp.msg, errResp.typ, errResp.code)
 			return
 		}
-		if err := s.db.RevokeAPIKey(r.Context(), id); err != nil {
+		secret, err := generateAuthAPIKey(s.cfg.Auth.APIKeyPrefix)
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "key_generation_failed")
+			return
+		}
+		rec := existing
+		rec.ID = "key_" + hashProxyKey(secret)[:16]
+		rec.KeyHash = hashProxyKey(secret)
+		rec.Status = "active"
+		rec.RevokedAt = time.Time{}
+		rec.CreatedAt = time.Now().UTC()
+		if err := s.db.RotateAPIKeyOwned(r.Context(), id, me.UserID, rec); err != nil {
+			if errors.Is(err, store.ErrInvalidTransition) {
+				writeOpenAIError(w, http.StatusConflict, "api key changed while it was being rotated", "invalid_request_error", "key_rotate_conflict")
+				return
+			}
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "key_rotate_failed")
 			return
 		}
 		_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_rotated", APIKeyID: id, ActorUserID: me.UserID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "self-service → " + rec.ID, CreatedAt: time.Now().UTC()})
 		writeJSON(w, http.StatusOK, map[string]any{
 			"rotated_from": id,
-			"api_key":      map[string]any{"id": rec.ID, "name": rec.Name, "user_id": rec.UserID, "role": rec.Role, "scopes": rec.Scopes, "status": rec.Status},
+			"api_key":      apiKeyResponse(rec),
 			"secret":       secret,
 		})
 	case action == "" && r.Method == http.MethodPatch:
-		// Update the key's scopes, capped to the caller's own scopes (no escalation).
-		var payload struct {
-			Scopes []string `json:"scopes"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		var payload apiKeyPolicyPatch
+		if err := decodeStrictJSON(r.Body, &payload); err != nil {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
-		scopes := []string{}
-		if len(payload.Scopes) > 0 {
-			normalized, ok := normalizeScopes(payload.Scopes)
-			if !ok {
-				writeOpenAIError(w, http.StatusBadRequest, "invalid scope", "invalid_request_error", "invalid_scope")
-				return
-			}
-			if !scopesWithin(normalized, me.Scopes) {
-				s.auditAuthEvent(r.Context(), "scope_denied", me.UserID, "", me.TeamID, "self-service key scope edit exceeds caller")
-				writeOpenAIError(w, http.StatusForbidden, "cannot grant scopes beyond your own", "permission_error", "scope_denied")
-				return
-			}
-			scopes = normalized
+		if !payload.any() {
+			writeOpenAIError(w, http.StatusBadRequest, "at least one key policy field is required", "invalid_request_error", "empty_update")
+			return
 		}
-		existing.Scopes = scopes
-		if err := s.db.UpsertAPIKey(r.Context(), existing); err != nil {
+		if existing.Status != "active" {
+			writeOpenAIError(w, http.StatusConflict, "only an active api key can be updated", "invalid_request_error", "key_not_active")
+			return
+		}
+		updated := existing
+		if policyErr := applyAPIKeyPolicyPatch(&updated, payload, time.Now().UTC()); policyErr != nil {
+			writeOpenAIError(w, http.StatusBadRequest, policyErr.msg, "invalid_request_error", "invalid_"+policyErr.field)
+			return
+		}
+		if errResp := validatePolicyWithinCaller(updated, me); errResp != nil {
+			s.auditAuthEvent(r.Context(), "key_policy_denied", me.UserID, id, me.TeamID, "self-service key policy edit exceeds caller")
+			writeOpenAIError(w, errResp.status, errResp.msg, errResp.typ, errResp.code)
+			return
+		}
+		changed, err := s.db.UpdateAPIKeyPolicyOwned(r.Context(), updated, me.UserID)
+		if err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "key_update_failed")
 			return
 		}
-		_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_scopes_updated", APIKeyID: id, ActorUserID: me.UserID, TeamID: me.TeamID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "self-service scope edit", CreatedAt: time.Now().UTC()})
-		writeJSON(w, http.StatusOK, map[string]any{"id": id, "scopes": scopes})
+		if !changed {
+			writeOpenAIError(w, http.StatusConflict, "api key changed while it was being updated", "invalid_request_error", "key_update_conflict")
+			return
+		}
+		_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_policy_updated", APIKeyID: id, ActorUserID: me.UserID, TeamID: me.TeamID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "self-service policy edit", CreatedAt: time.Now().UTC()})
+		writeJSON(w, http.StatusOK, apiKeyResponse(updated))
 	case action == "" && r.Method == http.MethodDelete:
-		if err := s.db.RevokeAPIKey(r.Context(), id); err != nil {
+		changed, err := s.db.RevokeAPIKeyOwned(r.Context(), id, me.UserID)
+		if err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "key_revoke_failed")
+			return
+		}
+		if !changed {
+			writeOpenAIError(w, http.StatusConflict, "api key is not active", "invalid_request_error", "key_not_active")
 			return
 		}
 		_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_revoked", APIKeyID: id, ActorUserID: me.UserID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "self-service", CreatedAt: time.Now().UTC()})
@@ -222,23 +276,12 @@ type meKeyError struct {
 	code   string
 }
 
-// issueSelfServiceKey creates a new active key owned by the caller, with the caller's role,
-// scopes capped to the caller's own scopes (no escalation). Returns the plaintext secret.
-func (s *Server) issueSelfServiceKey(r *http.Request, me meIdentity, name string, requestedScopes []string, expiresAt string) (string, store.APIKeyRecord, *meKeyError) {
+// issueSelfServiceKey creates a new active key owned by the caller. Omitted policy fields
+// inherit all caller constraints; explicit values may only narrow them. Returns the plaintext
+// secret exactly once.
+func (s *Server) issueSelfServiceKey(r *http.Request, me meIdentity, name string, patch apiKeyPolicyPatch) (string, store.APIKeyRecord, *meKeyError) {
 	if name == "" {
 		return "", store.APIKeyRecord{}, &meKeyError{http.StatusBadRequest, "name is required", "invalid_request_error", "missing_name"}
-	}
-	scopes := me.Scopes
-	if len(requestedScopes) > 0 {
-		normalized, ok := normalizeScopes(requestedScopes)
-		if !ok {
-			return "", store.APIKeyRecord{}, &meKeyError{http.StatusBadRequest, "invalid scope", "invalid_request_error", "invalid_scope"}
-		}
-		if !scopesWithin(normalized, me.Scopes) {
-			s.auditAuthEvent(r.Context(), "scope_denied", me.UserID, "", me.TeamID, "self-service key scopes exceed caller")
-			return "", store.APIKeyRecord{}, &meKeyError{http.StatusForbidden, "cannot grant scopes beyond your own", "permission_error", "scope_denied"}
-		}
-		scopes = normalized
 	}
 	plainKey, err := generateAuthAPIKey(s.cfg.Auth.APIKeyPrefix)
 	if err != nil {
@@ -252,8 +295,15 @@ func (s *Server) issueSelfServiceKey(r *http.Request, me meIdentity, name string
 		UserID:    me.UserID,
 		Role:      me.Role,
 		Status:    "active",
-		Scopes:    scopes,
-		ExpiresAt: parseAPITime(expiresAt),
+		CreatedAt: time.Now().UTC(),
+	}
+	copyKeyPolicyFromIdentity(&rec, me)
+	if policyErr := applyAPIKeyPolicyPatch(&rec, patch, time.Now().UTC()); policyErr != nil {
+		return "", store.APIKeyRecord{}, &meKeyError{http.StatusBadRequest, policyErr.msg, "invalid_request_error", "invalid_" + policyErr.field}
+	}
+	if errResp := validatePolicyWithinCaller(rec, me); errResp != nil {
+		s.auditAuthEvent(r.Context(), "key_policy_denied", me.UserID, "", me.TeamID, "self-service key policy exceeds caller")
+		return "", store.APIKeyRecord{}, errResp
 	}
 	if err := s.db.UpsertAPIKey(r.Context(), rec); err != nil {
 		return "", store.APIKeyRecord{}, &meKeyError{http.StatusInternalServerError, err.Error(), "server_error", "api_key_create_failed"}

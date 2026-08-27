@@ -19,6 +19,7 @@ func (s *Server) handleSSOStatus(w http.ResponseWriter, r *http.Request) {
 		"keycloak_enabled":  kc.Enabled,
 		"allow_local_login": !kc.Enabled || kc.AllowLocalLogin,
 		"login_url":         "/auth/keycloak/login",
+		"version":           AppVersion,
 	})
 }
 
@@ -64,7 +65,7 @@ func (s *Server) handleKeycloakCallback(w http.ResponseWriter, r *http.Request) 
 	}
 	fail := func(reason string) {
 		s.auditAuthEvent(r.Context(), "sso_login_failed", "", "", "", "keycloak: "+reason)
-		http.Redirect(w, r, "/admin#kc_error="+url.QueryEscape(reason), http.StatusFound)
+		http.Redirect(w, r, "/dataworks/#kc_error="+url.QueryEscape(reason), http.StatusFound)
 	}
 	if e := r.URL.Query().Get("error"); e != "" {
 		fail(e + ": " + r.URL.Query().Get("error_description"))
@@ -116,7 +117,7 @@ func (s *Server) handleKeycloakCallback(w http.ResponseWriter, r *http.Request) 
 	frag := url.Values{}
 	frag.Set("kc_access", access)
 	frag.Set("kc_refresh", refresh)
-	http.Redirect(w, r, "/admin#"+frag.Encode(), http.StatusFound)
+	http.Redirect(w, r, "/dataworks/#"+frag.Encode(), http.StatusFound)
 }
 
 type keycloakTokenResponse struct {
@@ -224,7 +225,7 @@ func (s *Server) provisionKeycloakUser(ctx context.Context, claims map[string]an
 	}
 	// 3) New user.
 	user := store.AuthUser{
-		ID:           "usr_" + audit.HashText("keycloak|"+kc.IssuerURL+"|"+sub)[:16],
+		ID:           "usr_" + audit.HashText("keycloak|" + kc.IssuerURL + "|" + sub)[:16],
 		Email:        firstNonEmpty(email, sub+"@sso.local"),
 		PasswordHash: "", // SSO-only account (no local password)
 		Name:         name,
@@ -450,14 +451,14 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var p struct {
-		Enabled         bool     `json:"enabled"`
-		IssuerURL       string   `json:"issuer_url"`
-		ClientID        string   `json:"client_id"`
-		ClientSecret    *string  `json:"client_secret"` // nil/omitted = keep existing; "" = clear
-		RedirectURI     string   `json:"redirect_uri"`
-		Scopes          []string `json:"scopes"`
-		DefaultRole     string   `json:"default_role"`
-		RoleClaim       string   `json:"role_claim"`
+		Enabled         bool              `json:"enabled"`
+		IssuerURL       string            `json:"issuer_url"`
+		ClientID        string            `json:"client_id"`
+		ClientSecret    *string           `json:"client_secret"` // nil/omitted = keep existing; "" = clear
+		RedirectURI     string            `json:"redirect_uri"`
+		Scopes          []string          `json:"scopes"`
+		DefaultRole     string            `json:"default_role"`
+		RoleClaim       string            `json:"role_claim"`
 		GroupClaim      string            `json:"group_claim"`
 		AllowLocalLogin bool              `json:"allow_local_login"`
 		RoleMap         map[string]string `json:"role_map"` // nil/omitted = keep existing; {} = reset to defaults
@@ -469,6 +470,7 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 	p.IssuerURL = strings.TrimSpace(p.IssuerURL)
 	p.ClientID = strings.TrimSpace(p.ClientID)
 	p.RedirectURI = strings.TrimSpace(p.RedirectURI)
+	p.DefaultRole = strings.TrimSpace(p.DefaultRole)
 	// Validation: when enabling, issuer must be an absolute URL and client id present.
 	if p.Enabled {
 		if !strings.HasPrefix(p.IssuerURL, "https://") && !strings.HasPrefix(p.IssuerURL, "http://") {
@@ -485,6 +487,7 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	previousEffective := s.keycloakConfig()
 	prev, _ := s.storedKeycloakConfig(r.Context())
 	rec := store.SSOProviderConfig{
 		Provider:        "keycloak",
@@ -493,7 +496,7 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 		ClientID:        p.ClientID,
 		RedirectURI:     p.RedirectURI,
 		Scopes:          p.Scopes,
-		DefaultRole:     strings.TrimSpace(p.DefaultRole),
+		DefaultRole:     p.DefaultRole,
 		RoleClaim:       strings.TrimSpace(p.RoleClaim),
 		GroupClaim:      strings.TrimSpace(p.GroupClaim),
 		AllowLocalLogin: p.AllowLocalLogin,
@@ -515,6 +518,32 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 			cleaned[k] = v
 		}
 		rec.RoleMap = cleaned
+	}
+	// SSO role configuration is an authorization grant. Validate the final effective
+	// default and map (including a preserved DB map or the built-in defaults) against
+	// the actor's own role ceiling. This prevents an ordinary admin from mapping an IdP
+	// role, or the fallback role, to super_admin while still allowing an unchanged
+	// built-in admin mapping to be saved from the settings screen.
+	if rec.DefaultRole != "" && !s.effectiveValidRole(r.Context(), rec.DefaultRole) {
+		writeOpenAIError(w, http.StatusBadRequest, "default_role is not a valid internal role: "+rec.DefaultRole, "invalid_request_error", "bad_role")
+		return
+	}
+	if !s.canConfigureSSORole(r, rec.DefaultRole, previousEffective.DefaultRole) {
+		s.auditAuthEvent(r.Context(), "role_denied", "", "", "", "keycloak default role "+rec.DefaultRole)
+		writeOpenAIError(w, http.StatusForbidden, "cannot configure an SSO default role at or above your role", "permission_error", "role_escalation_denied")
+		return
+	}
+	finalRoleMap := rec.RoleMap
+	if len(finalRoleMap) == 0 {
+		finalRoleMap = keycloakRoleMap
+	}
+	previousRoleMap := s.effectiveKeycloakRoleMap()
+	for externalRole, internalRole := range finalRoleMap {
+		if !s.canConfigureSSORole(r, internalRole, previousRoleMap[externalRole]) {
+			s.auditAuthEvent(r.Context(), "role_denied", "", "", "", "keycloak role map "+externalRole+" -> "+internalRole)
+			writeOpenAIError(w, http.StatusForbidden, "cannot map a Keycloak role at or above your role", "permission_error", "role_escalation_denied")
+			return
+		}
 	}
 	if p.ClientSecret != nil {
 		sec := strings.TrimSpace(*p.ClientSecret)
@@ -540,6 +569,40 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 	// Never log the secret/code; record only the actor + enabled state.
 	s.auditAuthEvent(r.Context(), "sso_config_updated", rec.UpdatedBy, "", "", "keycloak enabled="+boolStr(rec.Enabled)+" issuer="+rec.IssuerURL)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// canConfigureSSORole enforces the role ceiling for an SSO grant. A super admin (and
+// legacy full-admin-token mode) may configure any valid role. Other built-in admins may
+// grant lower roles; an equal role is accepted only when preserving that exact existing
+// setting, which keeps the built-in vibe-admin -> admin mapping editable without allowing
+// a new peer-admin mapping. Custom roles are bounded by the caller's effective scopes and
+// can never be used as a path to the built-in super_admin rank.
+func (s *Server) canConfigureSSORole(r *http.Request, targetRole, currentRole string) bool {
+	targetRole = strings.TrimSpace(targetRole)
+	currentRole = strings.TrimSpace(currentRole)
+	if targetRole == "" || !s.cfg.Auth.Enabled {
+		return true
+	}
+	claims, ok := s.currentAccessClaims(r)
+	if !ok {
+		return false
+	}
+	if claims.Role == "super_admin" {
+		return true
+	}
+	if targetRole == "super_admin" {
+		return false
+	}
+	targetRank, callerRank := roleRank(targetRole), roleRank(claims.Role)
+	if targetRank > 0 && callerRank > 0 {
+		if targetRank < callerRank {
+			return true
+		}
+		return targetRank == callerRank && targetRole == currentRole
+	}
+	// Custom roles have no built-in rank. They are safe to grant only when every
+	// effective permission is already held by the configuring administrator.
+	return scopesWithin(s.effectiveScopesForRole(r.Context(), targetRole), claims.Scopes)
 }
 
 // handleKeycloakTest diagnoses the Keycloak connection: discovery reachability, endpoints,
@@ -590,4 +653,3 @@ func strClaim(claims map[string]any, key string) string {
 	}
 	return ""
 }
-

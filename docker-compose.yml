@@ -1,8 +1,8 @@
 # Data Works runtime compose file.
-# Put secrets such as UPSTREAM_API_KEY, ADMIN_TOKEN, and GATEWAY_SECRET in .env, then run docker compose up -d.
+# Load dataworks-v0.9.31.tar.gz, set the four required variables in .env, then run docker compose up -d.
 services:
   gateway:
-    image: dataworks:${GATEWAY_VERSION:-latest}
+    image: dataworks:v0.9.31
     container_name: dataworks
     restart: always
     ports:
@@ -10,14 +10,7 @@ services:
     volumes:
       - ./data:/data
     environment:
-      LISTEN_ADDR: ":8080"
-      UPSTREAM_PROVIDER: ${UPSTREAM_PROVIDER:-openai}
-      UPSTREAM_BASE_URL: ${UPSTREAM_BASE_URL:-https://api.openai.com}
-      UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
-      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
-      GATEWAY_SECRET: ${GATEWAY_SECRET:-change-me-please}
-      MODEL_PRICING_KRW_PER_1M: ${MODEL_PRICING_KRW_PER_1M:-{}}
-      LOG_RAW_PROMPTS: ${LOG_RAW_PROMPTS:-false}
-      DB_DRIVER: sqlite
-      DB_DSN: /data/gateway.db
-      LOG_FALLBACK_PATH: /data/fallback.ndjson
+      POSTGRES_DSN: ${POSTGRES_DSN:?POSTGRES_DSN is required}
+      BOOTSTRAP_ADMIN: ${BOOTSTRAP_ADMIN:?BOOTSTRAP_ADMIN is required}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?BOOTSTRAP_ADMIN_PASSWORD is required}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}

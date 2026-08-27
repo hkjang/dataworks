@@ -7,23 +7,57 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"dataworks/internal/config"
 )
 
+func TestSSOStatusIncludesVersion(t *testing.T) {
+	s := &Server{cfg: config.Config{Keycloak: config.KeycloakConfig{Enabled: true, AllowLocalLogin: true}}}
+	w := httptest.NewRecorder()
+	s.handleSSOStatus(w, httptest.NewRequest(http.MethodGet, "/auth/sso/status", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["version"] != AppVersion {
+		t.Fatalf("version=%v want %s", body["version"], AppVersion)
+	}
+}
+
+func TestKeycloakCallbackErrorRedirectsToReactSPA(t *testing.T) {
+	db := openTestStore(t)
+	defer db.Close()
+	s := &Server{cfg: config.Config{Keycloak: config.KeycloakConfig{Enabled: true}}, db: db}
+	w := httptest.NewRecorder()
+	s.handleKeycloakCallback(w, httptest.NewRequest(http.MethodGet, "/auth/keycloak/callback?error=access_denied", nil))
+	if w.Code != http.StatusFound {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	location := w.Header().Get("Location")
+	if !strings.HasPrefix(location, "/dataworks/#kc_error=") {
+		t.Fatalf("callback location=%q", location)
+	}
+}
+
 func TestResolveKeycloakRole(t *testing.T) {
 	cases := []struct {
-		roles   []string
-		def     string
-		want    string
+		roles []string
+		def   string
+		want  string
 	}{
 		{[]string{"vibe-developer"}, "developer", "developer"},
-		{[]string{"vibe-admin", "vibe-developer"}, "developer", "admin"},   // highest rank wins
+		{[]string{"vibe-admin", "vibe-developer"}, "developer", "admin"}, // highest rank wins
 		{[]string{"vibe-team-admin", "vibe-auditor"}, "developer", "team_admin"},
-		{[]string{"unknown-role"}, "developer", "developer"},               // fallback default
-		{[]string{"unknown-role"}, "", ""},                                 // no default → block
+		{[]string{"unknown-role"}, "developer", "developer"}, // fallback default
+		{[]string{"unknown-role"}, "", ""},                   // no default → block
 		{[]string{"vibe-auditor"}, "developer", "readonly_admin"},
 	}
 	for i, c := range cases {
@@ -186,9 +220,10 @@ func TestVerifyKeycloakAccessToken(t *testing.T) {
 		RoleClaim: "realm_access.roles", GroupClaim: "groups",
 	}}, db: db}
 
-	// Access token with an admin realm role → synthesized admin claims + scopes.
+	// Access token issued to this client (Keycloak commonly uses azp) with an admin
+	// realm role → synthesized admin claims + scopes.
 	tok := signRS256(t, key, "at-kid", map[string]any{
-		"iss": issuer, "sub": "svc-1", "email": "svc@x.com",
+		"iss": issuer, "azp": "clustara", "typ": "Bearer", "sub": "svc-1", "email": "svc@x.com",
 		"realm_access": map[string]any{"roles": []any{"vibe-admin"}},
 		"groups":       []any{"/teams/ai-platform"},
 		"exp":          float64(time.Now().Add(time.Hour).Unix()),
@@ -200,8 +235,63 @@ func TestVerifyKeycloakAccessToken(t *testing.T) {
 	if !hasScope(claims.Scopes, "admin:read") {
 		t.Errorf("admin role should carry admin:read scope, got %v", claims.Scopes)
 	}
+	// An aud claim is the other supported Keycloak representation.
+	audToken := signRS256(t, key, "at-kid", map[string]any{
+		"iss": issuer, "aud": []any{"account", "clustara"}, "azp": "another-client", "sub": "svc-aud",
+		"realm_access": map[string]any{"roles": []any{"vibe-developer"}},
+		"exp":          float64(time.Now().Add(time.Hour).Unix()),
+	})
+	if got, ok := s.verifyKeycloakAccessToken(t.Context(), audToken); !ok || got.Subject != "svc-aud" {
+		t.Fatalf("configured audience should verify: claims=%+v ok=%v", got, ok)
+	}
+	// A same-realm token without this resource in aud/azp belongs to another client
+	// and must not become a Data Works identity.
+	for name, extra := range map[string]map[string]any{
+		"missing client binding": {},
+		"wrong authorized party": {"aud": "account", "azp": "other-client"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			foreignClaims := map[string]any{
+				"iss": issuer, "sub": "foreign", "realm_access": map[string]any{"roles": []any{"vibe-admin"}},
+				"exp": float64(time.Now().Add(time.Hour).Unix()),
+			}
+			for key, value := range extra {
+				foreignClaims[key] = value
+			}
+			foreign := signRS256(t, key, "at-kid", foreignClaims)
+			if _, ok := s.verifyKeycloakAccessToken(t.Context(), foreign); ok {
+				t.Fatal("token minted for another client must be rejected")
+			}
+		})
+	}
+	// An ID token is also signed for this client, but it is not an API bearer token.
+	// Reject it by payload type, and reject subject-less tokens so they cannot collapse
+	// into an ambiguous shared identity.
+	for name, claims := range map[string]map[string]any{
+		"id token reuse": {
+			"iss": issuer, "aud": "clustara", "typ": "ID", "sub": "browser-user",
+			"realm_access": map[string]any{"roles": []any{"vibe-admin"}},
+			"exp":          float64(time.Now().Add(time.Hour).Unix()),
+		},
+		"empty subject": {
+			"iss": issuer, "azp": "clustara", "typ": "Bearer", "sub": "",
+			"realm_access": map[string]any{"roles": []any{"vibe-admin"}},
+			"exp":          float64(time.Now().Add(time.Hour).Unix()),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			token := signRS256(t, key, "at-kid", claims)
+			if _, ok := s.verifyKeycloakAccessToken(t.Context(), token); ok {
+				t.Fatal("non-access or subject-less token must be rejected")
+			}
+		})
+	}
 	// Expired access token rejected.
-	expired := signRS256(t, key, "at-kid", map[string]any{"iss": issuer, "sub": "x", "realm_access": map[string]any{"roles": []any{"vibe-admin"}}, "exp": float64(time.Now().Add(-time.Hour).Unix())})
+	expired := signRS256(t, key, "at-kid", map[string]any{
+		"iss": issuer, "azp": "clustara", "typ": "Bearer", "sub": "x",
+		"realm_access": map[string]any{"roles": []any{"vibe-admin"}},
+		"exp":          float64(time.Now().Add(-time.Hour).Unix()),
+	})
 	if _, ok := s.verifyKeycloakAccessToken(t.Context(), expired); ok {
 		t.Error("expired access token must be rejected")
 	}

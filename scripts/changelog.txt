@@ -1,3 +1,6 @@
+v0.9.31:
+- **Digital Data Refinery 운영 UI 및 폐쇄망 배포 고도화 (v0.9.31)**: Go API를 유지하면서 React 19·TypeScript·Vite 기반 Data Works SPA를 추가하고, 한국어 관제실·상품 공장·상품 작업 공간·생명주기·출시 게이트·공급망 지도·개인화 키 관리·관리자 설정을 `Node → Station → Gate → Package → Signal` 디자인 언어로 통합. 직접 URL 새로고침 복원, 로그인·프로필 버전 표시, 가독성 및 프로필 메뉴 스크롤바를 보강하고, 공개 랜딩 페이지의 한·영 자동 전환·영문 콘텐츠·SEO/AEO 메타데이터를 개선. Keycloak OIDC 간편 연동과 암호화된 관리자 설정, 기본 AI 스트리밍 및 최대 262,144 토큰, 발급 후 조정·회전·폐기가 가능한 개인 API 키 권한 체계를 제공. `POSTGRES_DSN`, `BOOTSTRAP_ADMIN`, `BOOTSTRAP_ADMIN_PASSWORD`, `ENCRYPTION_KEY` 네 환경변수만으로 폐쇄망 운영이 가능하도록 부트스트랩하고, `dataworks:v0.9.31` 이미지를 `dataworks-v0.9.31.tar.gz` 단일 GitHub Release asset으로 배포하는 파이프라인을 정비.
+
 v0.9.30:
 - **Data Works 카탈로그 품질 및 등록소 UX 고도화 (v0.9.30)**: 자산·상품·워크스페이스·메타데이터·시맨틱 지표·플로우·에이전트·도구·고객군 등록 API에 손상 텍스트 차단을 공통 적용하고, 저장된 전체 등록 개체의 이름·오너·설명을 검사하는 `GET /admin/dataworks/catalog-health` 상태 API를 추가. 도구 등록소를 전체 폭 목록 중심으로 재구성하고 검색·유형 필터·카탈로그 품질 상태·한글 통제 라벨을 제공하며, 신규 도구 계약은 넓은 모달 입력 흐름으로 분리. UTF-8 JSON 응답과 기존 손상 데이터 복구를 포함한 이전 품질 수정, 공통 텍스트/폼 컴포넌트, Product Twin 반응형 개선을 이번 릴리즈에 통합. distroless `nonroot` 컨테이너의 `/data` 소유권을 보정해 기본 SQLite 볼륨 기동 실패를 해결하고 API·UI·Docker 릴리즈 게이트 테스트를 보강.
 

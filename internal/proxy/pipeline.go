@@ -3,6 +3,7 @@ package proxy
 import (
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -77,6 +78,7 @@ func (rc *requestPipeline) steps() []PipelineStep {
 	return []PipelineStep{
 		stepFunc{"auth", (*requestPipeline).stepAuth},
 		stepFunc{"quota", (*requestPipeline).stepQuota},
+		stepFunc{"chat_defaults", (*requestPipeline).stepChatDefaults},
 		stepFunc{"mcp_discovery", (*requestPipeline).stepMCPDiscovery},
 		stepFunc{"routing", (*requestPipeline).stepRouting},
 		stepFunc{"skill", (*requestPipeline).stepSkill},
@@ -87,6 +89,43 @@ func (rc *requestPipeline) steps() []PipelineStep {
 		stepFunc{"cost", (*requestPipeline).stepCost},
 		stepFunc{"upstream", (*requestPipeline).stepUpstream},
 	}
+}
+
+// stepChatDefaults applies admin-managed Chat Completions defaults before any
+// model-specific handler, routing decision, or audit extraction reads the body.
+// Only an absent stream field is filled; an explicit false remains authoritative.
+func (rc *requestPipeline) stepChatDefaults() bool {
+	if rc.r.Method != http.MethodPost || rc.r.URL.Path != "/v1/chat/completions" {
+		return true
+	}
+	if rc.body == nil {
+		body, err := io.ReadAll(rc.r.Body)
+		if err != nil {
+			writeOpenAIError(rc.w, http.StatusBadRequest, "failed to read request body", "invalid_request_error", "invalid_body")
+			return false
+		}
+		rc.body = body
+	}
+	if body, changed := applyDefaultChatStream(rc.body, rc.s.aiConf().DefaultStream); changed {
+		rc.body = body
+	}
+	return true
+}
+
+func applyDefaultChatStream(body []byte, defaultStream bool) ([]byte, bool) {
+	var root map[string]any
+	if len(body) == 0 || json.Unmarshal(body, &root) != nil || root == nil {
+		return body, false
+	}
+	if _, exists := root["stream"]; exists {
+		return body, false
+	}
+	root["stream"] = defaultStream
+	encoded, err := json.Marshal(root)
+	if err != nil {
+		return body, false
+	}
+	return encoded, true
 }
 
 // stepAuth resolves the caller identity. /v1/models GET is anonymous; everything

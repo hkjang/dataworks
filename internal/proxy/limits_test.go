@@ -25,6 +25,19 @@ func TestClampMaxOutputTokens(t *testing.T) {
 		t.Fatalf("max_tokens not clamped: %v", root["max_tokens"])
 	}
 
+	// Both Chat Completions token fields are independently clamped. A client cannot
+	// bypass the ceiling by sending the legacy and newer field together.
+	out, from, to, changed = clampMaxOutputTokens([]byte(`{"model":"m","max_tokens":9000,"max_completion_tokens":8000}`), 4096)
+	if !changed || from != 9000 || to != 4096 {
+		t.Fatalf("dual-field clamp = %v from=%d to=%d", changed, from, to)
+	}
+	_ = json.Unmarshal(out, &root)
+	for _, field := range []string{"max_tokens", "max_completion_tokens"} {
+		if got := int(root[field].(float64)); got != 4096 {
+			t.Fatalf("%s=%d want 4096", field, got)
+		}
+	}
+
 	// Absent → injected (from = -1).
 	_, from, to, changed = clampMaxOutputTokens([]byte(`{"model":"m"}`), 4096)
 	if !changed || from != -1 || to != 4096 {
@@ -44,6 +57,99 @@ func TestClampMaxOutputTokens(t *testing.T) {
 	// Disabled (cap 0) → no-op.
 	if _, _, _, changed = clampMaxOutputTokens([]byte(`{"model":"m","max_tokens":9000}`), 0); changed {
 		t.Fatal("cap 0 should be a no-op")
+	}
+
+	// Absolute-cap mode clamps only explicit values and does not inject a disabled runtime cap.
+	if _, from, to, changed = clampExplicitMaxOutputTokens([]byte(`{"model":"m","max_tokens":300000}`), config.MaxSupportedOutputTokens); !changed || from != 300000 || to != config.MaxSupportedOutputTokens {
+		t.Fatalf("absolute explicit clamp = %v from=%d to=%d", changed, from, to)
+	}
+	if _, _, _, changed = clampExplicitMaxOutputTokens([]byte(`{"model":"m"}`), config.MaxSupportedOutputTokens); changed {
+		t.Fatal("absolute cap must not inject when the runtime limit is disabled")
+	}
+
+	// Responses API uses its native field and follows the same inject/absolute modes.
+	out, from, to, changed = clampResponsesMaxOutputTokens([]byte(`{"model":"m","max_output_tokens":9000}`), 2048)
+	if !changed || from != 9000 || to != 2048 {
+		t.Fatalf("responses clamp = %v from=%d to=%d", changed, from, to)
+	}
+	_ = json.Unmarshal(out, &root)
+	if got := int(root["max_output_tokens"].(float64)); got != 2048 {
+		t.Fatalf("max_output_tokens=%d want 2048", got)
+	}
+	if _, _, _, changed = clampExplicitResponsesMaxOutputTokens([]byte(`{"model":"m"}`), config.MaxSupportedOutputTokens); changed {
+		t.Fatal("Responses absolute cap must not inject when the runtime limit is disabled")
+	}
+}
+
+func TestLimitsTokenMutationIsEndpointSpecific(t *testing.T) {
+	db := openTestStore(t)
+	defer db.Close()
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "endpoint-limits.ndjson"))
+	logger.Start()
+	defer logger.Stop(context.Background())
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	apply := func(path, raw string, configuredMax int) (map[string]any, string) {
+		t.Helper()
+		server.limitsRuntime.Store(&config.LimitsConfig{MaxOutputTokens: configuredMax})
+		recorder := httptest.NewRecorder()
+		rc := &requestPipeline{
+			s:    server,
+			w:    recorder,
+			r:    httptest.NewRequest(http.MethodPost, path, nil),
+			body: []byte(raw),
+		}
+		if !rc.stepLimits() {
+			t.Fatalf("stepLimits halted for %s", path)
+		}
+		var body map[string]any
+		if err := json.Unmarshal(rc.body, &body); err != nil {
+			t.Fatalf("decode %s body: %v", path, err)
+		}
+		return body, recorder.Header().Get("X-Max-Tokens-Clamped")
+	}
+
+	chat, header := apply("/v1/chat/completions", `{"model":"m","max_tokens":9000,"max_completion_tokens":8000}`, 512)
+	for _, field := range []string{"max_tokens", "max_completion_tokens"} {
+		if got := int(chat[field].(float64)); got != 512 {
+			t.Fatalf("Chat %s=%d want configured cap 512", field, got)
+		}
+	}
+	if header != "9000->512" {
+		t.Fatalf("Chat clamp header=%q", header)
+	}
+
+	responses, _ := apply("/v1/responses", `{"model":"m","max_output_tokens":300000}`, 0)
+	if got := int(responses["max_output_tokens"].(float64)); got != config.MaxSupportedOutputTokens {
+		t.Fatalf("Responses absolute max=%d want %d", got, config.MaxSupportedOutputTokens)
+	}
+
+	// Even a corrupted/out-of-band runtime value above the supported maximum cannot
+	// raise the absolute service ceiling.
+	responses, _ = apply("/v1/responses", `{"model":"m","max_output_tokens":300000}`, config.MaxSupportedOutputTokens+1000)
+	if got := int(responses["max_output_tokens"].(float64)); got != config.MaxSupportedOutputTokens {
+		t.Fatalf("Responses max with oversized runtime cap=%d want %d", got, config.MaxSupportedOutputTokens)
+	}
+
+	responses, header = apply("/v1/responses", `{"model":"m"}`, 1024)
+	if got := int(responses["max_output_tokens"].(float64)); got != 1024 {
+		t.Fatalf("Responses injected max=%d want 1024", got)
+	}
+	if header != "injected:1024" {
+		t.Fatalf("Responses injection header=%q", header)
+	}
+
+	embeddings, header := apply("/v1/embeddings", `{"model":"embedding-model","input":"hello"}`, 512)
+	for _, field := range []string{"max_tokens", "max_completion_tokens", "max_output_tokens"} {
+		if _, exists := embeddings[field]; exists {
+			t.Fatalf("embeddings request unexpectedly received %s", field)
+		}
+	}
+	if header != "" {
+		t.Fatalf("embeddings clamp header=%q want empty", header)
 	}
 }
 
@@ -161,5 +267,42 @@ func TestLimitsStepForwardsClamped(t *testing.T) {
 	}
 	if seenMax != 512 {
 		t.Fatalf("upstream should receive clamped max_tokens=512, got %v", seenMax)
+	}
+}
+
+func TestLimitsAbsoluteMaximumAppliesWhenRuntimeLimitDisabled(t *testing.T) {
+	seen := map[string]any{}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &seen)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"ok"}}]}`))
+	}))
+	defer upstream.Close()
+
+	db := openTestStore(t)
+	defer db.Close()
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "absolute.ndjson"))
+	logger.Start()
+	defer logger.Stop(context.Background())
+	server, err := NewServer(testConfig(upstream.URL, "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.limitsRuntime.Store(&config.LimitsConfig{MaxOutputTokens: 0})
+	srv := httptest.NewServer(server.Routes())
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/v1/chat/completions", jsonReader(map[string]any{
+		"model": "gpt-4o", "max_tokens": 300000, "messages": []map[string]string{{"role": "user", "content": "hi"}},
+	}))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if got := int(seen["max_tokens"].(float64)); got != config.MaxSupportedOutputTokens {
+		t.Fatalf("absolute max forwarded=%d want=%d", got, config.MaxSupportedOutputTokens)
 	}
 }

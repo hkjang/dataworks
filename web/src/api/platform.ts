@@ -1,0 +1,131 @@
+import { apiRequest } from './client'
+
+export interface UsageTotals {
+  requests: number
+  tokens: number
+  cost_krw: number
+  errors: number
+}
+
+export interface PersonalProfile {
+  requests: number
+  total_cost_krw: number
+  avg_cost_per_request: number
+  avg_latency_ms: number
+  success_rate: number
+  error_rate: number
+  cache_rate: number
+  text2sql_usage_rate: number
+  mcp_usage_rate: number
+  risk_score: number
+  summary: string
+}
+
+export interface PersonalDashboard {
+  user_id: string
+  today: UsageTotals
+  month: UsageTotals
+  profile: PersonalProfile
+  potential_savings_krw: number
+  potential_savings_model: string
+  key_alerts: Array<{ id?: string; name?: string; severity?: string; flags?: string[] }>
+  recent_failures: Array<{ id: string; model: string; status_code: number; error: string; created_at: string }>
+}
+
+export interface PersonalAPIKey {
+  id: string
+  name: string
+  role: string
+  status: string
+  scopes: string[]
+  allowed_ips: string[]
+  allowed_models: string[]
+  denied_models: string[]
+  allowed_providers: string[]
+  denied_providers: string[]
+  budget_limit_krw: number
+  expires_at: string
+  created_at: string
+}
+
+export interface APIKeyPolicyInput {
+  scopes?: string[]
+  allowed_ips?: string[]
+  allowed_models?: string[]
+  denied_models?: string[]
+  allowed_providers?: string[]
+  denied_providers?: string[]
+  budget_limit_krw?: number
+  expires_at?: string
+}
+
+export interface MyKeysResponse {
+  api_keys: PersonalAPIKey[]
+  role: string
+  grantable_scopes: string[]
+}
+
+export interface KeycloakConfig {
+  enabled: boolean
+  issuer_url: string
+  client_id: string
+  client_secret_set: boolean
+  redirect_uri: string
+  scopes: string[]
+  default_role: string
+  role_claim: string
+  group_claim: string
+  allow_local_login: boolean
+  role_map: Record<string, string>
+  source: string
+  updated_at: string
+}
+
+export interface RuntimeSetting {
+  key: string
+  category: string
+  type: 'string' | 'int' | 'bool' | 'float' | 'duration' | 'csv'
+  is_secret: boolean
+  is_set?: boolean
+  value: string
+  source: string
+  effective_source: string
+  restart_required: boolean
+  read_only: boolean
+  description: string
+  permission_group: string
+  can_write: boolean
+}
+
+export interface ProviderConfig {
+  name: string
+  base_url: string
+  api_key_configured: boolean
+  timeout_ms: number
+  enabled: boolean
+  model_patterns: string
+  created_at: string
+}
+
+export const platformApi = {
+  personalDashboard: () => apiRequest<PersonalDashboard>('/me/dashboard'),
+  myKeys: () => apiRequest<MyKeysResponse>('/me/keys'),
+  createMyKey: (payload: { name: string } & APIKeyPolicyInput) =>
+    apiRequest<{ api_key: PersonalAPIKey; secret: string }>('/me/keys', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMyKeyPolicy: (id: string, policy: APIKeyPolicyInput) =>
+    apiRequest<PersonalAPIKey>(`/me/keys/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(policy) }),
+  rotateMyKey: (id: string) =>
+    apiRequest<{ api_key: PersonalAPIKey; secret: string; rotated_from: string }>(`/me/keys/${encodeURIComponent(id)}/rotate`, { method: 'POST', body: '{}' }),
+  revokeMyKey: (id: string) => apiRequest(`/me/keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  keycloakConfig: () => apiRequest<KeycloakConfig>('/admin/sso/keycloak/config'),
+  saveKeycloakConfig: (payload: Record<string, unknown>) =>
+    apiRequest<void>('/admin/sso/keycloak/config', { method: 'PUT', body: JSON.stringify(payload) }),
+  testKeycloak: () => apiRequest<{ ok: boolean; reason?: string; stage?: string; issuer?: string; rsa_signing_keys?: number }>('/admin/sso/keycloak/test', { method: 'POST' }),
+  settings: () => apiRequest<{ settings: RuntimeSetting[] }>('/admin/settings/effective'),
+  saveSetting: (key: string, value: string) =>
+    apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value, reason: 'React 관리자 설정' }) }),
+  revertSetting: (key: string) => apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'DELETE' }),
+  providers: () => apiRequest<{ providers: ProviderConfig[] }>('/admin/providers'),
+  saveProvider: (payload: Record<string, unknown>) =>
+    apiRequest<{ provider: ProviderConfig }>('/admin/providers', { method: 'POST', body: JSON.stringify(payload) }),
+}

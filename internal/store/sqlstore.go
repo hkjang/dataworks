@@ -4348,6 +4348,84 @@ func (s *SQLStore) UpsertAPIKey(ctx context.Context, key APIKeyRecord) error {
 	return err
 }
 
+// UpdateAPIKeyPolicyOwned atomically updates the mutable authorization constraints of an
+// active API key, but only while it is still owned by userID.  The conditional UPDATE avoids
+// a self-service read/modify/write race recreating a deleted key or overwriting a key whose
+// ownership/status changed after the handler's initial lookup.
+func (s *SQLStore) UpdateAPIKeyPolicyOwned(ctx context.Context, key APIKeyRecord, userID string) (bool, error) {
+	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE api_keys SET
+			scopes = ?, allowed_ips = ?, allowed_models = ?, denied_models = ?,
+			allowed_providers = ?, denied_providers = ?, budget_limit_krw = ?, expires_at = ?
+		WHERE id = ? AND user_id = ? AND status = 'active'`),
+		encodeStringList(key.Scopes), encodeStringList(key.AllowedIPs), encodeStringList(key.AllowedModels),
+		encodeStringList(key.DeniedModels), encodeStringList(key.AllowedProviders), encodeStringList(key.DeniedProviders),
+		key.BudgetLimitKRW, formatOptionalTime(key.ExpiresAt), key.ID, userID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
+}
+
+// RevokeAPIKeyOwned revokes an active key only when it is still owned by userID.
+func (s *SQLStore) RevokeAPIKeyOwned(ctx context.Context, id, userID string) (bool, error) {
+	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE api_keys SET status = 'revoked', revoked_at = ?
+		WHERE id = ? AND user_id = ? AND status = 'active'`), formatTime(time.Now().UTC()), id, userID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
+}
+
+// RotateAPIKeyOwned inserts replacement and revokes oldID in one transaction.  Every policy
+// field is supplied by the caller in replacement; the store deliberately performs no defaulting
+// beyond status/created_at so an empty scope set stays empty instead of expanding.  A concurrent
+// rotation, ownership change, or inactive old key makes the conditional UPDATE affect zero rows,
+// rolling the replacement INSERT back as well.
+func (s *SQLStore) RotateAPIKeyOwned(ctx context.Context, oldID, userID string, replacement APIKeyRecord) error {
+	if replacement.ID == "" || replacement.ID == oldID || replacement.UserID != userID {
+		return fmt.Errorf("%w: invalid replacement api key identity", ErrInvalidTransition)
+	}
+	if replacement.CreatedAt.IsZero() {
+		replacement.CreatedAt = time.Now().UTC()
+	}
+	replacement.Status = "active"
+	replacement.RevokedAt = time.Time{}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	insert := s.bind(`INSERT INTO api_keys (id, name, key_hash, owner, team, user_id, service_account_id, role, status,
+			scopes, allowed_ips, allowed_models, denied_models, allowed_providers, denied_providers, budget_limit_krw,
+			expires_at, revoked_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if _, err := tx.ExecContext(ctx, insert, replacement.ID, replacement.Name, replacement.KeyHash, replacement.Owner,
+		replacement.Team, replacement.UserID, replacement.ServiceAccountID, replacement.Role, replacement.Status,
+		encodeStringList(replacement.Scopes), encodeStringList(replacement.AllowedIPs), encodeStringList(replacement.AllowedModels),
+		encodeStringList(replacement.DeniedModels), encodeStringList(replacement.AllowedProviders), encodeStringList(replacement.DeniedProviders),
+		replacement.BudgetLimitKRW, formatOptionalTime(replacement.ExpiresAt), "", formatTime(replacement.CreatedAt)); err != nil {
+		return err
+	}
+
+	res, err := tx.ExecContext(ctx, s.bind(`UPDATE api_keys SET status = 'revoked', revoked_at = ?
+		WHERE id = ? AND user_id = ? AND status = 'active'`), formatTime(time.Now().UTC()), oldID, userID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return fmt.Errorf("%w: api key is not active or ownership changed", ErrInvalidTransition)
+	}
+	return tx.Commit()
+}
+
 // EnsureExternalAPIKey inserts a lightweight row for an externally-attributed key
 // (status "external") only if one does not already exist. Uses ON CONFLICT DO
 // NOTHING so it never clobbers an operator's later edits (name/team/status) on

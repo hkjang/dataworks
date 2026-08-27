@@ -1,0 +1,93 @@
+import { expect, test, type Page } from '@playwright/test'
+
+async function mockPlatform(page: Page) {
+  await page.route('**/auth/me', (route) => route.fulfill({ json: { auth_enabled: true, version: 'v0.9.31', user: { id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin' } } }))
+  await page.route('**/auth/sso/status', (route) => route.fulfill({ json: { keycloak_enabled: false, version: 'v0.9.31' } }))
+  await page.route('**/me/dashboard', (route) => route.fulfill({ json: {
+    user_id: 'tester', today: { requests: 2, tokens: 100, cost_krw: 10, errors: 0 }, month: { requests: 20, tokens: 1000, cost_krw: 100, errors: 1 },
+    profile: { requests: 20, total_cost_krw: 100, avg_cost_per_request: 5, avg_latency_ms: 120, success_rate: .95, error_rate: .05, cache_rate: .2, text2sql_usage_rate: .1, mcp_usage_rate: .3, risk_score: 4, summary: '정상 사용 패턴입니다.' },
+    potential_savings_krw: 15, potential_savings_model: 'local', key_alerts: [], recent_failures: [],
+  } }))
+  await page.route('**/me/keys', (route) => route.fulfill({ json: { api_keys: [{ id: 'key-1', name: '분석 노트북', role: 'operator', status: 'active', scopes: ['chat:completion'], allowed_ips: [], allowed_models: ['qwen-*'], denied_models: [], allowed_providers: ['internal'], denied_providers: [], budget_limit_krw: 50000, expires_at: '2027-08-31T23:59:59Z', created_at: '2026-08-27T00:00:00Z' }], role: '운영자', grantable_scopes: ['chat:completion', 'mcp:use'] } }))
+  await page.route('**/admin/providers', (route) => route.fulfill({ json: { providers: [] } }))
+  await page.route('**/admin/settings/effective', (route) => route.fulfill({ json: { settings: [] } }))
+  await page.route('**/admin/sso/keycloak/config', (route) => route.fulfill({ json: {
+    enabled: false, issuer_url: '', client_id: '', client_secret_set: false, redirect_uri: '', scopes: ['openid', 'profile', 'email'],
+    default_role: 'developer', role_claim: 'realm_access.roles', group_claim: 'groups', allow_local_login: true, role_map: {}, source: 'default', updated_at: '',
+  } }))
+  await page.route('**/admin/dataworks/**', (route) => {
+    const url = route.request().url()
+    if (url.includes('/action-center')) return route.fulfill({ json: { summary: { approval_pending: 0, blocked_launches: 0, low_fit_scores: 0, expiring_contracts: 0, inactive_access: 0, stale_watermarks: 0, negative_margin: 0, retirement_candidates: 0 }, actions: [] } })
+    if (url.includes('/factory/runs')) return route.fulfill({ json: { runs: [], evaluation_summaries: {} } })
+    if (url.includes('/assets/readiness')) return route.fulfill({ json: { readiness: [] } })
+    if (url.endsWith('/assets')) return route.fulfill({ json: { assets: [] } })
+    if (url.endsWith('/products')) return route.fulfill({ json: { products: [] } })
+    if (url.endsWith('/home')) return route.fulfill({ json: { dashboard: { total_assets: 0, total_products: 0, published_products: 0, review_pending: 0, high_risk: 0, poc_pending: 0, ideas_total: 0, avg_revenue_score: 0 }, top_products: [] } })
+    if (url.includes('/portfolio/graph')) return route.fulfill({ json: { graph: { nodes: [], edges: [] } } })
+    return route.fulfill({ json: {} })
+  })
+}
+
+test.beforeEach(async ({ page }) => {
+  await mockPlatform(page)
+})
+
+test('한국어 관제실과 주요 메뉴를 연다', async ({ page }) => {
+  await page.goto('./')
+
+  await expect(page.getByRole('heading', { name: '팩토리 관제실' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '주요 메뉴' })).toContainText('데이터 상품')
+  await expect(page.getByRole('link', { name: 'Data Works 홈' })).toBeVisible()
+  await expect(page.getByText('생산 흐름')).toBeVisible()
+})
+
+test('직접 URL과 새로고침 뒤에도 선택한 메뉴를 유지한다', async ({ page }) => {
+  await page.goto('./products')
+  await expect(page.getByRole('heading', { name: '데이터 상품' })).toBeVisible()
+  await page.reload()
+  await expect(page).toHaveURL(/\/dataworks\/products$/)
+  await expect(page.getByRole('heading', { name: '데이터 상품' })).toBeVisible()
+  await expect(page.getByRole('link', { name: '데이터 상품', exact: true })).toHaveClass(/is-active/)
+})
+
+test('핵심 화면을 콘솔 오류 없이 탐색한다', async ({ page }) => {
+  const errors: string[] = []
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
+  page.on('pageerror', (error) => errors.push(error.message))
+
+  const routes = [
+    ['/assets', '데이터 자산'],
+    ['/factory', '데이터 상품 공장'],
+    ['/products', '데이터 상품'],
+    ['/review', '검토 센터'],
+    ['/portfolio', '공급망 지도'],
+    ['/marketplace', '데이터 마켓플레이스'],
+    ['/analytics', '성과 분석'],
+    ['/governance', '거버넌스'],
+    ['/personal', '작업 공간'],
+    ['/personal/keys', '내 API 키'],
+    ['/settings', '관리자 설정'],
+  ] as const
+
+  for (const [path, heading] of routes) {
+    await page.goto(`.${path}`)
+    await expect(page.getByRole('heading', { name: new RegExp(heading) }).first()).toBeVisible()
+  }
+  expect(errors).toEqual([])
+})
+
+test('발급된 키의 권한 정책을 조정한다', async ({ page }) => {
+  let update: Record<string, unknown> | undefined
+  await page.route('**/me/keys/key-1', async (route) => {
+    update = route.request().postDataJSON() as Record<string, unknown>
+    await route.fulfill({ json: { id: 'key-1', status: 'active', ...update } })
+  })
+  await page.goto('./personal/keys')
+  const keyCard = page.locator('article').filter({ hasText: '분석 노트북' })
+  await keyCard.getByText('키 권한 조정').click()
+  await keyCard.getByLabel('허용 IP·CIDR').fill('10.20.0.0/16')
+  await keyCard.getByRole('button', { name: '권한 정책 저장' }).click()
+  await expect.poll(() => update?.allowed_ips).toEqual(['10.20.0.0/16'])
+  expect(update?.scopes).toEqual(['chat:completion'])
+  expect(update?.allowed_models).toEqual(['qwen-*'])
+})

@@ -10,6 +10,11 @@ release/
 *.sqlite3
 coverage.out
 .playwright-mcp/
+web/node_modules/
+web/dist/
+web/coverage/
+web/playwright-report/
+web/test-results/
 *.tar
 *.tar.gz
 README.md

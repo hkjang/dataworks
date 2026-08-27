@@ -1,4 +1,13 @@
 # syntax=docker/dockerfile:1.7
+FROM node:24-alpine AS web-build
+WORKDIR /src/web
+
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+
+COPY web/ ./
+RUN npm run build
+
 FROM golang:1.25-alpine AS build
 WORKDIR /src
 
@@ -10,6 +19,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+COPY --from=web-build /src/web/dist ./web/dist
 
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64

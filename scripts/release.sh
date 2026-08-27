@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 오프라인 배포용 Docker 이미지를 빌드하고 tar.gz 로 패키징한다.
+# 오프라인 배포용 Data Works Docker 이미지를 빌드하고 tar.gz로 패키징한다.
 #
 # 사용법:
 #   ./scripts/release.sh [-v VERSION] [-i IMAGE] [-p PLATFORM]
@@ -9,7 +9,7 @@
 #   ./scripts/release.sh -v v0.1.0 -p linux/arm64
 set -euo pipefail
 
-IMAGE="clustara"
+IMAGE="dataworks"
 PLATFORM="linux/amd64"
 VERSION=""
 
@@ -50,10 +50,8 @@ mkdir -p "$RELEASE_DIR"
 
 TAR_PATH="${RELEASE_DIR}/${IMAGE}-${SAFE_VERSION}.tar"
 GZ_PATH="${TAR_PATH}.gz"
-SHA_PATH="${GZ_PATH}.sha256"
-README_PATH="${RELEASE_DIR}/README-offline-${SAFE_VERSION}.md"
 
-echo "[1/4] docker build $TAG (platform=$PLATFORM)"
+echo "[1/3] docker build $TAG (platform=$PLATFORM)"
 docker build \
     --platform "$PLATFORM" \
     --build-arg "VERSION=${VERSION}" \
@@ -61,74 +59,15 @@ docker build \
     -f Dockerfile \
     .
 
-echo "[2/4] docker save -> $TAR_PATH"
+echo "[2/3] docker save -> $TAR_PATH"
 docker save -o "$TAR_PATH" "$TAG"
 
-echo "[3/4] gzip 압축 -> $GZ_PATH"
+echo "[3/3] gzip 압축 -> $GZ_PATH"
 gzip -9 -f "$TAR_PATH"
-
-if command -v sha256sum >/dev/null 2>&1; then
-    (cd "$RELEASE_DIR" && sha256sum "$(basename "$GZ_PATH")" > "$SHA_PATH")
-elif command -v shasum >/dev/null 2>&1; then
-    (cd "$RELEASE_DIR" && shasum -a 256 "$(basename "$GZ_PATH")" > "$SHA_PATH")
-else
-    echo "sha256sum / shasum 둘 다 없음 - 체크섬 생략" >&2
-fi
-
-SHA_VALUE=""
-if [[ -f "$SHA_PATH" ]]; then
-    SHA_VALUE="$(awk '{print $1}' "$SHA_PATH")"
-fi
-
-echo "[4/4] 오프라인 가이드 생성 -> $README_PATH"
-GZ_NAME="$(basename "$GZ_PATH")"
-SHA_NAME="$(basename "$SHA_PATH")"
-cat > "$README_PATH" <<EOF
-# Clustara - 오프라인 배포 패키지
-
-- 버전: ${VERSION}
-- 이미지: ${TAG}
-- 플랫폼: ${PLATFORM}
-- 파일: ${GZ_NAME}
-- SHA256: ${SHA_VALUE}
-
-## 폐쇄망 적재 절차
-
-1. 무결성 확인
-
-   \`\`\`bash
-   sha256sum -c ${SHA_NAME}
-   \`\`\`
-
-2. 이미지 적재
-
-   \`\`\`bash
-   gunzip -c ${GZ_NAME} | docker load
-   \`\`\`
-
-3. 실행 (SQLite 파일을 호스트 볼륨에 보관)
-
-   \`\`\`bash
-   docker run -d --name clustara --restart=always \\
-       -p 9090:9090 \\
-       -v /opt/clustara/data:/data \\
-       -e UPSTREAM_BASE_URL=https://api.openai.com \\
-       -e UPSTREAM_API_KEY=sk-... \\
-       -e ADMIN_TOKEN=change-me \\
-       -e GATEWAY_SECRET=\$(openssl rand -hex 32) \\
-       -e MODEL_PRICING_KRW_PER_1M='{"gpt-4.1-mini":{"input_krw_per_1m":540,"output_krw_per_1m":2160}}' \\
-       ${TAG}
-   \`\`\`
-
-4. 관리자 UI
-
-   - http://<host>:9090/admin
-   - 토큰은 ADMIN_TOKEN 값
-EOF
 
 echo
 echo "릴리즈 완료"
 echo "  이미지   : $TAG"
-echo "  파일     : $GZ_PATH"
-echo "  SHA256   : ${SHA_PATH:-생략}"
-echo "  가이드   : $README_PATH"
+echo "  플랫폼   : $PLATFORM"
+echo "  배포 파일: $GZ_PATH"
+echo "  서비스 포트: 8080"

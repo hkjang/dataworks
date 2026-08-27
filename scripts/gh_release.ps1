@@ -1,14 +1,17 @@
 [CmdletBinding()]
 param(
     [string]$Version,
-    [string]$PrevVersion = "v0.3.0",
+    [string]$PrevVersion,
     [switch]$Edit  # update an existing release's notes instead of creating it (no asset upload)
 )
 
 $ErrorActionPreference = "Stop"
 
 if (-not $Version) {
-    throw "Version parameter is required. Example: pwsh -File scripts/gh_release.ps1 -Version v0.1.1"
+    throw "Version parameter is required. Example: pwsh -File scripts/gh_release.ps1 -Version vVERSION -PrevVersion vPREVIOUS"
+}
+if (-not $PrevVersion) {
+    throw "PrevVersion parameter is required. Example: pwsh -File scripts/gh_release.ps1 -Version vVERSION -PrevVersion vPREVIOUS"
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -62,21 +65,19 @@ $notes += $targetChangelog + "`r`n`r`n"
 $notes += [regex]::Unescape("### \ubc30\ud3ec \ud30c\uc77c`r`n")
 $notes += [regex]::Unescape("| \ud30c\uc77c | \uc124\uba85 |`r`n")
 $notes += "|------|------|`r`n"
-$notes += "| dataworks-v" + $cleanVer + [regex]::Unescape(".tar.gz | Docker \uc774\ubbf8\uc9c0 \ud328\ud0a4\uc9c0 (linux/amd64) |`r`n")
-$notes += "| dataworks-v" + $cleanVer + [regex]::Unescape(".tar.gz.sha256 | SHA256 \uccb4\ud06c\uc12c |`r`n")
-$notes += "| README-offline-v" + $cleanVer + [regex]::Unescape(".md | \uc624\ud504\ub77c\uc778 \ubc30\ud3ec \uac00\uc774\ub4dc |`r`n")
-$notes += [regex]::Unescape("| DataWorks_Report.pdf | Data Works \uae30\ub2a5\u00b7\uc5ed\ud560 \ubc0f \ube44\uc988\ub2c8\uc2a4 \uac00\uce58 \uc885\ud569 \ubcf4\uace0\uc11c |`r`n`r`n")
+$notes += "| dataworks-v" + $cleanVer + [regex]::Unescape(".tar.gz | \uc624\ud504\ub77c\uc778 \uc801\uc7ac \uac00\ub2a5\ud55c Data Works Docker \uc774\ubbf8\uc9c0 (linux/amd64) |`r`n`r`n")
 
 $notes += [regex]::Unescape("### \ube60\ub978 \uc2dc\uc791`r`n")
 $notes += '```' + "bash`r`n"
 $notes += [regex]::Unescape("# \uc774\ubbf8\uc9c0 \ub85c\ub4dc`r`n")
-$notes += "gunzip -c dataworks-" + $Version + ".tar.gz | docker load`r`n`n"
+$notes += "gunzip -c dataworks-" + $Version + ".tar.gz | docker load`r`n`r`n"
 $notes += [regex]::Unescape("# \uc2e4\ud589`r`n")
 $notes += "docker run -d --name dataworks --restart=always \`r`n"
 $notes += "  -p 8080:8080 \`r`n"
-$notes += "  -v /opt/dataworks/data:/data \`n"
-$notes += "  -e GATEWAY_SECRET=change-me \`n"
-$notes += "  -e ADMIN_TOKEN=change-me \`n"
+$notes += "  -e POSTGRES_DSN='postgres://dataworks:change-me@postgres:5432/dataworks?sslmode=disable' \`r`n"
+$notes += "  -e BOOTSTRAP_ADMIN='admin@dataworks.local' \`r`n"
+$notes += "  -e BOOTSTRAP_ADMIN_PASSWORD='change-me' \`r`n"
+$notes += "  -e ENCRYPTION_KEY='replace-with-64-hex-characters' \`r`n"
 $notes += "  dataworks:" + $Version + "`r`n"
 $notes += '```'
 
@@ -91,21 +92,16 @@ if (-not (Test-Path $releaseDir)) {
 # and is identical regardless of which PowerShell edition runs this script.
 [System.IO.File]::WriteAllText($notesPath, $notes, (New-Object System.Text.UTF8Encoding($false)))
 
-$assets = @(
-    "release\dataworks-$Version.tar.gz",
-    "release\dataworks-$Version.tar.gz.sha256",
-    "release\README-offline-$Version.md"
-)
-$reportPath = "release\DataWorks_Report.pdf"
-if (Test-Path $reportPath) {
-    $assets += $reportPath
-}
-
 if ($Edit) {
     # Re-publish corrected notes for an already-created release (no asset re-upload).
     gh release edit $Version --repo hkjang/dataworks --notes-file $notesPath
 } else {
-    gh release create $Version $assets --repo hkjang/dataworks --title "$Version - Data Works" --notes-file $notesPath
+    $assetPath = "release\dataworks-$Version.tar.gz"
+    if (-not (Test-Path $assetPath)) {
+        throw "Release asset is missing: $assetPath"
+    }
+    $assets = @($assetPath)
+    gh release create $Version $assets --repo hkjang/dataworks --verify-tag --title "$Version - Data Works" --notes-file $notesPath
 }
 
 Remove-Item $notesPath -ErrorAction SilentlyContinue

@@ -33,9 +33,9 @@ type oidcDiscovery struct {
 var (
 	oidcHTTP = &http.Client{Timeout: 8 * time.Second}
 
-	discMu     sync.Mutex
-	discCache  oidcDiscovery
-	discFetch  time.Time
+	discMu    sync.Mutex
+	discCache oidcDiscovery
+	discFetch time.Time
 
 	jwksMu    sync.Mutex
 	jwksKeys  map[string]*rsa.PublicKey
@@ -213,7 +213,9 @@ func (s *Server) verifyKeycloakAccessToken(ctx context.Context, token string) (a
 		return accessClaims{}, false
 	}
 	if hb, err := base64.RawURLEncoding.DecodeString(parts[0]); err == nil {
-		var h struct{ Alg string `json:"alg"` }
+		var h struct {
+			Alg string `json:"alg"`
+		}
 		if json.Unmarshal(hb, &h) == nil && h.Alg != "RS256" {
 			return accessClaims{}, false
 		}
@@ -226,6 +228,36 @@ func (s *Server) verifyKeycloakAccessToken(ctx context.Context, token string) (a
 	if err != nil {
 		return accessClaims{}, false
 	}
+	// A valid signature from the configured realm is not sufficient for a resource
+	// server: the token must also have been issued for this Data Works client. Keycloak
+	// commonly identifies the requesting client through azp, while an audience mapper
+	// adds it to aud. Accept either representation so browser and client-credentials
+	// flows remain compatible, but never accept an unbound token minted for another
+	// client in the same realm.
+	clientID := strings.TrimSpace(s.keycloakConfig().ClientID)
+	if clientID == "" {
+		return accessClaims{}, false
+	}
+	if !audienceMatches(claims["aud"], clientID) {
+		if azp, _ := claims["azp"].(string); strings.TrimSpace(azp) != clientID {
+			return accessClaims{}, false
+		}
+	}
+	// Keycloak ID tokens are signed by the same realm and are intentionally issued
+	// to the same client, so issuer/audience checks alone cannot distinguish them from
+	// access tokens. Keycloak access tokens use payload typ=Bearer and ID tokens use
+	// typ=ID. Enforce the distinction when typ is present, while accepting an omitted
+	// typ for older/custom Keycloak token profiles.
+	if rawType, exists := claims["typ"]; exists {
+		tokenType, ok := rawType.(string)
+		if !ok || !strings.EqualFold(strings.TrimSpace(tokenType), "Bearer") {
+			return accessClaims{}, false
+		}
+	}
+	subject := strings.TrimSpace(strClaim(claims, "sub"))
+	if subject == "" {
+		return accessClaims{}, false
+	}
 	role := resolveKeycloakRoleWith(s.effectiveKeycloakRoleMap(), s.keycloakRolesFromClaims(claims), s.keycloakConfig().DefaultRole)
 	if role == "" {
 		return accessClaims{}, false
@@ -235,7 +267,7 @@ func (s *Server) verifyKeycloakAccessToken(ctx context.Context, token string) (a
 		exp = int64(v)
 	}
 	return accessClaims{
-		Subject:   strClaim(claims, "sub"),
+		Subject:   subject,
 		Email:     strClaim(claims, "email"),
 		Role:      role,
 		TeamID:    keycloakTeamFromGroups(claimStrings(claims, s.keycloakConfig().GroupClaim)),

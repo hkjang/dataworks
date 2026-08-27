@@ -100,27 +100,64 @@
 
 ## 실행
 
+React Workbench를 처음 실행하거나 프런트엔드를 변경한 뒤에는 SPA를 먼저 빌드합니다.
+
+```bash
+cd web
+npm ci
+npm run build
+cd ..
+```
+
 ```powershell
-$env:GATEWAY_SECRET = "dev-only-secret"
-$env:ADMIN_TOKEN    = "dev-admin"
+$env:POSTGRES_DSN             = "postgres://dataworks:change-me@localhost:5432/dataworks?sslmode=disable"
+$env:BOOTSTRAP_ADMIN          = "admin@dataworks.local"
+$env:BOOTSTRAP_ADMIN_PASSWORD = "change-me"
+$env:ENCRYPTION_KEY           = "replace-with-64-hex-characters"
 go run ./cmd/dataworks
 ```
 
 기동 로그에 `Data Works listening`이 보이면 정상입니다.
 
-Admin UI: `http://localhost:8080/admin`
+- Data Product Workbench (React): `http://localhost:8080/dataworks/`
+- 기존 Admin Console: `http://localhost:8080/admin`
+
+React 개발 서버는 Go API를 `localhost:8080`으로 프록시합니다.
+
+```bash
+# terminal 1
+go run ./cmd/dataworks
+
+# terminal 2
+cd web
+npm run dev
+```
+
+프런트엔드 검증:
+
+```bash
+cd web
+npm run lint
+npm test
+npm run test:e2e
+npm run build
+```
 
 ## Docker
 
 ```bash
-docker build -t dataworks:dev .
-docker run -d --name dataworks --restart=always -p 8080:8080 -v "$PWD/data:/data" \
-  -e GATEWAY_SECRET="$(openssl rand -hex 32)" \
-  -e ADMIN_TOKEN="$(openssl rand -hex 32)" \
-  dataworks:dev
+docker build --build-arg VERSION=vVERSION -t dataworks:vVERSION .
+docker run -d --name dataworks --restart=always -p 8080:8080 \
+  -e POSTGRES_DSN='postgres://dataworks:change-me@postgres:5432/dataworks?sslmode=disable' \
+  -e BOOTSTRAP_ADMIN='admin@dataworks.local' \
+  -e BOOTSTRAP_ADMIN_PASSWORD='change-me' \
+  -e ENCRYPTION_KEY='replace-with-64-hex-characters' \
+  dataworks:vVERSION
 ```
 
-`docker-compose.yml`은 기본 이미지명을 `dataworks`로 사용합니다.
+Docker 빌드는 Node 단계에서 React SPA를 생성한 후 결과물을 Go binary에 embed합니다.
+
+`docker-compose.yml`은 이번 오프라인 릴리즈 archive와 동일한 `dataworks:v0.9.31`을 명시적으로 사용합니다. 별도 이미지 버전 환경변수 없이 위 네 필수 환경변수만 설정하면 실행됩니다.
 
 ## 저장소
 

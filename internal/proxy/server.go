@@ -31,7 +31,7 @@ import (
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
-const AppVersion = "v0.9.30"
+const AppVersion = "v0.9.31"
 
 type Server struct {
 	cfg            config.Config
@@ -68,6 +68,7 @@ type Server struct {
 	pricingRuntime atomic.Pointer[config.PricingConfig]    // admin-settings overlay over cfg.PricingConf
 	skillsRuntime  atomic.Pointer[config.SkillsConfig]     // admin-settings overlay over cfg.Skills
 	limitsRuntime  atomic.Pointer[config.LimitsConfig]     // admin-settings overlay over cfg.Limits
+	aiRuntime      atomic.Pointer[config.AIConfig]         // admin-settings overlay over cfg.AI
 	loggingRuntime atomic.Pointer[config.LoggingConfig]    // admin-settings overlay over cfg.Logging
 	mcpRuntime     atomic.Pointer[config.MCPConfig]        // admin-settings overlay over cfg.MCP
 	keycloakCfg    atomic.Pointer[config.KeycloakConfig]   // DB-backed Keycloak provider overlay over cfg.Keycloak (secret decrypted)
@@ -204,6 +205,8 @@ func (s *Server) MetricsHandle() *Metrics { return s.metrics }
 
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc(strings.TrimSuffix(dataWorksSPAPrefix, "/"), handleDataWorksSPARoot)
+	mux.Handle(dataWorksSPAPrefix, newSPAHandler(dataWorksSPAAssets(), dataWorksSPAPrefix))
 	mux.HandleFunc("/favicon.ico", s.handleFavicon)
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/healthz", s.handleHealth)
@@ -864,23 +867,16 @@ func (s *Server) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"api_keys": keys})
 	case http.MethodPost:
 		var payload struct {
-			Name             string    `json:"name"`
-			Key              string    `json:"key"`
-			Owner            string    `json:"owner"`
-			Team             string    `json:"team"`
-			UserID           string    `json:"user_id"`
-			ServiceAccountID string    `json:"service_account_id"`
-			Role             string    `json:"role"`
-			Scopes           *[]string `json:"scopes"`
-			AllowedIPs       []string  `json:"allowed_ips"`
-			AllowedModels    []string  `json:"allowed_models"`
-			DeniedModels     []string  `json:"denied_models"`
-			AllowedProviders []string  `json:"allowed_providers"`
-			DeniedProviders  []string  `json:"denied_providers"`
-			BudgetLimitKRW   float64   `json:"budget_limit_krw"`
-			ExpiresAt        string    `json:"expires_at"`
+			Name             string `json:"name"`
+			Key              string `json:"key"`
+			Owner            string `json:"owner"`
+			Team             string `json:"team"`
+			UserID           string `json:"user_id"`
+			ServiceAccountID string `json:"service_account_id"`
+			Role             string `json:"role"`
+			apiKeyPolicyPatch
 		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		if err := decodeStrictJSON(r.Body, &payload); err != nil {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
@@ -948,13 +944,13 @@ func (s *Server) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
 			Role:             role,
 			Status:           "active",
 			Scopes:           scopes,
-			AllowedIPs:       payload.AllowedIPs,
-			AllowedModels:    payload.AllowedModels,
-			DeniedModels:     payload.DeniedModels,
-			AllowedProviders: payload.AllowedProviders,
-			DeniedProviders:  payload.DeniedProviders,
-			BudgetLimitKRW:   payload.BudgetLimitKRW,
-			ExpiresAt:        parseAPITime(payload.ExpiresAt),
+			CreatedAt:        time.Now().UTC(),
+		}
+		constraints := payload.apiKeyPolicyPatch
+		constraints.Scopes = nil // scopes were normalized and authorized above
+		if policyErr := applyAPIKeyPolicyPatch(&record, constraints, time.Now().UTC()); policyErr != nil {
+			writeOpenAIError(w, http.StatusBadRequest, policyErr.msg, "invalid_request_error", "invalid_"+policyErr.field)
+			return
 		}
 		if err := s.db.UpsertAPIKey(r.Context(), record); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "api_key_create_failed")
@@ -963,12 +959,8 @@ func (s *Server) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
 		s.auditAdmin(r, "api_key.upsert", "", auditJSON(map[string]any{"id": record.ID, "name": record.Name, "owner": record.Owner, "team": record.Team, "generated": generated}))
 		_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_created", APIKeyID: record.ID, TeamID: record.Team, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: record.Name, CreatedAt: time.Now().UTC()})
 		writeJSON(w, http.StatusCreated, map[string]any{
-			"api_key": map[string]any{
-				"id": record.ID, "name": record.Name, "owner": record.Owner, "team": record.Team, "user_id": record.UserID,
-				"service_account_id": record.ServiceAccountID, "role": record.Role, "status": record.Status,
-				"scopes": record.Scopes, "allowed_ips": record.AllowedIPs,
-			},
-			"secret": plainKey,
+			"api_key": apiKeyResponse(record),
+			"secret":  plainKey,
 		})
 	default:
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
@@ -1064,14 +1056,14 @@ func (s *Server) handleAPIKeyByID(w http.ResponseWriter, r *http.Request) {
 		// observed external key (ext_…, whose hash the gateway already stored) is
 		// promoted to a named, active managed user — no plaintext needed.
 		var payload struct {
-			Status *string  `json:"status"`
-			Name   *string  `json:"name"`
-			Owner  *string  `json:"owner"`
-			Team   *string  `json:"team"`
-			Role   *string  `json:"role"`
-			Scopes []string `json:"scopes"`
+			Status *string `json:"status"`
+			Name   *string `json:"name"`
+			Owner  *string `json:"owner"`
+			Team   *string `json:"team"`
+			Role   *string `json:"role"`
+			apiKeyPolicyPatch
 		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		if err := decodeStrictJSON(r.Body, &payload); err != nil {
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
@@ -1112,7 +1104,7 @@ func (s *Server) handleAPIKeyByID(w http.ResponseWriter, r *http.Request) {
 			updated.Role = nextRole
 		}
 		if payload.Scopes != nil {
-			normalized, ok := normalizeScopes(payload.Scopes)
+			normalized, ok := normalizeScopes(*payload.Scopes)
 			if !ok {
 				writeOpenAIError(w, http.StatusBadRequest, "invalid scope", "invalid_request_error", "invalid_scope")
 				return
@@ -1124,6 +1116,12 @@ func (s *Server) handleAPIKeyByID(w http.ResponseWriter, r *http.Request) {
 			}
 			updated.Scopes = normalized
 		}
+		constraints := payload.apiKeyPolicyPatch
+		constraints.Scopes = nil // already normalized and authorized above
+		if policyErr := applyAPIKeyPolicyPatch(&updated, constraints, time.Now().UTC()); policyErr != nil {
+			writeOpenAIError(w, http.StatusBadRequest, policyErr.msg, "invalid_request_error", "invalid_"+policyErr.field)
+			return
+		}
 		if err := s.db.UpsertAPIKey(r.Context(), updated); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "api_key_update_failed")
 			return
@@ -1132,7 +1130,7 @@ func (s *Server) handleAPIKeyByID(w http.ResponseWriter, r *http.Request) {
 		if existing.Role != updated.Role {
 			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "role_changed", APIKeyID: id, TeamID: updated.Team, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: existing.Role + " -> " + updated.Role, CreatedAt: time.Now().UTC()})
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"id": updated.ID, "name": updated.Name, "owner": updated.Owner, "team": updated.Team, "role": updated.Role, "scopes": updated.Scopes, "status": updated.Status})
+		writeJSON(w, http.StatusOK, apiKeyResponse(updated))
 	default:
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 	}
