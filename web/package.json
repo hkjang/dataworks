@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:list": "playwright test --list",
+    "capture:docs": "playwright test --config=playwright.capture.config.ts --workers=1",
     "preview": "vite preview"
   },
   "dependencies": {

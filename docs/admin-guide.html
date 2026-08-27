@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Works 관리자 가이드 | 폐쇄망 설치·Keycloak·AI·MCP</title>
+  <meta name="description" content="Data Works v0.9.32 관리자 가이드. 네 환경변수로 폐쇄망 Docker 설치, Keycloak OIDC, AI 기본 스트리밍과 262144 토큰, MCP, OpenAPI, 개인 키 정책과 데이터 상품 출시를 설명합니다.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://hkjang.github.io/dataworks/admin-guide.html">
+  <link rel="stylesheet" href="guide.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "HowTo",
+        "@id": "https://hkjang.github.io/dataworks/admin-guide.html#howto",
+        "name": "Data Works v0.9.32 폐쇄망 설치와 관리자 설정",
+        "description": "Docker 이미지 적재, 네 필수 환경변수, 최초 관리자, AI 공급자, Keycloak OIDC와 운영 정책 설정 방법",
+        "inLanguage": "ko-KR",
+        "dateModified": "2026-08-28",
+        "tool": [{"@type": "HowToTool", "name": "Docker"}, {"@type": "HowToTool", "name": "PostgreSQL"}],
+        "supply": [
+          {"@type": "HowToSupply", "name": "dataworks-v0.9.32.tar.gz"},
+          {"@type": "HowToSupply", "name": "POSTGRES_DSN"},
+          {"@type": "HowToSupply", "name": "BOOTSTRAP_ADMIN"},
+          {"@type": "HowToSupply", "name": "BOOTSTRAP_ADMIN_PASSWORD"},
+          {"@type": "HowToSupply", "name": "ENCRYPTION_KEY"}
+        ],
+        "step": [
+          {"@type": "HowToStep", "position": 1, "name": "Docker 이미지 적재", "text": "dataworks-v0.9.32.tar.gz를 docker load하여 dataworks:v0.9.32 이미지를 적재합니다."},
+          {"@type": "HowToStep", "position": 2, "name": "네 환경변수 설정", "text": "POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY를 설정합니다."},
+          {"@type": "HowToStep", "position": 3, "name": "서비스 실행과 상태 확인", "text": "컨테이너를 실행하고 /health와 /ready를 확인합니다."},
+          {"@type": "HowToStep", "position": 4, "name": "최초 관리자 로그인", "text": "Bootstrap super_admin으로 /dataworks/에 로그인합니다."},
+          {"@type": "HowToStep", "position": 5, "name": "관리자 설정", "text": "AI 공급자, Keycloak SSO, MCP와 런타임 정책을 관리자 화면에서 저장합니다."}
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {"@type": "ListItem", "position": 1, "name": "Data Works", "item": "https://hkjang.github.io/dataworks/"},
+          {"@type": "ListItem", "position": 2, "name": "관리자 가이드", "item": "https://hkjang.github.io/dataworks/admin-guide.html"}
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문 바로가기</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html" aria-label="Data Works 홈"><span class="brand-mark" aria-hidden="true">DW</span><span>Data Works</span></a>
+      <nav class="header-nav" aria-label="문서 메뉴">
+        <a href="index.html">제품 소개</a>
+        <a href="user-guide.html">사용자 가이드</a>
+        <a href="admin-guide.html" aria-current="page">관리자 가이드</a>
+        <a href="https://github.com/hkjang/dataworks/releases">릴리즈</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-grid">
+    <nav class="toc" aria-labelledby="toc-title">
+      <h2 id="toc-title">목차</h2>
+      <ol>
+        <li><a href="#architecture">운영 구성</a></li>
+        <li><a href="#offline">폐쇄망 설치</a></li>
+        <li><a href="#first-login">최초 로그인</a></li>
+        <li><a href="#areas">관리자와 개인화</a></li>
+        <li><a href="#providers">AI 공급자</a></li>
+        <li><a href="#ai-policy">스트리밍·토큰</a></li>
+        <li><a href="#keycloak">Keycloak SSO</a></li>
+        <li><a href="#runtime">전체 설정</a></li>
+        <li><a href="#keys">키 정책</a></li>
+        <li><a href="#mcp">MCP 운영</a></li>
+        <li><a href="#product-flow">상품 운영</a></li>
+        <li><a href="#openapi">OpenAPI·계약</a></li>
+        <li><a href="#checklist">운영 점검</a></li>
+      </ol>
+    </nav>
+
+    <main id="main" class="guide">
+      <ol class="breadcrumbs" aria-label="현재 위치">
+        <li><a href="index.html">홈</a></li>
+        <li aria-current="page">관리자 가이드</li>
+      </ol>
+
+      <header class="hero">
+        <p class="eyebrow">Data Works v0.9.32 · 운영자 문서</p>
+        <h1>폐쇄망 설치부터 상품 출시까지</h1>
+        <p class="lead">하나의 Docker 이미지, PostgreSQL과 네 필수 환경변수로 시작하고, AI·MCP·Keycloak과 데이터 상품 정책은 한국어 관리자 화면에서 관리합니다.</p>
+        <div class="meta"><span class="chip">오프라인 Docker</span><span class="chip">Keycloak OIDC</span><span class="chip">암호화 설정</span><span class="chip">262144 토큰 상한</span></div>
+      </header>
+
+      <aside class="note"><strong>데모 화면 안내</strong>이 문서의 화면은 비밀값이 없는 데모 데이터로 촬영했습니다. 실제 운영 API 키, Client Secret, 고객 또는 계약 정보가 아닙니다.</aside>
+
+      <section id="architecture">
+        <h2>1. 운영 구성</h2>
+        <p>React SPA와 Go API는 하나의 <code>dataworks:v0.9.32</code> 이미지에 포함됩니다. 운영 저장소는 PostgreSQL이며 브라우저 UI, 관리 API, AI API와 MCP를 같은 서비스에서 제공합니다.</p>
+        <div class="cards">
+          <article class="card"><h3>사용자 화면</h3><p><code>/dataworks/</code> — 한국어 React Workbench와 주소 기반 라우팅</p></article>
+          <article class="card"><h3>관리자 설정</h3><p><code>/dataworks/settings</code> — AI, Keycloak, MCP와 런타임 정책</p></article>
+          <article class="card"><h3>개발자 API</h3><p><code>/v1/*</code>, <code>/openapi.json</code>, <code>/swagger</code></p></article>
+          <article class="card"><h3>MCP</h3><p><code>/mcp</code> 외부 집약, <code>/mcp/gateway</code> 자체 도구</p></article>
+        </div>
+      </section>
+
+      <section id="offline">
+        <h2>2. 네 환경변수로 폐쇄망 설치</h2>
+        <p class="answer"><strong>폐쇄망 설치에 무엇이 필요한가요?</strong> GitHub Release의 <code>dataworks-v0.9.32.tar.gz</code>, 접근 가능한 PostgreSQL과 네 환경변수만 준비합니다.</p>
+        <div class="table-wrap"><table><thead><tr><th>환경변수</th><th>용도</th></tr></thead><tbody>
+          <tr><td><code>POSTGRES_DSN</code></td><td>운영 PostgreSQL 연결 문자열</td></tr>
+          <tr><td><code>BOOTSTRAP_ADMIN</code></td><td>최초 최고 관리자 이메일</td></tr>
+          <tr><td><code>BOOTSTRAP_ADMIN_PASSWORD</code></td><td>최초 최고 관리자 비밀번호</td></tr>
+          <tr><td><code>ENCRYPTION_KEY</code></td><td>JWT 서명과 저장 비밀 암호화</td></tr>
+        </tbody></table></div>
+        <ol class="steps">
+          <li><strong>Archive 검증과 적재</strong><pre><code>gzip -t dataworks-v0.9.32.tar.gz
+gunzip -c dataworks-v0.9.32.tar.gz | docker load
+docker image inspect dataworks:v0.9.32</code></pre></li>
+          <li><strong>암호화 키 생성</strong><pre><code>openssl rand -hex 32</code></pre></li>
+          <li><strong>컨테이너 실행</strong><pre><code>docker run -d --name dataworks --restart=always \
+  -p 8080:8080 \
+  -e POSTGRES_DSN='postgres://dataworks:change-me@postgres.internal:5432/dataworks?sslmode=require' \
+  -e BOOTSTRAP_ADMIN='admin@dataworks.local' \
+  -e BOOTSTRAP_ADMIN_PASSWORD='replace-with-a-strong-password' \
+  -e ENCRYPTION_KEY='replace-with-64-hex-characters' \
+  dataworks:v0.9.32</code></pre></li>
+          <li><strong>상태 확인</strong><pre><code>curl -fsS http://127.0.0.1:8080/health
+curl -fsS http://127.0.0.1:8080/ready
+docker logs --tail=100 dataworks</code></pre></li>
+        </ol>
+        <aside class="warning"><strong>ENCRYPTION_KEY를 보호하세요</strong>운영 중 임의 변경하면 기존 암호화 비밀을 해독할 수 없고 로그인 세션에도 영향을 줍니다. 별도 비밀 저장소에 백업하세요.</aside>
+        <p>PostgreSQL 마이그레이션은 기동 시 자동 실행됩니다. 인터넷 공개 환경은 TLS와 접근 통제가 적용된 리버스 프록시 뒤에 배치하세요.</p>
+      </section>
+
+      <section id="first-login">
+        <h2>3. 최초 최고 관리자 로그인</h2>
+        <p><code>BOOTSTRAP_ADMIN</code> 이메일이 DB에 없으면 최초 기동 시 <code>super_admin</code>으로 생성됩니다. 이미 존재하면 계정이나 비밀번호를 덮어쓰지 않습니다.</p>
+        <ol class="steps"><li><code>/dataworks/</code>를 엽니다.</li><li>Bootstrap 이메일과 비밀번호로 로그인합니다.</li><li>로그인 또는 프로필 메뉴에서 <strong>v0.9.32</strong>를 확인합니다.</li><li><strong>관리자 설정</strong>을 엽니다.</li></ol>
+        <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/00-login.jpg"><img src="assets/screenshots/desktop/00-login.jpg" alt="서비스 버전이 표시되는 Data Works 로그인 화면" width="1440" height="1024" loading="eager"></picture><figcaption>로그인 화면에서 배포 버전을 즉시 확인합니다.</figcaption></figure>
+      </section>
+
+      <section id="areas">
+        <h2>4. 관리자와 개인화 영역 분리</h2>
+        <div class="table-wrap"><table><thead><tr><th>영역</th><th>주소</th><th>내용</th></tr></thead><tbody>
+          <tr><td>서비스 관리자</td><td><code>/dataworks/settings</code></td><td>공급자, 인증, MCP, 운영 정책</td></tr>
+          <tr><td>개인화</td><td><code>/dataworks/personal</code></td><td>본인 사용량, 비용, 품질과 보안 신호</td></tr>
+          <tr><td>개인 키</td><td><code>/dataworks/personal/keys</code></td><td>본인 소유 키의 발급·변경·회전·폐기</td></tr>
+        </tbody></table></div>
+        <p>설정 저장은 화면 표시 여부와 별개로 서버에서 역할과 카테고리별 쓰기 권한을 다시 검사합니다. Bootstrap 계정은 모든 Scope를 가진 <code>super_admin</code>입니다.</p>
+        <figure><img src="assets/screenshots/desktop/15-profile-menu.jpg" alt="내 작업 공간과 관리자 설정을 분리한 프로필 메뉴" width="1440" height="1024" loading="lazy"><figcaption>서비스 버전과 역할별 이동 링크가 있는 프로필 메뉴</figcaption></figure>
+      </section>
+
+      <section id="providers">
+        <h2>5. AI 공급자 연결</h2>
+        <p><code>관리자 설정 → AI 및 MCP</code>에서 공급자 이름, OpenAI 호환 Base URL, API 키, 모델 패턴, 타임아웃과 활성 상태를 저장합니다. 폐쇄망 내부의 vLLM 또는 다른 호환 서버도 연결할 수 있습니다.</p>
+        <ul><li>공급자 API 키는 암호화 저장되고 평문으로 다시 표시되지 않습니다.</li><li>기존 공급자 수정 시 API 키를 비우면 저장된 키를 유지합니다.</li><li>저장 후 <code>/v1/models</code>와 실제 스트리밍 호출로 라우팅을 검증합니다.</li></ul>
+        <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/12-admin-ai-mcp.jpg"><img src="assets/screenshots/desktop/12-admin-ai-mcp.jpg" alt="AI 공급자와 MCP 정책을 관리하는 관리자 설정" width="1440" height="1024" loading="lazy"></picture><figcaption>AI 공급자와 핵심 호출 정책</figcaption></figure>
+      </section>
+
+      <section id="ai-policy">
+        <h2>6. 기본 스트리밍과 262144 토큰</h2>
+        <p class="answer"><strong>AI 호출 정책은 어디에서 바꾸나요?</strong> 관리자 설정의 AI 및 MCP 탭에서 기본 스트리밍, 일반·Agent 출력 상한과 MCP 턴·도구 정책을 변경합니다.</p>
+        <div class="table-wrap"><table><thead><tr><th>설정</th><th>설명</th></tr></thead><tbody>
+          <tr><td><code>ai.default_stream</code></td><td>Chat 요청에 stream이 없을 때 기본값, 기본 true</td></tr>
+          <tr><td><code>limits.max_output_tokens</code></td><td>일반 응답 출력 상한, 0은 관리 상한 비활성</td></tr>
+          <tr><td><code>limits.agent_max_tokens</code></td><td>내부 Agent 출력 상한</td></tr>
+          <tr><td><code>mcp.agentic_model</code></td><td>Agentic MCP 모델</td></tr>
+          <tr><td><code>mcp.max_tokens</code></td><td>MCP 각 LLM 턴 출력 토큰</td></tr>
+          <tr><td><code>mcp.max_agent_steps</code></td><td>최대 LLM 턴 수</td></tr>
+          <tr><td><code>mcp.max_tools</code></td><td>노출할 최대 MCP 도구 수</td></tr>
+          <tr><td><code>mcp.force_tool_first</code></td><td>첫 턴 도구 호출 강제</td></tr>
+        </tbody></table></div>
+        <p>서비스 절대 상한은 <strong>262144</strong>입니다. Chat의 <code>max_tokens</code>·<code>max_completion_tokens</code>와 Responses의 <code>max_output_tokens</code>가 적용 대상입니다. 명시한 <code>stream:false</code>는 유지되며, 모델 한도가 더 낮으면 모델 제한이 우선합니다.</p>
+      </section>
+
+      <section id="keycloak">
+        <h2>7. Keycloak SSO OIDC 간편 연동</h2>
+        <p class="answer"><strong>Keycloak 연동에 필요한 값은 무엇인가요?</strong> Issuer URL, Client ID와 Client Secret을 입력하면 OIDC Discovery와 PKCE가 자동 구성됩니다.</p>
+        <ol class="steps">
+          <li>Keycloak confidential client에 <code>https://&lt;service-host&gt;/auth/keycloak/callback</code>을 허용합니다.</li>
+          <li>Issuer URL, Client ID와 Client Secret을 입력합니다.</li>
+          <li>Redirect URI와 <code>Keycloak SSO 활성화</code>를 확인합니다.</li>
+          <li>비상 접근 정책에 따라 <code>로컬 로그인 허용</code>을 선택합니다.</li>
+          <li><code>SSO 설정 저장</code> 후 <code>연결 진단</code>을 실행합니다.</li>
+          <li>로그아웃 후 SSO 로그인을 실제 계정으로 시험합니다.</li>
+        </ol>
+        <p>Client Secret은 암호화 저장됩니다. 고급 설정은 OIDC Scope, 기본 역할, 역할·그룹 Claim과 역할 매핑 JSON을 제공합니다.</p>
+        <aside class="warning"><strong>복구 경로를 먼저 검증하세요</strong>로컬 로그인을 끄기 전에 별도의 SSO 관리자 계정을 시험하세요. 역할 매핑에는 관리자 권한 상승 방지 검사가 적용됩니다.</aside>
+        <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/13-admin-keycloak-sso.jpg"><img src="assets/screenshots/desktop/13-admin-keycloak-sso.jpg" alt="Issuer URL Client ID Client Secret과 역할 매핑이 있는 Keycloak SSO 설정" width="1440" height="1024" loading="lazy"></picture><figcaption>Keycloak OIDC 간편 연동과 연결 진단</figcaption></figure>
+      </section>
+
+      <section id="runtime">
+        <h2>8. 전체 런타임 설정</h2>
+        <p>설정 키와 설명을 검색하고 카테고리로 필터링합니다. 저장하면 DB 기반 관리자 override가 적용되고, 되돌리면 기본값으로 복원됩니다. 비밀, 읽기 전용, 재시작 필요와 쓰기 가능 상태가 함께 표시됩니다.</p>
+        <pre><code>GET    /admin/settings/effective
+PUT    /admin/settings/by-key/{key}
+DELETE /admin/settings/by-key/{key}</code></pre>
+        <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/14-admin-runtime-settings.jpg"><img src="assets/screenshots/desktop/14-admin-runtime-settings.jpg" alt="검색 카테고리 저장 복원 기능이 있는 전체 런타임 설정" width="1440" height="1024" loading="lazy"></picture><figcaption>환경변수를 늘리지 않고 관리자 override로 운영 설정을 관리합니다.</figcaption></figure>
+      </section>
+
+      <section id="keys">
+        <h2>9. 개인 키의 발급 후 정책 변경</h2>
+        <p>계정 사용자는 역할 범위 안에서 자신의 키를 발급하고 다음 8개 정책을 발급 후 변경할 수 있습니다.</p>
+        <ol><li><code>scopes</code></li><li><code>allowed_ips</code></li><li><code>allowed_models</code></li><li><code>denied_models</code></li><li><code>allowed_providers</code></li><li><code>denied_providers</code></li><li><code>budget_limit_krw</code></li><li><code>expires_at</code></li></ol>
+        <p>서버는 최종 정책이 호출자의 부분집합인지 검사합니다. 회전은 전체 정책을 보존한 새 키를 원자적으로 만들고 기존 키를 폐기합니다. 비밀값은 발급·회전 직후 한 번만 표시됩니다.</p>
+        <pre><code>GET/POST /me/keys
+PATCH    /me/keys/{id}
+POST     /me/keys/{id}/rotate
+DELETE   /me/keys/{id}</code></pre>
+        <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/11-personal-api-keys.jpg"><img src="assets/screenshots/desktop/11-personal-api-keys.jpg" alt="개인 API 키 발급과 발급 후 8개 권한 정책 변경 화면" width="1440" height="1024" loading="lazy"></picture><figcaption>사용자 권한보다 넓어지지 않는 개인 키 정책</figcaption></figure>
+      </section>
+
+      <section id="mcp">
+        <h2>10. MCP 운영과 최소 권한</h2>
+        <div class="cards"><article class="card"><h3><code>/mcp</code></h3><p>외부 MCP 업스트림 도구·프롬프트·리소스 집약</p></article><article class="card"><h3><code>/mcp/gateway</code></h3><p>Data Works 자체 기능의 MCP 도구</p></article></div>
+        <p>React 관리자 설정은 Agentic MCP 모델, 토큰·턴·도구 수 정책을 관리합니다. 외부 업스트림, Bearer 인증, allowlist·차단, 도구별 역할 Scope, Route Explain과 호출 관측은 기존 <code>/admin</code> 콘솔의 MCP 메뉴에서 관리합니다.</p>
+        <pre><code>GET/POST       /admin/mcp/upstreams
+GET/PUT/DELETE /admin/mcp/upstreams/{id}
+GET/POST       /admin/mcp/policies
+GET/POST       /admin/mcp/tool-scopes
+POST           /admin/mcp/route/explain
+POST           /admin/mcp/test</code></pre>
+        <p>업스트림 인증 토큰은 암호화 저장됩니다. 사용자 키에는 <code>mcp:use</code>, 관리 작업에는 <code>mcp:admin</code> 등 해당 역할 권한이 필요합니다.</p>
+      </section>
+
+      <section id="product-flow">
+        <h2>11. 데이터 상품 운영 흐름</h2>
+        <p>React Workbench는 현황 탐색, Product Workspace, 출시 게이트와 조건 충족 상품의 출시를 중심으로 합니다. 생성·승인 입력과 일부 고급 운영은 다음 REST API 또는 기존 관리자 콘솔을 사용합니다.</p>
+        <div class="table-wrap"><table><thead><tr><th>단계</th><th>주요 API</th><th>React 화면 범위</th></tr></thead><tbody>
+          <tr><td>자산·준비도</td><td><code>/admin/dataworks/assets*</code></td><td>검색·조회, 일괄 실행 미연결</td></tr>
+          <tr><td>아이디어·정의</td><td><code>/admin/dataworks/factory/ideas</code><br><code>/factory/definitions</code></td><td>실행 이력 조회</td></tr>
+          <tr><td>Canvas</td><td><code>/products/{key}/canvas</code></td><td>블루프린트 조회</td></tr>
+          <tr><td>위험·승인</td><td><code>/risk/check</code><br><code>/reviews/{key}/approve|reject</code></td><td>상태·액션 조회, 승인 버튼 없음</td></tr>
+          <tr><td>Evidence Pack</td><td><code>/products/{key}/evidence-pack</code></td><td>증적 조회</td></tr>
+          <tr><td>출시</td><td><code>/products/{key}/publish-gate</code><br><code>/products/{key}/publish</code></td><td>게이트 조회와 조건부 출시</td></tr>
+        </tbody></table></div>
+        <h3>엄격 출시 게이트</h3>
+        <p><code>risk_score &gt;= 70</code> 또는 restricted·personal_credit·pseudonymized 등 민감 상품은 모든 원천 자산 준비도 70 이상, 데이터 오너·법무·준법 승인 또는 면제, Evidence Pack과 미만료 증적이 필요합니다. 미충족 시 <code>409 Conflict</code>를 반환합니다.</p>
+        <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/product/00-overview-release-gate.jpg"><img src="assets/screenshots/desktop/product/00-overview-release-gate.jpg" alt="통과 경고 차단 사유를 보여주는 상품 출시 게이트" width="1440" height="1024" loading="lazy"></picture><figcaption>출시 게이트는 API 오류 대신 조건별 이유를 시각화합니다.</figcaption></figure>
+      </section>
+
+      <section id="openapi">
+        <h2>12. 계약, Entitlement와 OpenAPI</h2>
+        <ol class="steps"><li>계약 버전과 고객별 허용 필드, 호출 한도, 기간과 목적을 등록합니다.</li><li>Entitlement로 고객 API 키를 계약 Scope에 연결합니다.</li><li>SLA, Watermark와 비용·마진을 설정합니다.</li><li>상품 API로 출시·계약·만료 검사를 확인합니다.</li></ol>
+        <pre><code>GET/POST /admin/dataworks/products/{key}/contract-versions
+GET/POST /admin/dataworks/products/{key}/contract-scopes
+GET/POST /admin/dataworks/products/{key}/entitlements
+GET/POST /admin/dataworks/products/{key}/sla
+GET/POST /admin/dataworks/products/{key}/watermarks
+GET/POST /admin/dataworks/products/{key}/costs
+POST     /v1/data-products/{key}/query</code></pre>
+        <ul><li>서비스 전체 명세: <code>/openapi.json</code></li><li>Swagger UI: <code>/swagger</code></li><li>상품별 OpenAPI: <code>/admin/dataworks/products/{key}/openapi</code></li></ul>
+        <aside class="note"><strong>UI 범위</strong>Product Workspace의 API·고객·사용량·수익·버전·활동 이력은 현재 안내 탭입니다. 위 API가 React 탭에서 편집 가능하다고 가정하지 마세요.</aside>
+      </section>
+
+      <section id="checklist">
+        <h2>13. 운영 점검표</h2>
+        <h3>일일 점검</h3><ul><li><code>/health</code>, <code>/ready</code></li><li>관제실의 출시 차단·승인 대기·만료·마진 경고</li><li>AI 공급자와 MCP 도구 오류</li><li>키 만료와 비정상 사용량</li></ul>
+        <h3>릴리즈 후 검증</h3><ul><li>로그인과 프로필 버전</li><li>개인 키 발급→정책 변경→회전→폐기</li><li>Keycloak 연결 진단과 SSO 로그인</li><li>AI 기본 스트리밍과 토큰 상한</li><li>MCP initialize·tools/list와 정책</li><li>상품 출시 게이트 차단·허용 경로</li></ul>
+        <p>업그레이드 전에 PostgreSQL을 백업하고 현재 이미지와 암호화 키를 기록합니다. DB 마이그레이션과 롤백 주의사항은 <a href="RELEASE_GUIDE.md">릴리즈 가이드</a>를 따릅니다.</p>
+      </section>
+
+      <footer class="guide-footer">
+        <nav aria-label="관련 문서"><a href="user-guide.html">사용자 가이드</a><a href="OPERATIONS.md">운영 가이드</a><a href="POSTGRES_GUIDE.md">PostgreSQL 가이드</a><a href="RELEASE_GUIDE.md">릴리즈 가이드</a></nav>
+        <p>Data Works v0.9.32 · 최종 갱신 2026-08-28</p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

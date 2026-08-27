@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 async function mockPlatform(page: Page) {
-  await page.route('**/auth/me', (route) => route.fulfill({ json: { auth_enabled: true, version: 'v0.9.31', user: { id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin' } } }))
-  await page.route('**/auth/sso/status', (route) => route.fulfill({ json: { keycloak_enabled: false, version: 'v0.9.31' } }))
+  await page.route('**/auth/me', (route) => route.fulfill({ json: { auth_enabled: true, version: 'v0.9.32', user: { id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin' } } }))
+  await page.route('**/auth/sso/status', (route) => route.fulfill({ json: { keycloak_enabled: false, version: 'v0.9.32' } }))
   await page.route('**/me/dashboard', (route) => route.fulfill({ json: {
     user_id: 'tester', today: { requests: 2, tokens: 100, cost_krw: 10, errors: 0 }, month: { requests: 20, tokens: 1000, cost_krw: 100, errors: 1 },
     profile: { requests: 20, total_cost_krw: 100, avg_cost_per_request: 5, avg_latency_ms: 120, success_rate: .95, error_rate: .05, cache_rate: .2, text2sql_usage_rate: .1, mcp_usage_rate: .3, risk_score: 4, summary: '정상 사용 패턴입니다.' },
@@ -48,6 +48,14 @@ test('직접 URL과 새로고침 뒤에도 선택한 메뉴를 유지한다', as
   await expect(page).toHaveURL(/\/dataworks\/products$/)
   await expect(page.getByRole('heading', { name: '데이터 상품' })).toBeVisible()
   await expect(page.getByRole('link', { name: '데이터 상품', exact: true })).toHaveClass(/is-active/)
+})
+
+test('통합 검색을 Escape 키로 닫는다', async ({ page }) => {
+  await page.goto('./')
+  await page.getByRole('button', { name: /통합 검색/ }).click()
+  await expect(page.getByRole('dialog', { name: '통합 검색' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: '통합 검색' })).toBeHidden()
 })
 
 test('핵심 화면을 콘솔 오류 없이 탐색한다', async ({ page }) => {

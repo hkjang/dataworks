@@ -1,0 +1,14 @@
+{
+  "name": "Data Works — Digital Data Refinery",
+  "short_name": "Data Works",
+  "description": "데이터 상품을 발견하고 설계·승인·계약·운영하는 통합 플랫폼",
+  "lang": "ko-KR",
+  "start_url": "/dataworks/",
+  "scope": "/dataworks/",
+  "display": "standalone",
+  "background_color": "#f4f6f4",
+  "theme_color": "#f4f6f4",
+  "icons": [
+    {"src": "assets/dataworks-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

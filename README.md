@@ -157,7 +157,7 @@ docker run -d --name dataworks --restart=always -p 8080:8080 \
 
 Docker 빌드는 Node 단계에서 React SPA를 생성한 후 결과물을 Go binary에 embed합니다.
 
-`docker-compose.yml`은 이번 오프라인 릴리즈 archive와 동일한 `dataworks:v0.9.31`을 명시적으로 사용합니다. 별도 이미지 버전 환경변수 없이 위 네 필수 환경변수만 설정하면 실행됩니다.
+`docker-compose.yml`은 이번 오프라인 릴리즈 archive와 동일한 `dataworks:v0.9.32`를 명시적으로 사용합니다. 별도 이미지 버전 환경변수 없이 위 네 필수 환경변수만 설정하면 실행됩니다.
 
 ## 저장소
 
@@ -178,9 +178,11 @@ Kubernetes 수집, Pod 로그, RCA, Stack, ConfigMap, CRD Discovery 등 기존 �
 
 ## 문서
 
+- [Data Works 제품 소개](https://hkjang.github.io/dataworks/)
+- [사용자 가이드](docs/USER_GUIDE.md) · [웹 가이드](https://hkjang.github.io/dataworks/user-guide.html)
 - [디자인 기준](DESIGN.md)
 - [운영 가이드](docs/OPERATIONS.md)
-- [관리자 가이드](docs/ADMIN_GUIDE.md)
+- [관리자 가이드](docs/ADMIN_GUIDE.md) · [웹 가이드](https://hkjang.github.io/dataworks/admin-guide.html)
 - [안전 및 보안 거버넌스 가이드](docs/SAFETY_GUIDE.md)
 - [PostgreSQL 가이드](docs/POSTGRES_GUIDE.md)
 - [릴리즈 가이드](docs/RELEASE_GUIDE.md)

@@ -248,7 +248,7 @@ export function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <button className="command-trigger" onClick={() => setCommandOpen(true)}>
+            <button className="command-trigger" onClick={() => setCommandOpen(true)} aria-label="통합 검색 열기">
               <Search className="size-4" /><span className="hidden sm:inline">통합 검색</span><kbd>⌘K</kbd>
             </button>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="테마 변경">

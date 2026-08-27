@@ -1,400 +1,67 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Data Works - Enterprise Data Product Factory Platform</title>
-  
-  <!-- Primary Meta Tags -->
-  <meta name="title" content="Data Works - Enterprise Data Product Factory Platform">
-  <meta name="description" content="Data Works is an Enterprise Data Product Factory that converts schemas, datasets, and report assets into monetizable data products and runtime APIs. Supports readiness assessment, AI Product Canvas generation, Evidence Pack approval trails, and Publish Gate.">
-  <meta name="keywords" content="Data Works, Data Product Factory, Data Productization, Data Monetization, Readiness Score, Evidence Pack, Publish Gate, OpenAPI 3.1, Data Governance, gagagiga@naver.com">
-  <meta name="author" content="Data Works Team (gagagiga@naver.com)">
-  <meta name="robots" content="index, follow">
-  
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://hkjang.github.io/dataworks/">
-  <meta property="og:title" content="Data Works - Enterprise Data Product Factory Platform">
-  <meta property="og:description" content="A data factory platform converting internal data assets into monetizable data products and APIs. Readiness assessment, AI Product Canvas, and automated compliance Evidence Packs.">
-  <meta property="og:image" content="assets/hero.jpg">
-
-  <!-- Twitter Cards -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://hkjang.github.io/dataworks/">
-  <meta property="twitter:title" content="Data Works - Enterprise Data Product Factory Platform">
-  <meta property="twitter:description" content="A data factory platform converting internal data assets into monetizable data products and APIs.">
-  <meta property="twitter:image" content="assets/hero.jpg">
-
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-  
-  <!-- Stylesheets -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Data Works | Data Product Operating Platform</title>
+  <meta name="description" content="Data Works is an offline-ready data product operating platform for discovering, designing, approving, contracting, and operating data products with an AI factory and release gates.">
+  <meta name="keywords" content="data product platform, data product factory, data governance, publish gate, offline Docker, Keycloak OIDC, MCP">
+  <meta name="author" content="Data Works Team"><meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"><meta name="theme-color" content="#f4f6f4"><meta name="color-scheme" content="light">
+  <link rel="canonical" href="https://hkjang.github.io/dataworks/index_en.html"><link rel="alternate" hreflang="ko" href="https://hkjang.github.io/dataworks/"><link rel="alternate" hreflang="en" href="https://hkjang.github.io/dataworks/index_en.html"><link rel="alternate" hreflang="x-default" href="https://hkjang.github.io/dataworks/"><link rel="manifest" href="site.webmanifest"><link rel="sitemap" type="application/xml" href="https://hkjang.github.io/dataworks/sitemap.xml"><link rel="icon" href="assets/dataworks-mark.svg" type="image/svg+xml">
+  <meta property="og:type" content="website"><meta property="og:locale" content="en_US"><meta property="og:locale:alternate" content="ko_KR"><meta property="og:site_name" content="Data Works"><meta property="og:url" content="https://hkjang.github.io/dataworks/index_en.html"><meta property="og:title" content="Data Works | Data Product Operating Platform"><meta property="og:description" content="Discover data assets, refine them into products, release them safely, and operate their value in one Digital Data Refinery."><meta property="og:image" content="https://hkjang.github.io/dataworks/assets/dataworks-social-card.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Data Works Digital Data Refinery">
+  <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Data Works | Data Product Operating Platform"><meta name="twitter:description" content="An AI product factory, release gates, and a supply-chain graph in one operating platform."><meta name="twitter:image" content="https://hkjang.github.io/dataworks/assets/dataworks-social-card.jpg">
   <link rel="stylesheet" href="styles.css">
-
-  <!-- AEO (Answer Engine Optimization) & SEO Structured Data JSON-LD -->
   <script type="application/ld+json">
   {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "SoftwareApplication",
-        "@id": "https://hkjang.github.io/dataworks/#software",
-        "name": "Data Works",
-        "applicationCategory": "BusinessApplication",
-        "operatingSystem": "Linux, Kubernetes",
-        "description": "Enterprise Data Product Factory Platform converting internal data assets into monetizable data products and runtime APIs with automated readiness scoring, AI Product Canvas, evidence packs, and publish gates.",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        },
-        "author": {
-          "@type": "Organization",
-          "name": "Data Works Team",
-          "email": "gagagiga@naver.com"
-        }
-      },
-      {
-        "@type": "Organization",
-        "@id": "https://hkjang.github.io/dataworks/#organization",
-        "name": "Data Works",
-        "url": "https://hkjang.github.io/dataworks/",
-        "email": "gagagiga@naver.com",
-        "logo": "https://hkjang.github.io/dataworks/assets/hero.jpg"
-      },
-      {
-        "@type": "FAQPage",
-        "@id": "https://hkjang.github.io/dataworks/#faq",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "How does Data Works integrate with existing DB and Kubernetes infrastructure?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Data Works reuses existing gateway core, Admin UI, PostgreSQL/SQLite storage, and ClickHouse analytics engine while providing RESTful API endpoints optimized for data productization workflows."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "What conditions does Publish Gate use to block data product launches?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "When risk_score is 70 or above, or for sensitive profile products (personal_credit, pseudonymized), launches are automatically blocked with 409 Conflict responses if readiness is below 70 or the 3 mandatory approvals (Owner, Legal, Compliance) are incomplete."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "How do you access the generated OpenAPI 3.1 spec and runtime API?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Obtain the OpenAPI spec via the /admin/dataworks/products/{key}/openapi endpoint, and perform runtime queries via /v1/data-products/{key}/query with valid API Key and Entitlement verification."
-            }
-          }
-        ]
-      }
+    "@context":"https://schema.org","@graph":[
+      {"@type":"WebSite","@id":"https://hkjang.github.io/dataworks/#website-en","url":"https://hkjang.github.io/dataworks/index_en.html","name":"Data Works","inLanguage":"en-US","publisher":{"@id":"https://hkjang.github.io/dataworks/#organization"}},
+      {"@type":"Organization","@id":"https://hkjang.github.io/dataworks/#organization","name":"Data Works Team","url":"https://hkjang.github.io/dataworks/","logo":{"@type":"ImageObject","url":"https://hkjang.github.io/dataworks/assets/dataworks-mark.svg"},"email":"gagagiga@naver.com"},
+      {"@type":"SoftwareApplication","@id":"https://hkjang.github.io/dataworks/#software-en","name":"Data Works","softwareVersion":"0.9.32","applicationCategory":"BusinessApplication","applicationSubCategory":"Data Product Management","operatingSystem":"Linux container host","inLanguage":["ko-KR","en-US"],"description":"An operating platform that connects asset readiness, AI product design, approval evidence, release gates, contracts, API operations, and value analytics.","featureList":["AI data product factory","Release Gate","Evidence Pack","Supply chain graph","Keycloak OIDC","Personal API key policy and rotation","OpenAPI 3.1","MCP","Offline Docker image"]},
+      {"@type":"BreadcrumbList","@id":"https://hkjang.github.io/dataworks/#breadcrumb-en","itemListElement":[{"@type":"ListItem","position":1,"name":"Data Works","item":"https://hkjang.github.io/dataworks/index_en.html"},{"@type":"ListItem","position":2,"name":"Product screens","item":"https://hkjang.github.io/dataworks/index_en.html#screens"},{"@type":"ListItem","position":3,"name":"Deployment","item":"https://hkjang.github.io/dataworks/index_en.html#deployment"}]},
+      {"@type":"HowTo","@id":"https://hkjang.github.io/dataworks/#howto-en","name":"Deploy Data Works on an offline network","description":"Transfer the Docker image archive from GitHub Releases and start it with four required environment variables.","totalTime":"PT15M","step":[{"@type":"HowToStep","position":1,"name":"Load the image","text":"Transfer dataworks-v0.9.32.tar.gz and load it with docker load."},{"@type":"HowToStep","position":2,"name":"Set required configuration","text":"Set POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, and ENCRYPTION_KEY."},{"@type":"HowToStep","position":3,"name":"Start the service","text":"Run dataworks:v0.9.32 and sign in at /dataworks/."}]},
+      {"@type":"FAQPage","@id":"https://hkjang.github.io/dataworks/#faq-en","mainEntity":[
+        {"@type":"Question","name":"What problem does Data Works solve?","acceptedAnswer":{"@type":"Answer","text":"It connects the complete path from discovering distributed data assets to checking readiness, risk, approvals, evidence, and contracts before releasing them as APIs or reports."}},
+        {"@type":"Question","name":"Can Data Works run without internet access?","acceptedAnswer":{"@type":"Answer","text":"Yes. Transfer the single Docker image archive into the operations network and configure PostgreSQL, a bootstrap administrator, and the encryption key."}},
+        {"@type":"Question","name":"What does the Release Gate check?","acceptedAnswer":{"@type":"Answer","text":"It checks asset readiness, owner, legal and compliance approvals, the Evidence Pack, approval expiry, and required operational settings, then explains every blocker."}},
+        {"@type":"Question","name":"Does it support Keycloak and personal API keys?","acceptedAnswer":{"@type":"Answer","text":"Yes. It supports Keycloak OIDC discovery and PKCE. Users can update scope, IP, model, provider, budget, and expiry policies after issuing a personal key, then rotate it while preserving policy."}},
+        {"@type":"Question","name":"How are AI and external tools connected?","acceptedAnswer":{"@type":"Answer","text":"AI calls stream by default and account for up to 262,144 tokens. OpenAPI 3.1, Swagger, and MCP interfaces connect external tools."}}
+      ]}
     ]
   }
   </script>
-<script id="auto-lang-detector">
-(function() {
-  var SAVED_KEY = 'user_lang_pref';
-  var userPref = localStorage.getItem(SAVED_KEY);
-  if (!userPref) {
-    var navLang = (navigator.language || (navigator.languages && navigator.languages[0]) || '').toLowerCase();
-    var isKoBrowser = navLang.indexOf('ko') === 0;
-    var isEnPage = window.location.pathname.indexOf('index_en.html') !== -1;
-    if (!isKoBrowser && !isEnPage) {
-      var target = window.location.href.replace(/index\.html$/, 'index_en.html');
-      if (target === window.location.href) target = 'index_en.html';
-      window.location.replace(target);
-    } else if (isKoBrowser && isEnPage) {
-      var target = window.location.href.replace(/index_en\.html$/, 'index.html');
-      if (target === window.location.href) target = 'index.html';
-      window.location.replace(target);
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    var langBtns = document.querySelectorAll('.lang-btn, [data-lang], #btn-ko, #btn-en, #localeToggle, #btn-lang-toggle');
-    langBtns.forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var lang = btn.getAttribute('data-lang') || (btn.textContent || '').trim().toLowerCase();
-        if (lang.indexOf('en') !== -1) {
-          localStorage.setItem(SAVED_KEY, 'en');
-        } else if (lang.indexOf('ko') !== -1) {
-          localStorage.setItem(SAVED_KEY, 'ko');
-        }
-      });
-    });
-  });
-})();
-</script>
-<link rel="canonical" href="https://hkjang.github.io/dataworks/">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header" data-header><div class="shell nav-shell"><a class="brand" href="#top" aria-label="Data Works home"><img src="assets/dataworks-mark.svg" alt="" width="36" height="36"><span><strong>DATA WORKS</strong><small>Digital Data Refinery</small></span></a><button class="menu-button" type="button" aria-expanded="false" aria-controls="site-navigation" data-menu-button><span class="sr-only">Open menu</span><i></i><i></i><i></i></button><nav id="site-navigation" class="site-nav" aria-label="Primary navigation" data-navigation><a href="#capabilities">Capabilities</a><a href="#workflow">Product flow</a><a href="#screens">Product screens</a><a href="#deployment">Deployment</a><a href="#faq">FAQ</a><a href="user-guide.html">User guide</a></nav><a class="language-link" href="index.html" lang="ko" hreflang="ko">KO</a></div></header>
+  <main id="main">
+    <section class="hero" id="top"><div class="shell hero-grid"><div class="hero-copy reveal"><p class="eyebrow"><span></span> DATA WORKS v0.9.32</p><h1>Discover your data.<br><em>Refine it into products.</em></h1><p class="hero-answer">Data Works is a <strong>data product operating platform</strong> that connects asset readiness, AI design, approvals, evidence, contracts, API operations, and value analytics.</p><div class="hero-actions"><a class="button button-primary" href="#screens">See the real product <span aria-hidden="true">→</span></a><a class="button button-secondary" href="https://github.com/hkjang/dataworks/releases/latest">Latest release</a></div><ul class="proof-list" aria-label="Product highlights"><li>Offline Docker</li><li>Korean-first workspace</li><li>Keycloak OIDC</li><li>OpenAPI · MCP</li></ul></div><figure class="hero-visual reveal"><div class="visual-label"><span class="signal-dot"></span> PRODUCT CONTROL ROOM <b>LIVE</b></div><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/01-control-room.jpg"><img src="assets/screenshots/desktop/01-control-room.jpg" alt="Data Works control room showing the production flow and actions that need attention" width="1440" height="900" loading="eager" fetchpriority="high"></picture></figure></div><div class="shell metric-strip" aria-label="Product specifications"><div><strong>4</strong><span>required environment variables</span></div><div><strong>256K</strong><span>AI token ceiling considered</span></div><div><strong>OpenAPI 3.1</strong><span>contract-driven APIs</span></div><div><strong>Real time</strong><span>release blockers</span></div></div></section>
 
-  <!-- Navigation Bar -->
-  <header class="navbar">
-    <div class="container nav-container">
-      <a href="#" class="logo">
-        <div class="logo-icon">DW</div>
-        <span>Data Works</span>
-      </a>
-      
-      <ul class="nav-links">
-        <li><a href="#features" data-i18n="navFeatures">Features</a></li>
-        <li><a href="#simulator" data-i18n="navWorkflow">Workflow</a></li>
-        <li><a href="#publish-gate" data-i18n="navPublishGate">Publish Gate</a></li>
-        <li><a href="#faq" data-i18n="navFaq">FAQ</a></li>
-        <li><a href="USER_GUIDE.md" target="_blank" data-i18n="navDocs">Docs</a></li>
-      </ul>
+    <section class="section refinery-intro" id="capabilities"><div class="shell"><div class="section-heading reveal"><p class="kicker">DIGITAL DATA REFINERY</p><h2>What does Data Works do?</h2><p>It creates one governed flow for every decision and artifact required to turn scattered data into a product customers can use.</p></div><div class="capability-grid"><article class="concept-card reveal"><span class="concept-number">01 · NODE</span><h3>Which data is ready to become material?</h3><p>Assess freshness, completeness, schema, and documentation to identify product-ready assets.</p><b>Assets · Readiness</b></article><article class="concept-card reveal"><span class="concept-number">02 · STATION</span><h3>How are product ideas designed?</h3><p>Use the AI factory to turn customer problems, value, pricing, and success criteria into a blueprint.</p><b>AI Factory · Canvas</b></article><article class="concept-card gate-card reveal"><span class="concept-number">03 · GATE</span><h3>Why is this product blocked?</h3><p>Inspect readiness, risk, approvals, and evidence, then show the missing condition and next action.</p><b>Release Gate · Evidence</b></article><article class="concept-card product-card reveal"><span class="concept-number">04 · PACKAGE</span><h3>Can products be operated after launch?</h3><p>Contracts and operations continue through backend APIs. The workspace shows contract data, while usage and revenue tabs are clearly marked as extension previews.</p><b>Contract · Runtime · Value</b></article></div></div></section>
 
-      <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open/Close Menu">
-          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-        </button>
-      <div class="lang-switch">
-        <button id="btn-ko" class="lang-btn active">KO</button>
-        <button id="btn-en" class="lang-btn">EN</button>
-      </div>
-    </div>
-  </header>
+    <section class="section workflow-section" id="workflow"><div class="shell"><div class="section-heading heading-row reveal"><div><p class="kicker">PRODUCTION FLOW</p><h2>How does data become a product?</h2></div><p>Every stage reports complete, in-progress, warning, or blocked status, making bottlenecks immediately visible.</p></div><ol class="flow-line reveal"><li><span>01</span><b>Asset</b><small>Find material</small></li><li><span>02</span><b>Idea</b><small>Market signal</small></li><li><span>03</span><b>Blueprint</b><small>Design</small></li><li><span>04</span><b>Risk</b><small>Policy check</small></li><li class="is-gate"><span>G-01</span><b>Approval</b><small>Release check</small></li><li class="is-product"><span>06</span><b>Publish</b><small>Distribution</small></li><li><span>07</span><b>Operate</b><small>Measure value</small></li></ol><div class="feature-split"><figure class="screen-frame reveal"><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/03-factory-floor.jpg"><img src="assets/screenshots/desktop/03-factory-floor.jpg" alt="Data Works AI product factory" width="1440" height="900" loading="lazy"></picture><figcaption><span>STATION 03</span><strong>AI product factory</strong></figcaption></figure><div class="direct-answer reveal"><p class="kicker">FACTORY FLOOR</p><h3>Can AI runs be audited?</h3><p><strong>Yes.</strong> Model, prompt version, latency, tokens, cost, and evaluation results are recorded for a reproducible product process.</p><ul><li>Streaming-first AI calls</li><li>Up to 262,144 configured tokens</li><li>Run replay and evaluation</li><li>Data Works Copilot</li></ul></div></div><div class="feature-split feature-split-reverse"><div class="direct-answer reveal"><p class="kicker kicker-amber">RELEASE GATE</p><h3>Can I see why publishing is blocked?</h3><p><strong>Yes.</strong> Instead of a generic error, the gate visualizes every condition, overall readiness, and the exact action required.</p><ul><li>Asset readiness threshold</li><li>Owner, legal, and compliance approval</li><li>Evidence Pack and expiry checks</li><li>Contract, SLA, and masking signals</li></ul></div><figure class="screen-frame gate-frame reveal"><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/product/00-overview-release-gate.jpg"><img src="assets/screenshots/desktop/product/00-overview-release-gate.jpg" alt="Product Release Gate showing readiness and blockers" width="1440" height="900" loading="lazy"></picture><figcaption><span>GATE G-01</span><strong>Readiness and blockers</strong></figcaption></figure></div></div></section>
 
-  <!-- Hero Section -->
-  <section class="hero-section">
-    <div class="container">
-      <div class="badge">
-        <span class="badge-dot"></span>
-        <span data-i18n="badgeText">Enterprise Data Product Factory Platform v0.9</span>
-      </div>
-      
-      <h1 class="hero-title" data-i18n="heroTitle">
-        Transform Internal Data Assets Into <br/>
-        <span class="gradient-text">Monetizable Data Products & APIs</span>
-      </h1>
-      
-      <p class="hero-subtitle" data-i18n="heroSubtitle">
-        Data Works collects enterprise schemas, datasets, and reports to fully automate data monetization — from readiness assessment and AI Product Canvas generation to compliance Evidence Packs and runtime API deployment.
-      </p>
+    <section class="section screens-section" id="screens"><div class="shell"><div class="section-heading reveal"><p class="kicker">REAL PRODUCT SCREENS</p><h2>What does Data Works really look like?</h2><p>These are direct captures from the v0.9.32 service using fictional demo data; no customer or production data is included. Select any image to enlarge it.</p></div><div class="spotlight-grid"><figure class="spotlight spotlight-wide reveal" data-lightbox><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/06-supply-chain-map.jpg"><img src="assets/screenshots/desktop/06-supply-chain-map.jpg" alt="Supply chain map connecting assets, products, APIs, and customer outcomes" width="1440" height="900" loading="lazy"></picture><figcaption><span>PIPE · NODE</span><strong>Supply chain map</strong><small>Asset → Product → API → Customer outcome</small></figcaption></figure><figure class="spotlight reveal" data-lightbox><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/02-data-assets.jpg"><img src="assets/screenshots/desktop/02-data-assets.jpg" alt="Data asset catalog and readiness" width="1440" height="900" loading="lazy"></picture><figcaption><span>MATERIAL</span><strong>Data assets</strong><small>Manage quality and sensitivity as material</small></figcaption></figure><figure class="spotlight reveal" data-lightbox><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/05-review-center.jpg"><img src="assets/screenshots/desktop/05-review-center.jpg" alt="Review center" width="1440" height="900" loading="lazy"></picture><figcaption><span>SIGNAL</span><strong>Review center</strong><small>Approvals and risk in one queue</small></figcaption></figure><figure class="spotlight reveal" data-lightbox><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/07-marketplace.jpg"><img src="assets/screenshots/desktop/07-marketplace.jpg" alt="Data product marketplace" width="1440" height="900" loading="lazy"></picture><figcaption><span>PACKAGE</span><strong>Marketplace</strong><small>Explore released products and open their workspaces</small></figcaption></figure><figure class="spotlight reveal" data-lightbox><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/08-analytics.jpg"><img src="assets/screenshots/desktop/08-analytics.jpg" alt="Data product analytics" width="1440" height="900" loading="lazy"></picture><figcaption><span>VALUE</span><strong>Analytics</strong><small>Track funnel and revenue signals</small></figcaption></figure><figure class="spotlight reveal" data-lightbox><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/11-personal-api-keys.jpg"><img src="assets/screenshots/desktop/11-personal-api-keys.jpg" alt="Personal API key management" width="1440" height="900" loading="lazy"></picture><figcaption><span>PERSONAL</span><strong>Personal API keys</strong><small>Update permissions and rotate safely</small></figcaption></figure><figure class="spotlight spotlight-wide reveal" data-lightbox><picture><source media="(max-width:640px)" srcset="assets/screenshots/mobile/13-admin-keycloak-sso.jpg"><img src="assets/screenshots/desktop/13-admin-keycloak-sso.jpg" alt="Keycloak OIDC administration" width="1440" height="900" loading="lazy"></picture><figcaption><span>ADMIN</span><strong>Keycloak SSO and runtime</strong><small>Separate service administration from personalization</small></figcaption></figure></div><div class="gallery-heading reveal"><div><p class="kicker">COMPLETE SCREEN ATLAS</p><h3>Explore every screen</h3></div><p>Desktop and mobile captures adapt to your viewport. <span class="future-key">Extension preview</span> honestly marks work modules that are not yet interactive.</p></div><div class="screen-gallery" data-gallery>
+      <figure data-lightbox data-shot="00-login" data-label="Login"></figure><figure data-lightbox data-shot="01-control-room" data-label="Control room"></figure><figure data-lightbox data-shot="02-data-assets" data-label="Data assets"></figure><figure data-lightbox data-shot="03-factory-floor" data-label="AI product factory"></figure><figure data-lightbox data-shot="04-products" data-label="Products"></figure><figure data-lightbox data-shot="05-review-center" data-label="Review center"></figure><figure data-lightbox data-shot="06-supply-chain-map" data-label="Supply chain map"></figure><figure data-lightbox data-shot="07-marketplace" data-label="Marketplace"></figure><figure data-lightbox data-shot="08-analytics" data-label="Analytics"></figure><figure data-lightbox data-shot="09-governance" data-label="Governance"></figure><figure data-lightbox data-shot="10-personal-workspace" data-label="Personal workspace"></figure><figure data-lightbox data-shot="11-personal-api-keys" data-label="Personal API keys"></figure><figure data-lightbox data-shot="12-admin-ai-mcp" data-label="AI · MCP settings"></figure><figure data-lightbox data-shot="13-admin-keycloak-sso" data-label="Keycloak SSO"></figure><figure data-lightbox data-shot="14-admin-runtime-settings" data-label="Runtime settings"></figure><figure data-lightbox data-shot="15-profile-menu" data-label="Profile menu"></figure><figure class="mobile-navigation-shot" data-lightbox><picture><img src="assets/screenshots/mobile/19-mobile-navigation.jpg" alt="Expanded Data Works navigation on mobile" width="390" height="844" loading="lazy"></picture><figcaption>Mobile navigation</figcaption></figure><figure data-lightbox data-shot="16-command-palette" data-label="Command palette"></figure><figure data-lightbox data-shot="17-notification-center" data-label="Notification center"></figure><figure data-lightbox data-shot="18-dataworks-copilot" data-label="Data Works Copilot"></figure>
+      <figure data-lightbox data-shot="product/00-overview-release-gate" data-label="Product · Overview and Release Gate"></figure><figure data-lightbox data-shot="product/01-assets" data-label="Product · Assets"></figure><figure data-lightbox data-shot="product/02-blueprint" data-label="Product · Blueprint"></figure><figure class="future-screen" data-lightbox data-shot="product/03-api" data-label="Product · API" data-future="true"></figure><figure class="future-screen" data-lightbox data-shot="product/04-customers" data-label="Product · Customers" data-future="true"></figure><figure data-lightbox data-shot="product/05-risk" data-label="Product · Risk"></figure><figure data-lightbox data-shot="product/06-approvals" data-label="Product · Approvals"></figure><figure data-lightbox data-shot="product/07-evidence" data-label="Product · Evidence"></figure><figure data-lightbox data-shot="product/08-contracts" data-label="Product · Contracts"></figure><figure class="future-screen" data-lightbox data-shot="product/09-usage" data-label="Product · Usage" data-future="true"></figure><figure class="future-screen" data-lightbox data-shot="product/10-revenue" data-label="Product · Revenue" data-future="true"></figure><figure class="future-screen" data-lightbox data-shot="product/11-versions" data-label="Product · Versions" data-future="true"></figure><figure class="future-screen" data-lightbox data-shot="product/12-activity" data-label="Product · Activity" data-future="true"></figure>
+    </div></div></section>
 
-      <div class="hero-cta-group">
-        <a href="#simulator" class="btn-primary" data-i18n="btnPrimary">Try Productization Workflow</a>
-        <a href="DataWorks_Product_Guide.pdf" target="_blank" class="btn-secondary" data-i18n="btnDocs">View Guide PDF</a>
-      </div>
+    <section class="section security-section"><div class="shell security-grid"><div class="section-heading reveal"><p class="kicker">IDENTITY · KEYS · GOVERNANCE</p><h2>How are administration and personal permissions separated?</h2><p>Service connections live in administration; personal work and API keys live in personalization. Roles and key policies remain adjustable.</p><a class="text-link" href="admin-guide.html">Read the administrator guide <span>→</span></a></div><div class="security-list"><article class="reveal"><span>SSO</span><div><h3>Simple Keycloak OIDC</h3><p>Enter the issuer URL, Client ID, and Secret to configure discovery and PKCE login.</p></div></article><article class="reveal"><span>KEY</span><div><h3>Mutable key permissions</h3><p>Change scope, IP, model, provider, budget, and expiry, then rotate while preserving policy.</p></div></article><article class="reveal"><span>AI</span><div><h3>Streaming AI and MCP</h3><p>Manage streaming defaults, model policy, and token limits, then connect with OpenAPI and MCP.</p></div></article></div></div></section>
 
-      <div class="hero-image-wrapper">
-        <img src="assets/hero.jpg" alt="Data Works Enterprise Dashboard" class="hero-image" loading="lazy">
-      </div>
-    </div>
-  </section>
+    <section class="section deployment-section" id="deployment"><div class="shell deployment-grid"><div class="section-heading reveal"><p class="kicker kicker-green">OFFLINE READY</p><h2>Can Data Works run on an air-gapped network?</h2><p><strong>Yes.</strong> Import the single Docker image archive and supply four environment variables. The frontend needs no CDN or external font at runtime.</p><div class="env-chips"><code>POSTGRES_DSN</code><code>BOOTSTRAP_ADMIN</code><code>BOOTSTRAP_ADMIN_PASSWORD</code><code>ENCRYPTION_KEY</code></div></div><div class="terminal reveal" aria-label="Offline Data Works example"><div class="terminal-bar"><i></i><i></i><i></i><span>offline-install.sh</span></div><pre><code><span># Load the image archive</span>
+gunzip -c dataworks-v0.9.32.tar.gz | docker load
 
-  <!-- Metric Stats -->
-  <section class="stats-section">
-    <div class="container">
-      <div class="stats-grid">
-        <div class="glass-panel stat-card">
-          <div class="stat-number" data-i18n="stat1Val">100 Points</div>
-          <div class="stat-label" data-i18n="stat1Lbl">Auto Readiness Score Calculation</div>
-        </div>
-        <div class="glass-panel stat-card">
-          <div class="stat-number" data-i18n="stat2Val">409 Conflict</div>
-          <div class="stat-label" data-i18n="stat2Lbl">Publish Gate Blocks on Missing Approvals</div>
-        </div>
-        <div class="glass-panel stat-card">
-          <div class="stat-number" data-i18n="stat3Val">OpenAPI 3.1</div>
-          <div class="stat-label" data-i18n="stat3Lbl">Auto-Generated Runtime API Specification</div>
-        </div>
-        <div class="glass-panel stat-card">
-          <div class="stat-number" data-i18n="stat4Val">100%</div>
-          <div class="stat-label" data-i18n="stat4Lbl">Auditable Evidence Pack Guaranteed</div>
-        </div>
-      </div>
-    </div>
-  </section>
+<span># Start with four required variables</span>
+docker run -d --name dataworks -p 8080:8080 \
+  -e POSTGRES_DSN \
+  -e BOOTSTRAP_ADMIN \
+  -e BOOTSTRAP_ADMIN_PASSWORD \
+  -e ENCRYPTION_KEY \
+  dataworks:v0.9.32</code></pre></div></div></section>
 
-  <!-- Features Section -->
-  <section id="features" class="features-section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" data-i18n="featTitle">Core Features of Enterprise Data Productization</h2>
-        <p class="section-desc" data-i18n="featDesc">A factory system perfectly combining business value creation and regulatory compliance beyond simple data queries</p>
-      </div>
-
-      <div class="features-grid">
-        <div class="glass-panel feature-card">
-          <div class="feature-icon">🔍</div>
-          <h3 class="feature-title" data-i18n="f1Title">Asset Collection & Readiness Assessment</h3>
-          <p class="feature-desc" data-i18n="f1Desc">Automatically evaluates schema, freshness, samples, missing rates, sensitivity, and API readiness on a 100-point scale.</p>
-        </div>
-
-        <div class="glass-panel feature-card">
-          <div class="feature-icon">🤖</div>
-          <h3 class="feature-title" data-i18n="f2Title">AI Product Canvas Generation</h3>
-          <p class="feature-desc" data-i18n="f2Desc">Analyzes industry and customer segment needs to auto-generate product ideas, customer scenarios, pricing, and risk review reports.</p>
-        </div>
-
-        <div class="glass-panel feature-card">
-          <div class="feature-icon">🛡️</div>
-          <h3 class="feature-title" data-i18n="f3Title">Compliance Approval Trace</h3>
-          <p class="feature-desc" data-i18n="f3Desc">Links Data Owner, Legal, and Security approvals in a matrix and archives them as auditable JSON Evidence Packs.</p>
-        </div>
-
-        <div class="glass-panel feature-card">
-          <div class="feature-icon">🚫</div>
-          <h3 class="feature-title" data-i18n="f4Title">Strict Publish Gate</h3>
-          <p class="feature-desc" data-i18n="f4Desc">Automatically blocks launches for sensitive data (personal credit/pseudonymized) and risk_score >= 70 products when readiness or approvals are incomplete.</p>
-        </div>
-
-        <div class="glass-panel feature-card">
-          <div class="feature-icon">⚡</div>
-          <h3 class="feature-title" data-i18n="f5Title">Runtime API & Entitlements</h3>
-          <p class="feature-desc" data-i18n="f5Desc">Instantly binds per-contract call limits, validity periods, allowed field scopes, and API keys to runtime endpoints.</p>
-        </div>
-
-        <div class="glass-panel feature-card">
-          <div class="feature-icon">📊</div>
-          <h3 class="feature-title" data-i18n="f6Title">Operations & Funnel Analytics</h3>
-          <p class="feature-desc" data-i18n="f6Desc">Track idea-to-launch conversion funnels, factory replay lineage, and revenue/risk performance at a glance.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Interactive Pipeline Simulator -->
-  <section id="simulator" class="sim-section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" data-i18n="simTitle">Data Productization Pipeline Simulator</h2>
-        <p class="section-desc" data-i18n="simDesc">Click through the step tabs to see how Data Works processes data assets through the pipeline.</p>
-      </div>
-
-      <div class="glass-panel sim-container">
-        <div class="sim-tabs">
-          <button class="sim-tab-btn active" data-tab="tab1" data-i18n="tab1">1. Asset Collection & Readiness</button>
-          <button class="sim-tab-btn" data-tab="tab2" data-i18n="tab2">2. AI Idea & Canvas</button>
-          <button class="sim-tab-btn" data-tab="tab3" data-i18n="tab3">3. Evidence Pack & Approval</button>
-          <button class="sim-tab-btn" data-tab="tab4" data-i18n="tab4">4. Publish Gate & API Deploy</button>
-        </div>
-
-        <div class="sim-content-box">
-          <div class="sim-info">
-            <h3 id="sim-title">Data Asset Collection & Readiness Assessment</h3>
-            <p id="sim-desc">Collects internal datasets/tables/APIs and evaluates schema completeness, missing rates, freshness, and sensitivity (Personal/Pseudonymized) from multiple angles.</p>
-            <div id="sim-badges" class="sim-badge-list">
-              <!-- Populated dynamically -->
-            </div>
-          </div>
-
-          <div class="code-window">
-            <div class="code-header">
-              <span class="code-dot red"></span>
-              <span class="code-dot yellow"></span>
-              <span class="code-dot green"></span>
-              <span class="code-title">dataworks_pipeline_payload.json</span>
-            </div>
-            <pre class="code-body"><code id="sim-code">// Loading payload...</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Publish Gate Criteria -->
-  <section id="publish-gate" class="arch-section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" data-i18n="gateTitle">Publish Gate Criteria for Safe Data Distribution</h2>
-        <p class="section-desc" data-i18n="gateDesc">High-risk (risk_score >= 70) and sensitive profile data products must pass the following 4 verifications.</p>
-      </div>
-
-      <div class="arch-grid">
-        <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g1Title">1. Asset Readiness Score >= 70</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g1Desc">Quality and readiness scores of all connected source assets must meet minimum thresholds.</p>
-        </div>
-        <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g2Title">2. Required Approval Trace Matrix Complete</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g2Desc">Approval evidence (Approved/Waived) from all 3 stakeholders — Data Owner, Legal, Compliance — must be valid.</p>
-        </div>
-        <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g3Title">3. Evidence Pack Generation Verified</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g3Desc">A complete JSON Pack including product definition, risk review, and contract terms must be generated.</p>
-        </div>
-        <div class="glass-panel gate-card">
-          <h3 style="margin-bottom:8px; color:var(--primary-cyan);" data-i18n="g4Title">4. Approval Expiry Auto-Detection</h3>
-          <p style="font-size:0.9rem; color:var(--text-muted);" data-i18n="g4Desc">Expired approval evidence is not recognized as valid and returns a 409 Conflict error.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ Section (AEO & Search Optimization) -->
-  <section id="faq" class="faq-section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" data-i18n="faqTitle">Frequently Asked Questions (FAQ & AI Knowledge)</h2>
-        <p class="section-desc" data-i18n="faqDesc">Key answers about adopting and operating Data Works.</p>
-      </div>
-
-      <div class="faq-list">
-        <div class="faq-item active">
-          <button class="faq-question">
-            <span data-i18n="q1">Q1. How does Data Works integrate with existing Kubernetes Hub and databases?</span>
-            <span class="faq-icon">▼</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="a1">Data Works reuses existing gateway core, Admin UI, PostgreSQL/SQLite storage, and ClickHouse analytics engine while providing a RESTful API suite optimized for data productization workflows.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button class="faq-question">
-            <span data-i18n="q2">Q2. What criteria does Publish Gate use to block product launches?</span>
-            <span class="faq-icon">▼</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="a2">For products with risk_score >= 70 or sensitive profiles (personal_credit, pseudonymized), launches are automatically blocked with 409 Conflict when readiness is below 70 or the 3 mandatory approvals (Owner, Legal, Compliance) are missing.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button class="faq-question">
-            <span data-i18n="q3">Q3. How do you access the generated OpenAPI 3.1 spec and runtime API?</span>
-            <span class="faq-icon">▼</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="a3">Obtain the OpenAPI spec via the /admin/dataworks/products/{key}/openapi endpoint, and perform runtime queries via /v1/data-products/{key}/query with valid API Key and Entitlement verification.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer & Email Contact -->
-  <footer>
-    <div class="container">
-      <div class="footer-content">
-        <div class="logo">
-          <div class="logo-icon">DW</div>
-          <span>Data Works</span>
-        </div>
-
-        <div class="footer-contact">
-          <strong data-i18n="footerContactTitle">Data Productization & Partnership Inquiries</strong><br>
-          <span data-i18n="footerEmailText">Email:</span> 
-          <a href="mailto:gagagiga@naver.com">gagagiga@naver.com</a>
-        </div>
-      </div>
-
-      <div class="footer-copy" data-i18n="footerRights">
-        © 2026 Data Works Team. All rights reserved.
-      </div>
-    </div>
-  </footer>
-
-  <!-- Main JavaScript Application -->
-  <script src="app.js"></script>
+    <section class="section faq-section" id="faq"><div class="shell faq-grid"><div class="section-heading reveal"><p class="kicker">QUICK ANSWERS</p><h2>Frequently asked questions</h2><p>Direct answers to the operational, security, and integration questions teams ask before adoption.</p></div><div class="faq-list"><details class="reveal"><summary>What problem does Data Works solve?<span></span></summary><p>It connects discovery, readiness, risk, approvals, evidence, contracts, and delivery as APIs or reports in one product-centered workspace.</p></details><details class="reveal"><summary>Can it operate without internet access?<span></span></summary><p>Yes. Transfer the single Docker image archive and configure PostgreSQL, a bootstrap administrator, and an encryption key.</p></details><details class="reveal"><summary>What does the Release Gate check?<span></span></summary><p>It checks asset readiness, owner, legal and compliance approvals, the Evidence Pack, expiry, and operational settings, then explains each blocker.</p></details><details class="reveal"><summary>Are Keycloak and personal API keys supported?<span></span></summary><p>Yes. Keycloak OIDC and PKCE are supported. Personal key permissions can be edited after issuance and preserved during rotation.</p></details><details class="reveal"><summary>How are AI and external tools connected?<span></span></summary><p>AI streams by default and accounts for up to 262,144 tokens. OpenAPI 3.1, Swagger, and MCP connect external tools.</p></details></div></div></section>
+    <section class="cta-section"><div class="shell cta-card reveal"><div><p class="kicker">START THE REFINERY</p><h2>Move from storing data<br>to operating products.</h2></div><div class="cta-actions"><a class="button button-light" href="https://github.com/hkjang/dataworks">GitHub repository</a><a class="button button-outline-light" href="user-guide.html">User guide</a></div></div></section>
+  </main>
+  <footer class="site-footer"><div class="shell footer-grid"><div><a class="brand brand-footer" href="#top"><img src="assets/dataworks-mark.svg" alt="" width="36" height="36"><span><strong>DATA WORKS</strong><small>Digital Data Refinery</small></span></a><p>One platform to discover, design, approve, and operate data products.</p></div><div><strong>Product</strong><a href="#capabilities">Capabilities</a><a href="#screens">Real screens</a><a href="#deployment">Offline deployment</a></div><div><strong>Docs</strong><a href="user-guide.html">User guide</a><a href="admin-guide.html">Administrator guide</a><a href="https://github.com/hkjang/dataworks/releases">Releases</a></div><div><strong>Contact</strong><a href="mailto:gagagiga@naver.com">gagagiga@naver.com</a><a href="index.html" lang="ko">한국어</a></div></div><div class="shell footer-bottom"><span>© 2026 Data Works Team</span><span>v0.9.32 · Built for controlled data operations</span></div></footer>
+  <dialog class="lightbox" data-lightbox-dialog aria-label="Enlarged product screen"><button type="button" class="lightbox-close" data-lightbox-close aria-label="Close screen">×</button><img alt=""><p></p></dialog><script src="app.js" defer></script>
 </body>
 </html>

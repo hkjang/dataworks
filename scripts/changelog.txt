@@ -1,3 +1,6 @@
+v0.9.32:
+- **GitHub Pages 홍보 사이트 및 운영 가이드 고도화 (v0.9.32)**: `docs/` 홍보 페이지를 Digital Data Refinery 디자인으로 전면 개편하고 실제 React UI의 로그인·관제실·자산·공장·상품·출시 게이트·공급망·마켓·분석·거버넌스·개인 키·관리자 설정·상품 작업공간 전체 화면을 데스크톱과 모바일로 캡처해 기능 설명과 전체 갤러리에 연결. 한국어 기본 반응형 내비게이션, 접근 가능한 FAQ·라이트박스, 사용자·관리자 HTML/Markdown 가이드, canonical·hreflang·Open Graph·Twitter Card·robots.txt·sitemap.xml 및 WebSite·SoftwareApplication·FAQPage·HowTo·TechArticle 구조화 데이터를 보강해 SEO와 AEO를 개선. 캡처 재생성용 Playwright fixture/자동화를 추가하고 문서 링크·모바일·메타데이터를 검증했으며 `dataworks:v0.9.32` 이미지를 `dataworks-v0.9.32.tar.gz` 단일 오프라인 GitHub Release asset으로 배포.
+
 v0.9.31:
 - **Digital Data Refinery 운영 UI 및 폐쇄망 배포 고도화 (v0.9.31)**: Go API를 유지하면서 React 19·TypeScript·Vite 기반 Data Works SPA를 추가하고, 한국어 관제실·상품 공장·상품 작업 공간·생명주기·출시 게이트·공급망 지도·개인화 키 관리·관리자 설정을 `Node → Station → Gate → Package → Signal` 디자인 언어로 통합. 직접 URL 새로고침 복원, 로그인·프로필 버전 표시, 가독성 및 프로필 메뉴 스크롤바를 보강하고, 공개 랜딩 페이지의 한·영 자동 전환·영문 콘텐츠·SEO/AEO 메타데이터를 개선. Keycloak OIDC 간편 연동과 암호화된 관리자 설정, 기본 AI 스트리밍 및 최대 262,144 토큰, 발급 후 조정·회전·폐기가 가능한 개인 API 키 권한 체계를 제공. `POSTGRES_DSN`, `BOOTSTRAP_ADMIN`, `BOOTSTRAP_ADMIN_PASSWORD`, `ENCRYPTION_KEY` 네 환경변수만으로 폐쇄망 운영이 가능하도록 부트스트랩하고, `dataworks:v0.9.31` 이미지를 `dataworks-v0.9.31.tar.gz` 단일 GitHub Release asset으로 배포하는 파이프라인을 정비.
 

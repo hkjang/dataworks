@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Data Works</title>
+  <desc id="desc">데이터 흐름과 정제 단계를 표현한 Data Works 심볼</desc>
+  <defs>
+    <linearGradient id="g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#286487"/><stop offset="1" stop-color="#147153"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="14" fill="#13201b"/>
+  <circle cx="18" cy="22" r="5" fill="#8cc8df"/>
+  <circle cx="18" cy="42" r="5" fill="#b7dfc8"/>
+  <path d="M23 22h7c5 0 7 3 7 7v6c0 4 2 7 7 7h2M23 42h6c5 0 8-3 8-7v-6c0-4 2-7 7-7h2" fill="none" stroke="url(#g)" stroke-width="4" stroke-linecap="round"/>
+  <rect x="44" y="17" width="10" height="10" rx="3" fill="#8cc8df"/>
+  <rect x="44" y="37" width="10" height="10" rx="3" fill="#62b487"/>
+</svg>

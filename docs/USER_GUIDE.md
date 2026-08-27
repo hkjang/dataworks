@@ -1,338 +1,327 @@
-# 사용자 가이드 (개발자용)
+# Data Works 사용자 가이드
 
-> **참고 — Clustara는 Kubernetes 운영 허브입니다.** 이 문서는 Clustara에 **내장된 OpenAI 호환 게이트웨이 코어**에 AI 코딩 도구를 연결하는 방법(선택/레거시 기능)을 설명합니다. 현재 어드민 UI 메뉴는 K8s 운영 중심으로 구성되어 있으며, K8s 운영 기능은 **[K8s 운영 허브 가이드](K8S_OPERATIONS_HUB.md)** 를 참고하세요.
+> 적용 버전: **v0.9.32**<br>
+> 서비스 화면: `http://<host>:8080/dataworks/`<br>
+> 설치·인증·AI 공급자 설정은 [관리자 가이드](ADMIN_GUIDE.md)를 참고하세요.
 
-AI 코딩 도구가 OpenAI 호환 API 를 직접 호출하는 대신 사내 프록시 Clustara를 경유하도록 설정하는 방법입니다. 한 번 설정해두면 코드 변경 없이 사용량/비용/언어 통계가 자동으로 회사에 기록됩니다.
+Data Works는 데이터 자산을 준비도 평가, 상품 설계, 위험 검토, 승인, 증적, 계약, 출시와 운영 분석으로 연결하는 데이터 상품 운영 서비스입니다. 기본 화면과 버튼은 한국어로 제공되며 데스크톱과 모바일 브라우저를 지원합니다.
 
----
+## 1. 로그인과 화면 구성
 
-## 1. 사전 준비
+서비스 주소의 `/dataworks/`로 접속합니다.
 
-Clustara 운영자에게 다음을 받으세요.
+- **로컬 로그인**: 운영자가 발급한 이메일과 비밀번호를 입력합니다.
+- **Keycloak SSO**: `Keycloak SSO로 계속` 버튼이 보이면 조직 계정으로 로그인합니다.
+- 로그인 화면 아래와 로그인 후 프로필 메뉴에서 현재 **서비스 버전**을 확인할 수 있습니다.
+- 프로필 메뉴에서는 내 작업 공간, 내 API 키, 관리자 설정(권한이 있는 경우), OpenAPI와 Swagger 문서로 이동합니다.
 
-- **Clustara 주소**: 예시 `http://clustara.intra:9090`
-- **Proxy API Key**: `pcg_xxxxxxxx...` 형태 — 한 번만 표시되므로 받자마자 안전한 곳에 보관
-- **사용 가능한 provider 이름**: 예시 `openai`, `anthropic` 등 (선택)
+![Data Works 로그인](assets/screenshots/desktop/00-login.jpg)
 
-> 별도 키를 못 받았다면 어드민 화면에서 키가 한 개도 발급되지 않은 상태입니다. 이 경우 임의 토큰으로도 동작하지만, 통계가 "anonymous" 로 잡혀 본인 인식이 안 됩니다. 운영자에게 키 발급을 요청하세요.
+> 문서의 화면은 비밀값이 없는 데모 데이터로 촬영했습니다. 실제 사용자, 고객, 계약 또는 키 정보가 아닙니다.
 
----
+### 주요 메뉴
 
-## 2. 공통 — Base URL 만 바꾸면 끝
-
-OpenAI SDK / Roo Code / Cline / Cursor 모두 동일한 패턴입니다.
-
-| 항목 | 기존 | 변경 |
+| 메뉴 | 주소 | 용도 |
 | --- | --- | --- |
-| Base URL | `https://api.openai.com/v1` | `http://clustara.intra:9090/v1` |
-| API Key | `sk-…` (OpenAI 발급) | `pcg_…` (회사 발급 proxy key) |
-| 모델명 | `gpt-4.1-mini` 등 | 그대로 사용 가능 |
+| 관제실 | `/dataworks/` | 생산 흐름, 주의 작업, 포트폴리오와 최근 실행 |
+| 데이터 자산 | `/dataworks/assets` | 자산, 담당자, 민감도와 준비도 검색·조회 |
+| 상품 공장 | `/dataworks/factory` | AI 상품화 실행과 정책 판정 조회 |
+| 데이터 상품 | `/dataworks/products` | 상품 목록과 Product Workspace 진입 |
+| 검토 센터 | `/dataworks/review` | 출시 차단, 승인 대기, 만료·운영 경고 분류 |
+| 공급망 지도 | `/dataworks/portfolio` | 자산→상품→API→고객 관계 탐색 |
+| 마켓플레이스 | `/dataworks/marketplace` | 출시된 상품 탐색 |
+| 성과 분석 | `/dataworks/analytics` | 생명주기, 수익과 위험 분포 |
+| 거버넌스 | `/dataworks/governance` | 승인, 계약, 권한과 출시 통제 |
+| 내 작업 공간 | `/dataworks/personal` | 개인 사용량, 비용, 품질과 보안 신호 |
+| 내 API 키 | `/dataworks/personal/keys` | 개인 키 발급, 변경, 회전과 폐기 |
 
-업스트림 vendor API key 는 Clustara가 대신 들고 있으니, 개발자 본인은 **proxy key만** 알면 됩니다. 한 번도 OpenAI 키를 본인 PC 에 두지 않아도 됩니다.
+브라우저를 새로고침해도 현재 주소를 기준으로 같은 메뉴가 다시 열립니다. 모바일에서는 상단 메뉴 버튼으로 탐색 메뉴를 엽니다.
 
----
+### 공통 도구
 
-## 3. 도구별 설정
+- `Ctrl+K` 또는 `Cmd+K`: 명령 팔레트와 통합 검색
+- 알림 버튼: 승인 대기, 출시 차단과 운영 신호
+- `코파일럿에게 묻기`: 현재 상품 또는 운영 상황을 AI에 질문
+- 테마 버튼: 밝은 화면과 어두운 화면 전환
 
-### 3.1 Roo Code (VS Code 확장)
+![프로필 메뉴와 서비스 버전](assets/screenshots/desktop/15-profile-menu.jpg)
 
-1. VS Code 설정에서 `Roo Code: OpenAI Base URL` 검색
-2. `http://clustara.intra:9090/v1` 입력
-3. `Roo Code: OpenAI API Key` 에 `pcg_xxxxxxxx...` 입력
-4. 모델을 평소 쓰던 것 (`gpt-4.1-mini` 등) 으로 선택
+## 2. 관제실에서 하루 시작하기
 
-### 3.2 Cline
+관제실은 처리할 일을 먼저 보여주는 작업 공간입니다.
 
-1. 설정 → API Provider 를 `OpenAI Compatible` 로 선택
-2. Base URL: `http://clustara.intra:9090/v1`
-3. API Key: `pcg_...`
-4. Model: 원하는 모델명 (`gpt-4.1-mini`, `claude-3-5-sonnet` 등)
+1. `RAW → READY → BUILD → LIVE` 생산 흐름을 확인합니다.
+2. 출시 차단, 승인 대기, 계약 만료, 마진 경고와 오래된 자산을 확인합니다.
+3. 카드를 선택해 필터가 적용된 검토 센터로 이동합니다.
+4. 권장 조치에서 영향도가 높은 상품을 엽니다.
+5. 최근 상품과 상품 공장 실행 상태를 확인합니다.
 
-### 3.3 Cursor
+![팩토리 관제실](assets/screenshots/desktop/01-control-room.jpg)
 
-1. `Cmd/Ctrl + ,` → `Cursor Settings` → `Models`
-2. "Add Custom OpenAI Base URL" 토글
-3. URL: `http://clustara.intra:9090/v1`
-4. API Key: `pcg_...`
+## 3. 데이터 자산과 준비도
 
-### 3.4 Continue (VS Code/JetBrains)
+`데이터 자산`에서는 자산 이름·키·도메인·담당자로 검색하고 도메인과 민감도로 필터링합니다. 준비도는 스키마, 최신성, 샘플, 결측, 민감도, 외부 제공 가능성, API와 과금 준비 등을 100점 기준으로 나타냅니다.
 
-`~/.continue/config.json` 의 model 에 다음 추가:
+민감하거나 고위험인 상품의 원천 자산은 준비도 `70` 미만이면 출시가 차단될 수 있습니다.
 
-```json
-{
-  "models": [
-    {
-      "title": "회사 프록시",
-      "provider": "openai",
-      "model": "gpt-4.1-mini",
-      "apiBase": "http://clustara.intra:9090/v1",
-      "apiKey": "pcg_xxxxxxxx..."
-    }
-  ]
-}
+현재 React 화면의 `준비도 점검 실행`은 아직 일괄 평가 작업에 연결되지 않았습니다. 운영자는 관리 API를 사용합니다.
+
+```http
+POST /admin/dataworks/assets/{asset_key}/readiness/check
+GET  /admin/dataworks/assets/readiness?asset_key={asset_key}
 ```
 
-### 3.5 OpenAI Python SDK
+![데이터 자산](assets/screenshots/desktop/02-data-assets.jpg)
 
-```python
-from openai import OpenAI
+## 4. 상품 공장
 
-client = OpenAI(
-    base_url="http://clustara.intra:9090/v1",
-    api_key="pcg_xxxxxxxx...",
-)
+상품 공장은 데이터가 `입력 노드 → AI 정제 스테이션 → 정책 출시 게이트 → 상품 패키지`로 처리된 실행 이력을 보여줍니다.
 
-resp = client.chat.completions.create(
-    model="gpt-4.1-mini",
-    messages=[{"role": "user", "content": "main.go 를 리팩터링해줘"}],
-)
-print(resp.choices[0].message.content)
+- 최근 30일 실행 수와 완료 수
+- 평균 응답 시간과 토큰 비용
+- 모델과 프롬프트 버전
+- 정책 허용·차단 판정
+- 실행 상태와 생성 시각
+
+현재 React 화면은 **실행 관찰 화면**입니다. 새 아이디어·정의서 생성, 실행 재생과 평가는 관리 API 또는 기존 관리자 콘솔에서 수행합니다.
+
+```http
+POST /admin/dataworks/factory/ideas
+POST /admin/dataworks/factory/definitions
+POST /admin/dataworks/factory/runs/{id}/replay
+POST /admin/dataworks/factory/runs/{id}/evaluate
 ```
 
-### 3.6 OpenAI Node SDK
+![데이터 상품 공장](assets/screenshots/desktop/03-factory-floor.jpg)
 
-```ts
-import OpenAI from "openai";
+## 5. 데이터 상품과 Product Workspace
 
-const client = new OpenAI({
-  baseURL: "http://clustara.intra:9090/v1",
-  apiKey: "pcg_xxxxxxxx...",
-});
+`데이터 상품`에서 상품을 선택하면 상품 작업 공간이 열립니다. 상단 생명주기 단계는 자산, 아이디어, 설계, 위험, 승인, 증적, 출시, 계약과 운영 상태를 실제 저장 증적에서 계산합니다.
 
-const resp = await client.chat.completions.create({
-  model: "gpt-4.1-mini",
-  messages: [{ role: "user", content: "src/foo.ts 검토" }],
-});
-console.log(resp.choices[0].message.content);
+현재 실제 데이터를 제공하는 탭:
+
+- **개요**: 출시 게이트, 상품 점수와 완성도
+- **데이터 자산**: 원천 자산과 준비도
+- **블루프린트**: 고객 문제, 구매자, 사용 사례, 가격과 PoC 성공 기준
+- **위험**: 위험 점수, 위험 검토와 마스킹 상태
+- **승인**: 데이터 오너·법무·준법 승인과 만료 상태
+- **증적**: Evidence Pack 메타데이터와 JSON
+- **계약**: 최신 계약 버전
+
+`API`, `고객`, `사용량`, `수익`, `버전`, `활동 이력`은 현재 향후 모듈 안내 화면입니다. 관련 백엔드 API가 존재하더라도 이 React 탭에서 편집하거나 실행할 수 있다고 해석하지 마세요.
+
+![데이터 상품 목록](assets/screenshots/desktop/04-products.jpg)
+
+![상품 작업 공간](assets/screenshots/desktop/product/00-overview-release-gate.jpg)
+
+## 6. 출시 게이트 읽기
+
+상품 개요의 출시 게이트는 조건별 통과, 경고와 차단 사유를 보여줍니다. 민감하거나 `risk_score >= 70`인 상품의 주요 조건은 다음과 같습니다.
+
+- 연결 자산 준비도 `70` 이상
+- 데이터 오너 승인
+- 법무 승인
+- 준법 승인
+- Evidence Pack 존재
+- 승인 증적이 만료되지 않음
+
+게이트가 허용 상태이고 상품이 아직 출시되지 않았다면 `상품 출시` 버튼이 표시됩니다. 차단 상태에서는 먼저 표시된 이유를 해결해야 합니다. 출시 API도 같은 게이트를 적용하며 차단 시 `409 Conflict`를 반환합니다.
+
+```http
+GET  /admin/dataworks/products/{product_key}/publish-gate
+POST /admin/dataworks/products/{product_key}/publish
 ```
 
-### 3.7 curl
+![출시 게이트](assets/screenshots/desktop/product/00-overview-release-gate.jpg)
+
+## 7. 검토 센터와 거버넌스
+
+검토 센터에서는 액션 유형과 심각도를 필터링하고 대상 상품으로 이동합니다. 현재 React 검토 센터에는 승인·반려 입력 버튼이 없습니다. 승인 결정은 운영자가 관리 API 또는 기존 관리자 콘솔에서 기록합니다.
+
+```http
+GET  /admin/dataworks/reviews
+POST /admin/dataworks/reviews/{product_key}/approve
+POST /admin/dataworks/reviews/{product_key}/reject
+GET  /admin/dataworks/products/{product_key}/approvals
+POST /admin/dataworks/products/{product_key}/approvals
+```
+
+거버넌스 화면은 승인 대기, 만료 임박 계약, 비활성 사용 권한과 출시 차단 수를 요약합니다.
+
+![검토 센터](assets/screenshots/desktop/05-review-center.jpg)
+
+![거버넌스](assets/screenshots/desktop/09-governance.jpg)
+
+## 8. 공급망 지도, 마켓플레이스와 분석
+
+### 공급망 지도
+
+자산, 상품, API 제공 채널과 고객 성과의 관계를 확대·축소하며 탐색합니다. 노드의 링크로 연결 자산 또는 상품을 엽니다.
+
+### 마켓플레이스
+
+출시 상태가 `published`인 상품만 표시합니다. 현재 React 화면은 상품 탐색과 작업 공간 이동을 제공하며 접근 신청이나 PoC 요청 제출 기능은 아직 연결되지 않았습니다.
+
+### 성과 분석
+
+상품의 생명주기 분포와 상위 상품의 수익·위험 점수를 확인합니다.
+
+![공급망 지도](assets/screenshots/desktop/06-supply-chain-map.jpg)
+
+![마켓플레이스](assets/screenshots/desktop/07-marketplace.jpg)
+
+![성과 분석](assets/screenshots/desktop/08-analytics.jpg)
+
+## 9. Data Works 코파일럿
+
+상단 또는 상품 화면의 `코파일럿에게 묻기`를 선택합니다.
+
+1. 연결된 모델 이름을 확인합니다.
+2. 최대 토큰을 `1`~`262144` 범위에서 설정합니다.
+3. 출시 차단 이유, 준비도 또는 다음 조치를 질문합니다.
+4. 응답은 SSE 스트리밍으로 도착하며 `중지` 버튼으로 취소할 수 있습니다.
+
+코파일럿은 현재 상품 키를 대화에 포함하지만 서버의 모든 상품 데이터를 자동 조회하는 도구형 에이전트는 아닙니다. 답변은 실제 출시 게이트와 증적 화면에서 확인하세요.
+
+![Data Works 코파일럿](assets/screenshots/desktop/18-dataworks-copilot.jpg)
+
+## 10. 내 작업 공간
+
+개인화 화면은 서비스 관리자 화면과 분리되어 있습니다.
+
+- 오늘 요청과 오류
+- 이번 달 요청, 토큰과 비용
+- 성공률과 위험 점수
+- 평균 응답 시간, 캐시와 MCP 활용률
+- 개인 키 경고와 최근 실패
+
+개인화 지표는 원문 프롬프트가 아니라 사용 메타데이터에서 계산됩니다.
+
+![내 작업 공간](assets/screenshots/desktop/10-personal-workspace.jpg)
+
+## 11. 개인 API 키 관리
+
+개인 키는 역할이 허용한 범위 안에서 직접 발급할 수 있습니다.
+
+### 발급
+
+1. `내 API 키`로 이동합니다.
+2. 키 이름과 선택적인 만료일을 입력합니다.
+3. 역할에서 발급 가능한 초기 Scope를 선택합니다.
+4. 필요하면 고급 권한 제약을 설정합니다.
+5. `개인 키 발급`을 누릅니다.
+6. 한 번만 표시되는 비밀값을 즉시 비밀 저장소에 복사합니다.
+
+### 발급 후 변경 가능한 8개 정책
+
+| 정책 | 의미 |
+| --- | --- |
+| `scopes` | 대화, 모델 조회, MCP 등 허용 기능 |
+| `allowed_ips` | 허용 IP 또는 CIDR |
+| `allowed_models` | 허용 모델 이름·패턴 |
+| `denied_models` | 차단 모델 이름·패턴 |
+| `allowed_providers` | 허용 AI 공급자 |
+| `denied_providers` | 차단 AI 공급자 |
+| `budget_limit_krw` | 원화 예산 한도, `0`은 무제한 |
+| `expires_at` | 키 만료 시각 |
+
+발급된 키의 `키 권한 조정`을 열고 변경 후 `권한 정책 저장`을 누릅니다. 최종 정책 전체가 현재 사용자의 권한과 상위 정책 범위 안에 있어야 하므로 사용자 권한보다 넓게 확대할 수 없습니다.
+
+### 회전과 폐기
+
+- `회전`: 새 비밀값과 ID를 만들고 기존 키를 폐기합니다. 8개 정책은 보존됩니다.
+- `폐기`: 키를 즉시 비활성화합니다.
+- 비밀값은 발급 또는 회전 직후에만 표시됩니다.
+
+![개인 API 키](assets/screenshots/desktop/11-personal-api-keys.jpg)
+
+## 12. OpenAI 호환 API
+
+개인 API 키를 `Authorization: Bearer` 헤더에 사용합니다. 기본 키 접두사는 `vc_sk_`입니다.
 
 ```bash
-curl http://clustara.intra:9090/v1/chat/completions \
-  -H "Authorization: Bearer pcg_xxxxxxxx..." \
-  -H "Content-Type: application/json" \
+curl http://<host>:8080/v1/models \
+  -H 'Authorization: Bearer vc_sk_...'
+```
+
+`/v1/chat/completions`에서 `stream`을 생략하면 서비스 기본값 `true`가 적용됩니다. 호출자가 `stream:false`를 명시하면 비스트리밍 응답을 유지합니다.
+
+```bash
+curl -N http://<host>:8080/v1/chat/completions \
+  -H 'Authorization: Bearer vc_sk_...' \
+  -H 'Content-Type: application/json' \
   -d '{
-    "model": "gpt-4.1-mini",
-    "stream": true,
-    "messages": [{"role":"user","content":"hello"}]
+    "model": "qwen",
+    "max_tokens": 4096,
+    "messages": [{"role":"user","content":"출시 체크리스트를 작성해 줘"}]
   }'
 ```
 
-`stream=true` 도 일반 OpenAI 응답과 동일하게 SSE 로 즉시 흘러나옵니다(Clustara가 버퍼링하지 않음).
+서비스 출력 토큰 절대 상한은 `262144`입니다. 관리자가 더 낮은 상한을 설정했거나 연결 모델의 한도가 더 낮으면 그 제한이 우선합니다.
 
-### 3.8 선택: LLM 관측 메타데이터
+## 13. MCP 사용
 
-운영자가 세션별 비용, 프롬프트 버전별 품질, 평가 실패를 추적해야 한다면 클라이언트에서 다음 헤더를 추가할 수 있습니다.
+| 주소 | 용도 |
+| --- | --- |
+| `/mcp` | 관리자가 등록한 외부 MCP 서버의 도구·프롬프트·리소스 집약 |
+| `/mcp/gateway` | Data Works 자체 기능의 MCP 도구 제공 |
 
-```bash
-X-LLM-Session-ID: sess-123
-X-LLM-Prompt-Name: code-review
-X-LLM-Prompt-Version: v7
-X-LLM-Prompt-Variables-Hash: vars-sha256
+```json
+{
+  "mcpServers": {
+    "dataworks": {
+      "url": "http://<host>:8080/mcp/gateway",
+      "headers": {"Authorization": "Bearer vc_sk_..."}
+    }
+  }
+}
 ```
 
-헤더가 없어도 호출은 정상 처리됩니다. prompt 메타데이터가 없으면 prompt는 `ad-hoc` 으로 표시됩니다. session은 아래 규칙으로 자동 그룹화됩니다.
+연결 템플릿과 진단:
 
-#### 세션 그룹화 — 무엇을 보내면 되나
-
-Clustara는 **명시적 → 추론** 순으로 세션을 정합니다.
-
-- **세션을 보내는 경우**(권장): 다음 중 아무거나. 헤더가 바디보다 우선합니다.
-  - 헤더: `X-Session-ID`, `X-Vibe-Session-ID`, `X-Conversation-ID`
-  - 바디 필드: `session_id`(Langflow), `chat_id`(OpenWebUI), `conversation_id`, `thread_id`, 또는 `metadata.session_id`
-- **세션을 안 보내는 경우**(Claude Code·Cursor·Roo·Qwen 등 대부분의 코딩 툴): Clustara가 `api_key + IP + User-Agent` 신원과 **30분 비활성 윈도우**로 세션(`sess_…`)을 자동 추론합니다. 한 작업 흐름의 연속 호출이 자연스럽게 한 세션으로 묶입니다. 30분 이상 멈췄다가 다시 호출하면 새 세션이 됩니다.
-
-repo/branch 단위로 더 잘게 나누고 싶으면 `X-Vibe-Repo`·`X-Vibe-Branch` 헤더를 추가하세요(추론 신원에 반영됨). 한 작업을 확실히 한 세션으로 고정하려면 작업 시작 시 만든 UUID를 매 호출에 `X-Vibe-Session-ID` 로 보내는 것이 가장 정확합니다.
-
-#### 커밋/MR 과 세션 연결 (Prompt → Commit → MR)
-
-프롬프트가 어떤 커밋·MR 로 이어졌는지 추적하려면, **커밋 메시지나 MR 제목에 세션 마커**를 넣으세요. 운영자가 GitLab/Bitbucket 웹훅을 Clustara에 연결해 두었다면 자동으로 세션·사용자에 연결됩니다.
-
-```
-refactor OrderController
-
-Vibe-Session: sess_8f34ab29     # 또는 [vibe:sess_8f34ab29]
+```http
+GET  /me/onboarding-pack?client=mcp|cursor|roo|cline|openai-sdk
+POST /me/connection-doctor
 ```
 
-`commit-msg` git 훅이나 커밋 템플릿으로 현재 세션 ID 를 자동 삽입하면 편리합니다. 세션 ID 는 `/v1` 응답을 직접 못 보는 도구라면 운영자에게 문의하거나, 직접 `X-Vibe-Session-ID` 로 지정한 값을 그대로 쓰면 됩니다.
+키에는 `mcp:use` Scope가 있어야 하며 모델, 공급자, IP, 예산과 MCP 도구 정책이 함께 적용됩니다.
 
-### 3.9 MCP / 도구 사용 가시성
+## 14. OpenAPI와 상품 API
 
-MCP 서버나 function calling 을 쓰는 경우(예: `tools` 배열을 보내거나 `tool_calls` 가 오가는 경우), Clustara가 자동으로 어떤 서버·도구가 호출·실패했는지 집계합니다. 별도 설정은 필요 없습니다. `mcp__<서버>__<도구>` 형태의 도구 이름은 서버별로 자동 분류됩니다. 도구 결과(`role:tool`)가 오류(`{"isError":true}` 등)이면 어드민 MCP 탭에서 오류로 집계되고, 운영자가 `tool_error_rate` 알림을 걸어두었다면 임계치 초과 시 통보됩니다.
+- 전체 서비스 OpenAPI: `/openapi.json`
+- Swagger UI: `/swagger`
+- 상품별 OpenAPI: `/admin/dataworks/products/{product_key}/openapi`
+- 출시 상품 런타임: `POST /v1/data-products/{product_key}/query`
 
-### 3.10 Knowledge Cache — 반복 규칙을 짧게 참조하기
+상품 런타임 API는 출시 상태, Entitlement, Contract Scope와 만료를 검사합니다. 일반 개인 AI 키가 특정 상품 계약에 자동 Entitlement되는 것은 아닙니다. 필요한 경우 상품 운영자에게 계약 Scope와 Entitlement 연결을 요청하세요.
 
-매번 같은 코딩 규칙·시스템 프롬프트를 통째로 보내는 대신, 운영자가 등록한 지식을 **ID로 참조**할 수 있습니다. Clustara가 업스트림 전송 시 전체 본문으로 확장합니다(모델은 전체 텍스트를 받습니다).
+## 15. 문제 해결
 
-```bash
-# 방법 1) 메시지 본문 안에 플레이스홀더
-{ "model":"gpt-4.1", "messages":[
-  { "role":"user", "content":"{{kb:coding-standards}}\n\n위 규칙에 맞게 main.go 리팩터링" }
-]}
+### 로그인할 수 없습니다
 
-# 방법 2) 헤더로 지식 주입 (시스템 메시지로 맨 앞에 추가됨)
-curl http://clustara.intra:9090/v1/chat/completions \
-  -H "Authorization: Bearer pcg_..." \
-  -H "X-Vibe-Knowledge: coding-standards,security-rules" \
-  -H "Content-Type: application/json" \
-  -d '{ "model":"gpt-4.1", "messages":[{ "role":"user", "content":"main.go 리팩터링" }] }'
-```
+- 주소가 `/dataworks/`인지 확인합니다.
+- 로컬 로그인이 비활성화된 조직은 Keycloak SSO를 사용합니다.
+- 로그인 화면의 서비스 버전을 운영자에게 전달합니다.
 
-- 사용 가능한 ID는 운영자에게 문의하세요(설정 탭에 등록). 등록 안 된/중지된 ID는 확장되지 않고 플레이스홀더가 그대로 남습니다.
-- 확장 여부는 응답 헤더 `X-Knowledge-Expanded: <id,...>` 로 확인할 수 있습니다.
-- 장점: 규칙이 바뀌어도 클라이언트 수정 없이 자동 반영, 매 호출 본문이 짧아짐.
+### API가 401 또는 403을 반환합니다
 
-### 3.10b 비용 예측 헤더 / 큰 호출 승인
+- 키 전체, 활성·만료 상태와 Scope를 확인합니다.
+- IP, 모델, 공급자와 예산 정책을 확인합니다.
+- 회전 후에는 새 키로 교체합니다.
 
-모든 chat 응답에는 Clustara가 호출 전에 추정한 값이 헤더로 붙습니다: `X-Estimated-Input-Tokens`, `X-Estimated-Output-Tokens`, `X-Estimated-Cost-KRW`, `X-Estimated-Latency-MS`. (`X-Api-Key-Id` 로 어떤 키로 인식됐는지도 확인할 수 있습니다.)
+### AI 응답이 잘립니다
 
-운영자가 **비용 가드**를 켜 둔 경우, 예상 비용이 임계값을 넘는 호출은 `HTTP 402` 로 거부됩니다. 의도한 대형 작업이면 같은 요청에 `X-Cost-Approve: 1` 헤더를 붙여 다시 보내면 승인되어 통과합니다.
+- 요청의 출력 토큰 필드와 서비스·모델 상한을 확인합니다.
+- 최대 `262144`는 서비스 절대 상한이며 모든 모델이 지원한다는 뜻은 아닙니다.
 
-```bash
-curl http://clustara.intra:9090/v1/chat/completions \
-  -H "Authorization: Bearer pcg_..." -H "X-Cost-Approve: 1" \
-  -H "Content-Type: application/json" -d '{ "model":"...", "messages":[...] }'
-```
+### 화면에 기능 설명만 표시됩니다
 
-### 3.11 MCP Gateway — 여러 MCP 서버를 한 곳에 연결
+Product Workspace의 API·고객·사용량·수익·버전·활동 이력은 현재 안내 탭입니다. 실제 운영은 관리자 가이드의 REST API를 사용하세요.
 
-여러 MCP 서버(GitHub·파일시스템·사내 도구 등)를 각각 등록하는 대신, Clustara 한 곳만 클라이언트에 설정하면 등록된 모든 서버의 도구를 함께 쓸 수 있습니다.
+## 관련 문서
 
-- 클라이언트(Claude Code·Cursor 등)의 MCP 서버 URL 을 `http://<gateway>:9090/mcp` 로 설정.
-- 인증은 LLM 호출과 동일하게 `Authorization: Bearer pcg_...`(proxy key).
-- 도구·프롬프트 이름은 `<업스트림ID>__<이름>` 형태로 보입니다(예: `github__create_issue`). 리소스는 원본 URI 그대로 보입니다. 운영자가 어떤 업스트림을 등록했는지는 운영자에게 문의하세요.
-- 지원: `initialize` / `tools/list`·`tools/call` / `resources/list`·`resources/read`·`resources/templates/list` / `prompts/list`·`prompts/get` / `ping` (JSON-RPC 2.0, Streamable HTTP). 도구·프롬프트·리소스 세 가지를 모두 집약합니다.
-
-업스트림 등록·정책(차단/allowlist)은 운영자가 어드민 MCP 탭에서 관리하며, Clustara를 통한 모든 도구 호출은 사용량·오류·반복 호출(루프) 관측에 자동 집계됩니다.
-
-### 3.12 `/mcp` vs `/mcp/gateway` — 두 엔드포인트 구분
-
-Clustara에는 이름이 비슷한 **두 가지 MCP 엔드포인트**가 있습니다. 용도가 다릅니다.
-
-- **`/mcp` (업스트림 집약)**: 위 3.11 처럼 운영자가 등록한 **외부 MCP 서버**들의 도구를 한 곳에 모아 씁니다. 도구 이름은 `<업스트림ID>__<이름>`.
-- **`/mcp/gateway` (Clustara 자체 기능)**: Clustara **자신의 기능**(chat·라우팅 미리보기·사용량/쿼터 조회·Text2SQL 미리보기·앱/워크플로 실행 등)을 MCP 도구로 노출합니다. 도구 이름은 `gateway_chat`·`gateway_route_preview`·`gateway_get_usage_summary`·`gateway_run_workflow` 등. **업스트림 등록이 필요 없습니다.**
-
-별도 SDK 없이 Claude Desktop·Cursor·Roo·Cline 같은 MCP 클라이언트에서 Clustara 기능을 바로 쓰려면 `/mcp/gateway` 를 설정하세요. 두 엔드포인트 모두 같은 proxy key 로 인증하며 본인 권한·쿼터·정책이 그대로 적용됩니다.
-
-```jsonc
-{ "mcpServers": { "vibe-gateway": {
-  "url": "http://<gateway>:9090/mcp/gateway",
-  "headers": { "Authorization": "Bearer pcg_..." }
-} } }
-```
-
-연결이 잘 안 되면 **내 홈 → "내 개발도구 연결하기 (MCP)" 카드**에서 클라이언트를 고르고 **연결 진단** 버튼으로 인증·scope·모델 허용·쿼터·`/v1/models`·`/mcp/gateway` 도달성을 한 번에 점검할 수 있습니다(CLI 는 `vibe doctor --client cursor`). 설정 JSON 은 `vibe mcp config` 로도 출력됩니다.
-
----
-
-## 4. provider 명시적 선택
-
-회사가 여러 vendor 를 운영하는 경우 Clustara가 자동으로 적절한 곳으로 라우팅합니다.
-
-- `model=claude-3-5-sonnet` → anthropic 자동 라우팅
-- `model=gpt-4.1-mini` → openai 기본 라우팅
-
-수동으로 강제하려면 `X-Proxy-Provider` 헤더를 추가하면 됩니다.
-
-```bash
-curl http://clustara.intra:9090/v1/chat/completions \
-  -H "Authorization: Bearer pcg_..." \
-  -H "X-Proxy-Provider: openrouter" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"openai/gpt-4.1-mini", "messages":[...]}'
-```
-
-OpenAI SDK 처럼 헤더를 직접 못 넣는 클라이언트라면 운영자에게 "openrouter 로 모델 패턴 등록" 을 요청하세요.
-
----
-
-## 5. 본인 사용량 확인
-
-Clustara 어드민 UI (`http://clustara.intra:9090/admin`) 에 접근 권한이 있으면:
-
-1. 상단 "관리자 토큰" 입력 (회사가 발급한 읽기전용 토큰을 사용해도 됩니다)
-2. "사용자" 탭 → 본인 키 이름 클릭
-3. 일별 사용량 / 모델별 / IP별 / 최근 호출 + 비용(KRW) 확인
-
-권한이 없거나 더 간단히 보려면 운영자에게 다음을 요청할 수 있습니다.
-
-```bash
-# 본인 키 id 조회 (어드민 권한 필요)
-curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  http://clustara.intra:9090/admin/users
-```
-
----
-
-## 6. 비용/쿼터 한도
-
-회사 정책에 따라 API 키 / 팀 / IP 단위로 일별·월별 한도가 걸려 있을 수 있습니다. 한도를 초과하면 호출은 다음과 같이 응답합니다.
-
-```
-HTTP/1.1 429 Too Many Requests
-Retry-After: 1234
-X-Quota-Scope: api_key:key_xxxxxxxx:daily
-X-Quota-Tokens: 950000
-X-Quota-Cost-KRW: 49850.00
-X-Quota-Period-Start: 2026-06-02T00:00:00+09:00
-X-Quota-Period-End:   2026-06-03T00:00:00+09:00
-
-{"error":{"message":"quota exceeded: krw_limit_exceeded", ...}}
-```
-
-`Retry-After` 는 다음 기간 시작까지의 초입니다. 한도가 늘어나야 한다면 운영자에게 요청하세요.
-
----
-
-## 7. 마스킹 / 프라이버시
-
-Clustara는 다음 패턴을 프롬프트/응답에서 자동 마스킹합니다.
-
-- 한국 주민번호 / 휴대전화 / 사업자등록번호
-- 카드번호 (13~19자리)
-- 이메일, 공인 IPv4
-- AWS access key, GitHub/Slack 토큰, Google API key
-- OpenAI `sk-…`, Anthropic `sk-ant-…`
-- JWT, PEM private key
-- `api_key=…`, `Bearer …` 형태 일반 시크릿
-
-마스킹 텍스트는 `[REDACTED_RRN]`, `[REDACTED_OPENAI_KEY]` 처럼 라벨이 붙어 어드민에서 어떤 종류였는지 확인할 수 있습니다. 원문은 기본적으로 저장되지 않습니다(운영 정책에 따라 `LOG_RAW_PROMPTS=true` 일 때만 저장).
-
-코드 컨텍스트에 비밀이 섞여 있는 경우, 마스킹 라벨이 본문에 들어가서 결과가 약간 어색할 수 있습니다. AI 코딩 도구에 비밀을 직접 붙여넣지 않는 게 가장 안전합니다.
-
----
-
-## 8. 자주 묻는 질문 (FAQ)
-
-**Q. 평소 쓰던 OpenAI 키를 그대로 써도 되나요?**
-A. 아니요. `pcg_…` 형태의 proxy key 만 인증됩니다. OpenAI 키는 Clustara가 보관합니다.
-
-**Q. 응답이 갑자기 한국어로만 옵니까?**
-A. Clustara는 응답을 절대 수정하지 않습니다. 모델이 한국어로 답하는 것입니다.
-
-**Q. stream 응답이 끊기거나 늦습니다.**
-A. Clustara는 SSE 청크를 즉시 flush 합니다. 늦으면 네트워크 또는 upstream 자체의 문제입니다. `/health` 와 `/ready` 가 200 인지 확인하세요.
-
-**Q. trace_id 를 알면 어디서 볼 수 있나요?**
-A. Clustara가 모든 호출에 `X-Request-ID` 응답 헤더를 붙입니다. 그 값을 어드민의 "호출 이력" 탭 검색에서 그대로 붙여넣으면 단건을 찾을 수 있습니다.
-
-**Q. 이전에 쓰던 키를 분실했어요.**
-A. 한 번만 표시되므로 다시 볼 수 없습니다. 운영자에게 비활성화 + 새 키 발급을 요청하세요. 이전 키로 쌓인 통계는 그대로 보존됩니다.
-
-**Q. 사용량 알림을 받고 싶어요.**
-A. 운영자에게 알림 규칙 추가를 요청할 수 있습니다 (지표 `requests/errors/krw/tokens/latency_p95_ms/first_chunk_p95_ms/llm_eval_failures/llm_eval_failure_rate`, 윈도우 N초, 임계값, Slack 웹훅).
-
-**Q. 사용자별 이력이 전부 `passthrough` 나 `anonymous` 로 묶여요.**
-A. Clustara는 키의 해시만 저장하므로, **등록된 proxy key** 로 호출해야 그 사용자로 정확히 집계됩니다. 운영자에게 사용자별 키 발급(`PROXY_API_KEYS` 또는 어드민 "API 키 발급")을 요청하세요. 등록 없이 사용자별로 **다른 키**를 보내는 경우에도 Clustara가 키 지문으로 `ext_…` 사용자를 자동 분리합니다(같은 키=같은 사용자). 이때 `X-Vibe-User`(표시 이름)·`X-Vibe-Team`(팀) 헤더를 함께 보내면 사용자/팀 화면에 이름·팀이 표시됩니다. 모두가 **같은 키**(예: 공용 upstream 키)를 쓰면 한 사용자로 합쳐지니, 분리가 필요하면 사용자마다 다른 키를 쓰세요.
-
----
-
-## 9. 한 줄 점검
-
-```bash
-curl -fsS http://clustara.intra:9090/v1/models | head
-```
-
-위 명령이 200 + 모델 리스트 JSON 을 반환하면 Clustara와 upstream 연결이 정상입니다. 모델 목록 조회는 SDK 호환성을 위해 인증 없이 허용됩니다. 실제 채팅/임베딩 호출에서 401 이 나오면 키가 잘못되었거나 비활성화된 것입니다.
+- [관리자 가이드](ADMIN_GUIDE.md)
+- [운영 가이드](OPERATIONS.md)
+- [안전 및 보안 가이드](SAFETY_GUIDE.md)
+- [PostgreSQL 가이드](POSTGRES_GUIDE.md)
+- [릴리즈 가이드](RELEASE_GUIDE.md)

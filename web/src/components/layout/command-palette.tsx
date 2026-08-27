@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Boxes, Database, Search, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { dataworksApi } from '@/api/dataworks'
@@ -14,6 +14,15 @@ export function CommandPalette() {
   const [search, setSearch] = useState('')
   const products = useQuery({ queryKey: ['dataworks', 'products'], queryFn: dataworksApi.products, enabled: open, staleTime: 60_000 })
   const assets = useQuery({ queryKey: ['dataworks', 'assets'], queryFn: dataworksApi.assets, enabled: open, staleTime: 60_000 })
+
+  useEffect(() => {
+    if (!open) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [open, setOpen])
 
   const results = useMemo(() => {
     const query = search.trim().toLowerCase()
