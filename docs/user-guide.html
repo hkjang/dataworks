@@ -87,6 +87,16 @@
       <section id="login">
         <h2>1. 로그인과 한국어 메뉴</h2>
         <p class="answer"><strong>Data Works에는 어떻게 로그인하나요?</strong> 서비스의 <code>/dataworks/</code>에서 로컬 계정으로 로그인하거나, 운영자가 Keycloak을 활성화한 경우 <code>Keycloak SSO로 계속</code>을 선택합니다.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>접속 주소</th><th>용도와 동작</th></tr></thead>
+          <tbody>
+            <tr><td><code>/dataworks/</code></td><td>새 React 기반 Data Works 화면의 <strong>표준 진입점</strong></td></tr>
+            <tr><td><code>/dataworks</code></td><td><code>/dataworks/</code>로 자동 이동</td></tr>
+            <tr><td><code>/admin</code></td><td>기존(레거시) 관리자 콘솔이며 새 화면의 진입점은 아님</td></tr>
+            <tr><td><code>/</code></td><td>현재 UI 진입점이 아니며 기본 구성에서는 <code>404 Not Found</code></td></tr>
+          </tbody>
+        </table></div>
+        <aside class="note"><strong>권장 접속 주소</strong>일반 사용자와 관리자는 <code>http://&lt;host&gt;:8080/dataworks/</code>로 접속합니다. 조직의 대표 주소 <code>/</code>에서도 화면을 열려면 운영자가 리버스 프록시에서 <code>/</code>를 <code>/dataworks/</code>로 리다이렉트해야 합니다.</aside>
         <p>로그인 화면 아래와 로그인 후 프로필 메뉴에서 서비스 버전 <strong>v0.9.32</strong>를 확인할 수 있습니다. 프로필 메뉴는 내 작업 공간, 내 API 키, 관리자 설정(권한 보유 시), OpenAPI와 Swagger 링크를 제공합니다.</p>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/00-login.jpg"><img src="assets/screenshots/desktop/00-login.jpg" alt="이메일과 비밀번호 입력, Keycloak SSO 버튼과 서비스 버전이 있는 Data Works 로그인 화면" width="1440" height="1024" loading="eager"></picture><figcaption>로그인 화면 — 서비스 버전과 SSO 상태를 함께 확인합니다.</figcaption></figure>
         <div class="table-wrap"><table><thead><tr><th>메뉴</th><th>주소</th><th>주요 용도</th></tr></thead><tbody>

@@ -10,6 +10,17 @@
 
 Data Works 배포 이미지는 React SPA와 Go API를 하나의 바이너리로 포함합니다. 운영 저장소는 PostgreSQL을 사용하며, 브라우저는 `/dataworks/`, API는 같은 호스트의 `/admin/*`, `/v1/*`, `/mcp*` 경로를 사용합니다.
 
+### 서비스 접속 경로
+
+| 주소 | 용도와 동작 |
+| --- | --- |
+| `/dataworks/` | 새 React 기반 사용자·관리자 Workbench의 **표준 진입점** |
+| `/dataworks` | `/dataworks/`로 `308 Permanent Redirect` |
+| `/admin` | 기존(레거시) 관리자 콘솔 |
+| `/` | UI 라우트가 아니며 기본 구성에서는 `404 Not Found` |
+
+운영 안내에는 `http://<host>:8080/dataworks/`를 서비스 주소로 사용하세요. 대표 도메인의 루트(`/`)를 진입점으로 사용할 경우 리버스 프록시에서 `/`를 `/dataworks/`로 리다이렉트합니다. 프록시는 SPA와 로그인·API 기능이 함께 동작하도록 `/dataworks/*`, `/auth/*`, `/admin/*`, `/v1/*`, `/mcp*`, `/openapi.json`, `/swagger`를 동일한 Data Works 서비스로 전달해야 합니다.
+
 GitHub Release의 운영 산출물은 다음 하나의 custom asset입니다.
 
 ```text

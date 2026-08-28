@@ -104,6 +104,16 @@
           <article class="card"><h3>개발자 API</h3><p><code>/v1/*</code>, <code>/openapi.json</code>, <code>/swagger</code></p></article>
           <article class="card"><h3>MCP</h3><p><code>/mcp</code> 외부 집약, <code>/mcp/gateway</code> 자체 도구</p></article>
         </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>접속 주소</th><th>용도와 동작</th></tr></thead>
+          <tbody>
+            <tr><td><code>/dataworks/</code></td><td>새 React 기반 사용자·관리자 Workbench의 <strong>표준 진입점</strong></td></tr>
+            <tr><td><code>/dataworks</code></td><td><code>/dataworks/</code>로 <code>308 Permanent Redirect</code></td></tr>
+            <tr><td><code>/admin</code></td><td>기존(레거시) 관리자 콘솔</td></tr>
+            <tr><td><code>/</code></td><td>UI 라우트가 아니며 기본 구성에서는 <code>404 Not Found</code></td></tr>
+          </tbody>
+        </table></div>
+        <aside class="warning"><strong>리버스 프록시 경로</strong>운영 안내에는 <code>http://&lt;host&gt;:8080/dataworks/</code>를 사용합니다. 대표 도메인의 <code>/</code>를 진입점으로 쓸 때는 <code>/dataworks/</code>로 리다이렉트하세요. 또한 <code>/dataworks/*</code>, <code>/auth/*</code>, <code>/admin/*</code>, <code>/v1/*</code>, <code>/mcp*</code>, <code>/openapi.json</code>, <code>/swagger</code>를 동일한 Data Works 서비스로 전달해야 합니다.</aside>
       </section>
 
       <section id="offline">
