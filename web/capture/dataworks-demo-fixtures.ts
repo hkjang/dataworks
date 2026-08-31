@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test'
 
-export const DEMO_VERSION = 'v0.9.32'
+export const DEMO_VERSION = 'v0.9.33'
 export const PRIMARY_PRODUCT = 'sme-credit-insight'
 
 const timestamp = '2026-08-28T09:30:00Z'
@@ -205,7 +205,7 @@ export async function installDemoRoutes(page: Page) {
 
     if (path === '/auth/me' && method === 'GET') {
       await json(route, authenticated
-        ? { auth_enabled: true, version: DEMO_VERSION, user: { id: 'demo-admin', email: 'admin@dataworks.example', name: '데모 관리자', role: 'super_admin', team_id: 'demo-team' } }
+        ? { auth_enabled: true, version: DEMO_VERSION, user: { id: 'demo-admin', email: 'admin@dataworks.example', name: '데모 관리자', role: 'super_admin', team_id: 'demo-team', scopes: ['admin:read', 'admin:write'] } }
         : { error: 'authentication required' }, authenticated ? 200 : 401)
       return
     }

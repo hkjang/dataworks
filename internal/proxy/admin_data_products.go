@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -28,8 +29,7 @@ var dataProductSourceTypes = map[string]bool{
 // POST   /admin/data-products             upsert (publish by setting status=published)
 // DELETE /admin/data-products?id=..        delete
 func (s *Server) handleAdminDataProducts(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeAdmin(r) {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	if !s.requireAdminAuthorization(w, r) {
 		return
 	}
 	ctx := r.Context()
@@ -113,6 +113,11 @@ func (s *Server) handleAdminDataProducts(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		if err := s.db.UpsertDataProduct(ctx, dp); err != nil {
+			var retiredErr *store.DataProductKeyRetiredError
+			if errors.As(err, &retiredErr) {
+				writeOpenAIError(w, http.StatusConflict, retiredErr.Error(), "invalid_request_error", "product_key_retired")
+				return
+			}
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "upsert_failed")
 			return
 		}

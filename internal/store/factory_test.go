@@ -2,11 +2,90 @@ package store
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
 	"dataworks/internal/config"
 )
+
+func TestDeleteDataAssetPreservesIntegrity(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: filepath.Join(t.TempDir(), "asset_delete.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	ghostScore := DataAssetReadinessScore{AssetKey: "ghost", OverallScore: 50, Status: "review"}
+	if err := db.UpsertDataAssetReadinessScore(ctx, ghostScore); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := db.DeleteDataAsset(ctx, "ghost"); err != nil || deleted {
+		t.Fatalf("missing asset delete=%v err=%v", deleted, err)
+	}
+	if _, ok, err := db.LatestDataAssetReadinessScore(ctx, "ghost"); err != nil || !ok {
+		t.Fatalf("missing asset delete changed dependent row: ok=%v err=%v", ok, err)
+	}
+
+	asset := DataAsset{ID: "asset_shared", AssetKey: "shared_features", Name: "Shared Features", Owner: "data"}
+	if err := db.UpsertDataAsset(ctx, asset); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpsertDataProduct(ctx, DataProduct{
+		ID: "product_multi", ProductKey: "multi_source", NameKO: "복수 원천 상품",
+		SourceType: "dataset", SourceRef: "other_asset; shared_features", Status: "draft",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := db.DeleteDataAsset(ctx, asset.AssetKey); deleted {
+		t.Fatal("referenced asset was deleted")
+	} else {
+		var referenceErr *DataAssetReferenceError
+		if !errors.As(err, &referenceErr) || referenceErr.ReferenceKey != "multi_source" {
+			t.Fatalf("reference error=%T %v", err, err)
+		}
+	}
+	if _, ok, err := db.GetDataAsset(ctx, asset.AssetKey); err != nil || !ok {
+		t.Fatalf("blocked delete changed asset: ok=%v err=%v", ok, err)
+	}
+
+	if err := db.DeleteDataProduct(ctx, "multi_source"); err != nil {
+		t.Fatal(err)
+	}
+	urn := DataWorksURN("dataset", asset.AssetKey)
+	if err := db.UpsertMetadataEntity(ctx, MetadataEntity{
+		ID: "meta_shared", URN: urn, EntityType: "dataset", Name: asset.Name, Status: "active",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assertion := DataContractAssertion{ID: "assert_shared", EntityURN: urn, AssertionType: "not_null", Enabled: true}
+	if err := db.UpsertDataContractAssertion(ctx, assertion); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := db.DeleteDataAsset(ctx, asset.AssetKey); deleted {
+		t.Fatal("asset with an active contract assertion was deleted")
+	} else {
+		var referenceErr *DataAssetReferenceError
+		if !errors.As(err, &referenceErr) || referenceErr.ReferenceType != "contract assertion" {
+			t.Fatalf("contract assertion error=%T %v", err, err)
+		}
+	}
+	assertion.Enabled = false
+	if err := db.UpsertDataContractAssertion(ctx, assertion); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := db.DeleteDataAsset(ctx, asset.AssetKey); err != nil || !deleted {
+		t.Fatalf("unreferenced asset delete=%v err=%v", deleted, err)
+	}
+	metadata, ok, err := db.GetMetadataEntity(ctx, urn)
+	if err != nil || !ok || metadata.Status != "deleted" {
+		t.Fatalf("metadata tombstone=%+v ok=%v err=%v", metadata, ok, err)
+	}
+}
 
 func TestFactoryRoundtrip(t *testing.T) {
 	ctx := context.Background()

@@ -17,7 +17,7 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 		return
 	}
-	productKey, ok := dataProductQueryKey(r.URL.Path)
+	productKey, ok := dataProductQueryKey(r.URL.EscapedPath())
 	if !ok {
 		writeOpenAIError(w, http.StatusNotFound, "data product endpoint not found", "invalid_request_error", "not_found")
 		return
@@ -162,8 +162,7 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 }
 
 func dataProductQueryKey(path string) (string, bool) {
-	rest := strings.Trim(strings.TrimPrefix(path, "/v1/data-products/"), "/")
-	parts := strings.Split(rest, "/")
+	parts := dataWorksPathParts(path, "/v1/data-products/")
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || parts[1] != "query" {
 		return "", false
 	}

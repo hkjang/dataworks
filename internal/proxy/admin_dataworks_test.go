@@ -40,6 +40,34 @@ func TestDataWorksOperationalAPIs(t *testing.T) {
 	requireStatus(t, resp, http.StatusBadRequest)
 	resp.Body.Close()
 
+	resp = postJSON(t, srv.URL+"/admin/dataworks/assets", "", map[string]any{
+		"id": "asset_delete", "asset_key": "delete_me", "name": "Disposable Asset", "owner": "test-owner",
+	})
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	resp = postJSON(t, srv.URL+"/admin/dataworks/assets/delete_me/readiness/check", "", map[string]any{})
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	deleteReq, err := http.NewRequest(http.MethodDelete, srv.URL+"/admin/dataworks/assets?asset_key=delete_me", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	if _, ok, err := db.GetDataAsset(context.Background(), "delete_me"); err != nil || ok {
+		t.Fatalf("deleted asset lookup ok=%v err=%v", ok, err)
+	}
+	if _, ok, err := db.LatestDataAssetReadinessScore(context.Background(), "delete_me"); err != nil || ok {
+		t.Fatalf("deleted asset operational readiness ok=%v err=%v", ok, err)
+	}
+	if scores, err := db.ListAssetReadinessScores(context.Background(), "delete_me"); err != nil || len(scores) != 0 {
+		t.Fatalf("deleted asset governance readiness=%+v err=%v", scores, err)
+	}
+
 	resp = postJSON(t, srv.URL+"/admin/dataworks/assets/loan_history/readiness/check", "", map[string]any{})
 	requireStatus(t, resp, http.StatusOK)
 	var readinessBody struct {
@@ -56,6 +84,64 @@ func TestDataWorksOperationalAPIs(t *testing.T) {
 		"data_assets": []string{"loan_history"}, "delivery_method": "API",
 	})
 	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	deleteReq, err = http.NewRequest(http.MethodDelete, srv.URL+"/admin/dataworks/assets?asset_key=loan_history", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusConflict)
+	resp.Body.Close()
+
+	resp = postJSON(t, srv.URL+"/admin/dataworks/assets", "", map[string]any{
+		"id": "asset_multi", "asset_key": "shared_features", "name": "Shared Features", "owner": "test-owner",
+	})
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	if err := db.UpsertDataProduct(context.Background(), store.DataProduct{
+		ID: "dprod_multi_source", ProductKey: "multi_source", NameKO: "복수 원천 상품",
+		SourceType: "dataset", SourceRef: "loan_history, shared_features", Status: "draft",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deleteReq, err = http.NewRequest(http.MethodDelete, srv.URL+"/admin/dataworks/assets?asset_key=shared_features", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusConflict)
+	resp.Body.Close()
+	deleteReq, err = http.NewRequest(http.MethodDelete, srv.URL+"/admin/dataworks/products?id=multi_source", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	if err := db.UpsertDataProduct(context.Background(), store.DataProduct{
+		ID: "dprod_delete_blocked", ProductKey: "delete_blocked", NameKO: "운영 상품",
+		SourceType: "custom", Status: "published",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deleteReq, err = http.NewRequest(http.MethodDelete, srv.URL+"/admin/dataworks/products?id=delete_blocked", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusConflict)
 	resp.Body.Close()
 
 	resp, err = http.Get(srv.URL + "/admin/dataworks/products/dw_credit_risk_api/evidence")
@@ -261,6 +347,80 @@ func TestDataWorksProductLifecycleEvidenceAndActions(t *testing.T) {
 	}
 	if !foundEvidenceRefresh {
 		t.Fatalf("product actions missing evidence refresh: %+v", actionsBody.Actions)
+	}
+}
+
+func TestDataWorksEncodedResourceKeys(t *testing.T) {
+	db := openTestStore(t)
+	defer db.Close()
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "dataworks.ndjson"))
+	logger.Start()
+	defer logger.Stop(context.Background())
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(server.Routes())
+	defer srv.Close()
+
+	resp := postJSON(t, srv.URL+"/admin/dataworks/assets", "", map[string]any{
+		"id": "asset_encoded", "asset_key": "risk/events", "name": "Risk Events", "owner": "risk-data",
+	})
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	resp = postJSON(t, srv.URL+"/admin/dataworks/assets/risk%2Fevents/readiness/check", "", map[string]any{})
+	requireStatus(t, resp, http.StatusOK)
+	var readinessBody struct {
+		Readiness store.DataAssetReadinessScore `json:"readiness"`
+	}
+	decodeAndClose(t, resp, &readinessBody)
+	if readinessBody.Readiness.AssetKey != "risk/events" {
+		t.Fatalf("readiness asset_key = %q", readinessBody.Readiness.AssetKey)
+	}
+
+	resp = postJSON(t, srv.URL+"/admin/dataworks/products", "", map[string]any{
+		"id": "product_encoded", "product_key": "risk/score", "name_ko": "Risk Score", "status": "draft",
+	})
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	resp, err = http.Get(srv.URL + "/admin/dataworks/products/risk%2Fscore/canvas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusOK)
+	var canvasBody struct {
+		Canvas store.ProductCanvasV2 `json:"canvas"`
+	}
+	decodeAndClose(t, resp, &canvasBody)
+	if canvasBody.Canvas.ProductKey != "risk/score" {
+		t.Fatalf("canvas product_key = %q", canvasBody.Canvas.ProductKey)
+	}
+
+	resp, err = http.Get(srv.URL + "/admin/dataworks/products/risk%2Fscore/evidence-pack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusOK)
+	var evidenceBody struct {
+		EvidencePack any `json:"evidence_pack"`
+	}
+	decodeAndClose(t, resp, &evidenceBody)
+	if evidenceBody.EvidencePack != nil {
+		t.Fatalf("new draft evidence_pack = %#v, want nil", evidenceBody.EvidencePack)
+	}
+
+	resp = postJSON(t, srv.URL+"/admin/dataworks/products/risk%2Fscore/approvals", "", map[string]any{
+		"step": "security", "status": "approved", "required": true, "expires_at": "2026-12-31",
+	})
+	requireStatus(t, resp, http.StatusBadRequest)
+	var errorBody struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	decodeAndClose(t, resp, &errorBody)
+	if errorBody.Error.Code != "invalid_expires_at" {
+		t.Fatalf("invalid expiry error code = %q", errorBody.Error.Code)
 	}
 }
 

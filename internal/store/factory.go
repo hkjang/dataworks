@@ -21,6 +21,17 @@ type DataAsset struct {
 	UpdatedAt      string `json:"updated_at"`
 }
 
+// DataAssetReferenceError reports an active catalog or workflow reference that
+// prevents an asset from being deleted safely.
+type DataAssetReferenceError struct {
+	ReferenceType string
+	ReferenceKey  string
+}
+
+func (e *DataAssetReferenceError) Error() string {
+	return "asset is referenced by " + e.ReferenceType + " " + e.ReferenceKey
+}
+
 type ProductIdea struct {
 	ID              string   `json:"id"`
 	Title           string   `json:"title"`
@@ -152,6 +163,118 @@ func (s *SQLStore) ListDataAssets(ctx context.Context) ([]DataAsset, error) {
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// DeleteDataAsset atomically verifies that an asset has no active catalog, contract,
+// or flow references before removing it and its asset-scoped operational records.
+// Derived metadata is retained as a deleted tombstone so historical lineage remains
+// understandable after the catalog row is removed.
+func (s *SQLStore) DeleteDataAsset(ctx context.Context, assetKey string) (bool, error) {
+	assetKey = strings.TrimSpace(assetKey)
+	if assetKey == "" {
+		return false, errors.New("asset_key is required")
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	existsQuery := `SELECT asset_key FROM data_assets WHERE asset_key = ?`
+	if s.dialect == "postgres" {
+		existsQuery += ` FOR UPDATE`
+	}
+	var storedKey string
+	if err := tx.QueryRowContext(ctx, s.bind(existsQuery), assetKey).Scan(&storedKey); errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	products, err := tx.QueryContext(ctx, `SELECT product_key, source_ref FROM data_products`)
+	if err != nil {
+		return false, err
+	}
+	for products.Next() {
+		var productKey, sourceRef string
+		if err := products.Scan(&productKey, &sourceRef); err != nil {
+			products.Close()
+			return false, err
+		}
+		if dataAssetReferenceContains(sourceRef, assetKey) {
+			products.Close()
+			return false, &DataAssetReferenceError{ReferenceType: "data product", ReferenceKey: productKey}
+		}
+	}
+	if err := products.Close(); err != nil {
+		return false, err
+	}
+	if err := products.Err(); err != nil {
+		return false, err
+	}
+
+	assetURN := DataWorksURN("dataset", assetKey)
+	var referenceKey string
+	if err := tx.QueryRowContext(ctx, s.bind(`SELECT id FROM dw_data_contract_assertions
+		WHERE enabled = 1 AND LOWER(entity_urn) = LOWER(?) LIMIT 1`), assetURN).Scan(&referenceKey); err == nil {
+		return false, &DataAssetReferenceError{ReferenceType: "contract assertion", ReferenceKey: referenceKey}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	if err := tx.QueryRowContext(ctx, s.bind(`SELECT f.flow_key FROM dw_flow_nodes n
+		JOIN dw_flow_definitions f ON f.id = n.flow_id
+		WHERE LOWER(n.ref_urn) = LOWER(?)
+		AND LOWER(f.status) NOT IN ('archived','retired','blocked','disabled','deleted') LIMIT 1`), assetURN).Scan(&referenceKey); err == nil {
+		return false, &DataAssetReferenceError{ReferenceType: "active flow", ReferenceKey: referenceKey}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+
+	for _, query := range []string{
+		`DELETE FROM dw_data_quality_results WHERE asset_key = ?`,
+		`DELETE FROM dw_data_quality_rules WHERE asset_key = ?`,
+		`DELETE FROM dw_schema_drifts WHERE asset_key = ?`,
+		`DELETE FROM dw_data_watermarks WHERE asset_key = ?`,
+		`DELETE FROM dw_asset_readiness_scores WHERE asset_key = ?`,
+		`DELETE FROM dw_asset_quality_scores WHERE asset_key = ?`,
+		`DELETE FROM dw_product_relationships WHERE (from_type = 'asset' AND from_key = ?) OR (to_type = 'asset' AND to_key = ?)`,
+	} {
+		args := []any{assetKey}
+		if strings.Contains(query, "to_key = ?") {
+			args = append(args, assetKey)
+		}
+		if _, err := tx.ExecContext(ctx, s.bind(query), args...); err != nil {
+			return false, err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, s.bind(`UPDATE dw_metadata_entities SET status = 'deleted', updated_at = ?
+		WHERE LOWER(urn) = LOWER(?)`), formatTime(time.Now().UTC()), assetURN); err != nil {
+		return false, err
+	}
+
+	result, err := tx.ExecContext(ctx, s.bind(`DELETE FROM data_assets WHERE asset_key = ?`), assetKey)
+	if err != nil {
+		return false, err
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return deleted > 0, nil
+}
+
+func dataAssetReferenceContains(sourceRef, assetKey string) bool {
+	for _, item := range strings.FieldsFunc(sourceRef, func(r rune) bool {
+		return r == ',' || r == '\n' || r == ';' || r == '|'
+	}) {
+		if strings.EqualFold(strings.TrimSpace(item), assetKey) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *SQLStore) InsertProductIdea(ctx context.Context, i ProductIdea) error {

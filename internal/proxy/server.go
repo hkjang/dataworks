@@ -31,7 +31,7 @@ import (
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
-const AppVersion = "v0.9.32"
+const AppVersion = "v0.9.33"
 
 type Server struct {
 	cfg            config.Config
@@ -1842,45 +1842,71 @@ func providerAuditJSON(provider store.ProviderConfig) string {
 }
 
 func (s *Server) authorizeAdmin(r *http.Request) bool {
+	return s.adminAuthorizationStatus(r) == 0
+}
+
+// requireAdminAuthorization writes a scope-aware error for HTTP handlers. Keeping
+// permission denials as 403 prevents browser clients from mistaking a valid session
+// for an expired credential and clearing the user's SSO tokens.
+func (s *Server) requireAdminAuthorization(w http.ResponseWriter, r *http.Request) bool {
+	switch status := s.adminAuthorizationStatus(r); status {
+	case 0:
+		return true
+	case http.StatusForbidden:
+		writeOpenAIError(w, status, adminRequiredScope(r)+" scope is required", "permission_error", "insufficient_scope")
+	default:
+		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	}
+	return false
+}
+
+// adminAuthorizationStatus distinguishes an invalid/missing credential (401) from a
+// valid session that lacks the route's required scope (403). Most legacy handlers only
+// need the boolean authorizeAdmin contract; newer clients can use the precise status to
+// avoid treating a permission denial as an expired login session.
+func (s *Server) adminAuthorizationStatus(r *http.Request) int {
 	if s.cfg.Auth.Enabled {
 		claims, ok := s.verifyAccessToken(r.Context(), bearerToken(r.Header.Get("Authorization")))
 		if !ok {
 			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "login_failed", IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "admin jwt invalid", CreatedAt: time.Now().UTC()})
-			return false
+			return http.StatusUnauthorized
 		}
 		required := adminRequiredScope(r)
 		if !hasScope(claims.Scopes, required) {
 			if required == "admin:write" && claims.Role == "team_admin" &&
 				(strings.HasPrefix(r.URL.Path, "/admin/users") || strings.HasPrefix(r.URL.Path, "/admin/teams") || strings.HasPrefix(r.URL.Path, "/admin/api-keys")) {
-				return true
+				return 0
 			}
 			// Settings sub-admins (ops/ai/security) may write under /admin/settings even
 			// without admin:write; the settings handlers enforce per-category restrictions.
 			if required == "admin:write" && strings.HasPrefix(r.URL.Path, "/admin/settings") && settingsSubAdminRole(claims.Role) {
-				return true
+				return 0
 			}
 			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "scope_denied", ActorUserID: claims.Subject, TeamID: claims.TeamID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: required, CreatedAt: time.Now().UTC()})
-			return false
+			return http.StatusForbidden
 		}
-		return true
+		return 0
 	}
 	if s.cfg.Auth.AdminToken == "" && s.cfg.Auth.AdminReadonlyToken == "" {
-		return true
+		return 0
 	}
 	token := bearerToken(r.Header.Get("Authorization"))
 	if token == "" {
 		slog.Warn("admin auth failed: missing or invalid bearer token header")
-		return false
+		return http.StatusUnauthorized
 	}
 	if s.cfg.Auth.AdminToken != "" && token == s.cfg.Auth.AdminToken {
-		return true
+		return 0
 	}
 	if s.cfg.Auth.AdminReadonlyToken != "" && token == s.cfg.Auth.AdminReadonlyToken {
 		// readonly: only allow safe methods on /admin
-		return r.Method == http.MethodGet || r.Method == http.MethodHead
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			return 0
+		}
+		return http.StatusForbidden
 	}
 	slog.Warn("admin auth failed: token mismatch", "received_token", token, "expected_token", s.cfg.Auth.AdminToken)
-	return false
+	return http.StatusUnauthorized
 }
 
 func (s *Server) currentAccessClaims(r *http.Request) (accessClaims, bool) {

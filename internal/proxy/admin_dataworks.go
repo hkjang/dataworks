@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -72,8 +73,7 @@ func (s *Server) handleDataWorksHome(w http.ResponseWriter, r *http.Request) {
 
 // handleDataWorksAssets manages internal data assets.
 func (s *Server) handleDataWorksAssets(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeAdmin(r) {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	if !s.requireAdminAuthorization(w, r) {
 		return
 	}
 	switch r.Method {
@@ -108,6 +108,37 @@ func (s *Server) handleDataWorksAssets(w http.ResponseWriter, r *http.Request) {
 		}
 		s.auditAdmin(r, "dataworks.asset.upsert", "", auditJSON(map[string]any{"asset_key": a.AssetKey}))
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "asset_key": a.AssetKey})
+	case http.MethodDelete:
+		assetKey := strings.TrimSpace(r.URL.Query().Get("asset_key"))
+		if assetKey == "" {
+			writeOpenAIError(w, http.StatusBadRequest, "asset_key query param is required", "invalid_request_error", "missing_asset_key")
+			return
+		}
+		asset, ok, err := s.db.GetDataAsset(r.Context(), assetKey)
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "asset_failed")
+			return
+		}
+		if !ok {
+			writeOpenAIError(w, http.StatusNotFound, "asset not found", "invalid_request_error", "asset_not_found")
+			return
+		}
+		deleted, err := s.db.DeleteDataAsset(r.Context(), assetKey)
+		if err != nil {
+			var referenceErr *store.DataAssetReferenceError
+			if errors.As(err, &referenceErr) {
+				writeOpenAIError(w, http.StatusConflict, referenceErr.Error(), "invalid_request_error", "asset_in_use")
+				return
+			}
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "asset_delete_failed")
+			return
+		}
+		if !deleted {
+			writeOpenAIError(w, http.StatusNotFound, "asset not found", "invalid_request_error", "asset_not_found")
+			return
+		}
+		s.auditAdmin(r, "dataworks.asset.delete", auditJSON(asset), "")
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "asset_key": assetKey})
 	default:
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 	}
@@ -148,8 +179,7 @@ func (s *Server) handleDataWorksAssetReadiness(w http.ResponseWriter, r *http.Re
 
 // handleDataWorksActionCenter returns prioritized operational follow-ups.
 func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeAdmin(r) {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	if !s.requireAdminAuthorization(w, r) {
 		return
 	}
 	if r.Method != http.MethodGet {
@@ -664,12 +694,10 @@ func (s *Server) handleDataWorksFactoryRuns(w http.ResponseWriter, r *http.Reque
 
 // handleDataWorksProductActions manages product-scoped Data Works governance endpoints.
 func (s *Server) handleDataWorksProductActions(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeAdmin(r) {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	if !s.requireAdminAuthorization(w, r) {
 		return
 	}
-	rest := strings.Trim(strings.TrimPrefix(r.URL.Path, "/admin/dataworks/products/"), "/")
-	parts := strings.Split(rest, "/")
+	parts := dataWorksPathParts(r.URL.EscapedPath(), "/admin/dataworks/products/")
 	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" {
 		writeOpenAIError(w, http.StatusBadRequest, "expected /admin/dataworks/products/{key}/{action}", "invalid_request_error", "bad_product_action")
 		return
@@ -972,11 +1000,25 @@ func (s *Server) handleDataWorksProductApprovals(w http.ResponseWriter, r *http.
 		if payload.Required != nil {
 			required = *payload.Required
 		}
+		status := firstNonEmpty(strings.TrimSpace(payload.Status), "pending")
+		switch status {
+		case "pending", "approved", "rejected", "waived", "expired":
+		default:
+			writeOpenAIError(w, http.StatusBadRequest, "status must be pending|approved|rejected|waived|expired", "invalid_request_error", "invalid_approval_status")
+			return
+		}
+		expiresAt := strings.TrimSpace(payload.ExpiresAt)
+		if expiresAt != "" {
+			if _, err := time.Parse(time.RFC3339Nano, expiresAt); err != nil {
+				writeOpenAIError(w, http.StatusBadRequest, "expires_at must be an RFC3339 timestamp", "invalid_request_error", "invalid_expires_at")
+				return
+			}
+		}
 		trace := store.ApprovalTrace{
 			ID: firstNonEmpty(strings.TrimSpace(payload.ID), newID("appr")), ProductKey: product.ProductKey,
-			Step: strings.TrimSpace(payload.Step), Status: firstNonEmpty(strings.TrimSpace(payload.Status), "pending"),
+			Step: strings.TrimSpace(payload.Step), Status: status,
 			Required: required, EvidenceRef: payload.EvidenceRef, Notes: payload.Notes,
-			DecidedBy: firstNonEmpty(strings.TrimSpace(payload.DecidedBy), adminID(r)), ExpiresAt: strings.TrimSpace(payload.ExpiresAt),
+			DecidedBy: firstNonEmpty(strings.TrimSpace(payload.DecidedBy), adminID(r)), ExpiresAt: expiresAt,
 		}
 		if trace.Step == "" {
 			writeOpenAIError(w, http.StatusBadRequest, "step is required", "invalid_request_error", "missing_step")
@@ -1002,7 +1044,9 @@ func (s *Server) handleDataWorksEvidencePack(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if !ok {
-			writeOpenAIError(w, http.StatusNotFound, "evidence pack not found", "invalid_request_error", "not_found")
+			// Evidence is optional for a new draft. Returning an empty resource
+			// keeps the workspace usable while the first pack is being prepared.
+			writeJSON(w, http.StatusOK, map[string]any{"evidence_pack": nil})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"evidence_pack": pack})
@@ -1631,5 +1675,48 @@ func blankCanvas(canvas store.ProductCanvasV2) bool {
 
 // handleDataWorksProducts is a compatibility wrapper for /admin/dataworks/products.
 func (s *Server) handleDataWorksProducts(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodDelete {
+		if !s.requireAdminAuthorization(w, r) {
+			return
+		}
+		productKey := strings.TrimSpace(r.URL.Query().Get("product_key"))
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if productKey == "" && id == "" {
+			writeOpenAIError(w, http.StatusBadRequest, "product_key or id query param required", "invalid_request_error", "missing_product_identifier")
+			return
+		}
+		var product store.DataProduct
+		var ok bool
+		var err error
+		if productKey != "" {
+			product, ok, err = s.db.GetDataProductByKey(r.Context(), productKey)
+		} else {
+			product, ok, err = s.db.GetDataProduct(r.Context(), id)
+		}
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "get_failed")
+			return
+		}
+		if !ok {
+			writeOpenAIError(w, http.StatusNotFound, "product not found", "invalid_request_error", "not_found")
+			return
+		}
+		if product.Status != "draft" && product.Status != "archived" {
+			writeOpenAIError(w, http.StatusConflict, "only draft or archived products can be deleted", "invalid_request_error", "product_delete_blocked")
+			return
+		}
+		if productKey != "" {
+			err = s.db.DeleteDataProductByKey(r.Context(), productKey)
+		} else {
+			err = s.db.DeleteDataProduct(r.Context(), id)
+		}
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "delete_failed")
+			return
+		}
+		s.auditAdmin(r, "dataworks.product.delete", auditJSON(product), "")
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "product_key": product.ProductKey})
+		return
+	}
 	s.handleAdminDataProducts(w, r)
 }

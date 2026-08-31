@@ -24,14 +24,14 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 
 import { dataworksApi } from '@/api/dataworks'
 import { Button } from '@/components/ui/button'
 import { CopilotPanel } from '@/features/copilot/copilot-panel'
 import { cn, initials } from '@/lib/utils'
 import { roleLabel } from '@/lib/labels.ko'
-import { useAuthStore } from '@/stores/auth-store'
+import { canAccessDataWorks, canManageDataWorksSettings, useAuthStore } from '@/stores/auth-store'
 import { useUIStore } from '@/stores/ui-store'
 import { CommandPalette } from './command-palette'
 import { NotificationPanel } from './notification-panel'
@@ -89,10 +89,12 @@ export function AppShell() {
   const setAccessOpen = useUIStore((state) => state.setAccessOpen)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+  const canViewService = canAccessDataWorks(mode, user)
   const actionQuery = useQuery({
     queryKey: ['dataworks', 'action-center'],
     queryFn: dataworksApi.actionCenter,
     staleTime: 30_000,
+    enabled: canViewService,
   })
 
   useEffect(() => {
@@ -101,14 +103,14 @@ export function AppShell() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      if (canViewService && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setCommandOpen(true)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setCommandOpen])
+  }, [canViewService, setCommandOpen])
 
   useEffect(() => setSidebarOpen(false), [location.pathname, setSidebarOpen])
 
@@ -128,7 +130,8 @@ export function AppShell() {
   }, [])
 
   const actionCount = actionQuery.data?.actions.length ?? 0
-  const canManageService = mode === 'legacy' || Boolean(user?.role?.toLowerCase().includes('admin'))
+  const canManageService = canManageDataWorksSettings(mode, user)
+  const isPersonalRoute = location.pathname === '/personal' || location.pathname.startsWith('/personal/')
   const productMatch = location.pathname.match(/^\/products\/([^/]+)/)
   const currentPage = productMatch
     ? decodeURIComponent(productMatch[1])
@@ -143,7 +146,7 @@ export function AppShell() {
       />
       <aside className={cn('app-sidebar', sidebarOpen && 'is-open')}>
         <div className="flex h-[76px] items-center justify-between px-5">
-          <NavLink to="/" className="flex items-center gap-3" aria-label="Data Works 홈">
+          <NavLink to={canViewService ? '/' : '/personal'} className="flex items-center gap-3" aria-label="Data Works 홈">
             <span className="brand-mark"><Database className="size-[18px]" /></span>
             <span>
               <span className="block text-[13px] font-black tracking-[-.03em] text-[var(--ink)]">DATA WORKS</span>
@@ -154,7 +157,7 @@ export function AppShell() {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-5" aria-label="주요 메뉴">
-          {serviceNavGroups.map((group) => (
+          {canViewService ? serviceNavGroups.map((group) => (
             <div key={group.label} className="mb-6">
               <p className="px-3 pb-2 text-[11px] font-black tracking-[.14em] text-[var(--muted-soft)]">{group.label}</p>
               <div className="space-y-1">
@@ -172,7 +175,7 @@ export function AppShell() {
                 ))}
               </div>
             </div>
-          ))}
+          )) : null}
           {mode === 'jwt' ? (
             <div className="mb-6">
               <p className="px-3 pb-2 text-[11px] font-black tracking-[.14em] text-[var(--muted-soft)]">개인화</p>
@@ -248,28 +251,30 @@ export function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <button className="command-trigger" onClick={() => setCommandOpen(true)} aria-label="통합 검색 열기">
+            {canViewService ? <button className="command-trigger" onClick={() => setCommandOpen(true)} aria-label="통합 검색 열기">
               <Search className="size-4" /><span className="hidden sm:inline">통합 검색</span><kbd>⌘K</kbd>
-            </button>
+            </button> : null}
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="테마 변경">
               {theme === 'light' ? <Moon className="size-[18px]" /> : <Sun className="size-[18px]" />}
             </Button>
-            <div className="relative">
+            {canViewService ? <div className="relative">
               <Button variant="ghost" size="icon" onClick={() => setNotificationsOpen(!notificationsOpen)} aria-label="알림">
                 <Bell className="size-[18px]" />
                 {actionCount ? <span className="absolute right-2 top-2 size-2 rounded-full bg-[var(--danger)] ring-2 ring-[var(--surface)]" /> : null}
               </Button>
               <NotificationPanel query={actionQuery} />
-            </div>
-            <Button className="ml-1 hidden sm:inline-flex" variant="secondary" size="sm" asChild>
+            </div> : null}
+            {canViewService ? <Button className="ml-1 hidden sm:inline-flex" variant="secondary" size="sm" asChild>
               <Link to="/factory?copilot=1"><Bot className="size-3.5" /> 코파일럿에게 묻기</Link>
-            </Button>
+            </Button> : null}
           </div>
         </header>
 
-        <main className="page-canvas"><Outlet /></main>
+        <main className="page-canvas">
+          {canViewService || isPersonalRoute ? <Outlet /> : <Navigate to="/personal" replace />}
+        </main>
       </div>
-      <CommandPalette />
+      {canViewService ? <CommandPalette /> : null}
       <CopilotPanel />
     </div>
   )

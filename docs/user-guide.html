@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Data Works 사용자 가이드 | 데이터 상품 운영과 개인 API 키</title>
-  <meta name="description" content="Data Works v0.9.32 사용자 가이드. 한국어 Workbench, Product Workspace, 출시 게이트, 코파일럿, 개인 API 키 발급 후 권한 변경·회전·폐기, MCP와 OpenAPI 사용법을 설명합니다.">
+  <meta name="description" content="Data Works v0.9.33 사용자 가이드. 한국어 Workbench, Product Workspace, 출시 게이트, 코파일럿, 개인 API 키 발급 후 권한 변경·회전·폐기, MCP와 OpenAPI 사용법을 설명합니다.">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://hkjang.github.io/dataworks/user-guide.html">
   <link rel="stylesheet" href="guide.css">
@@ -18,8 +18,8 @@
         "headline": "Data Works 사용자 가이드",
         "description": "데이터 상품 운영 화면, 출시 게이트, 개인 API 키 정책 변경, AI 스트리밍, MCP와 OpenAPI 사용 가이드",
         "inLanguage": "ko-KR",
-        "version": "v0.9.32",
-        "dateModified": "2026-08-28",
+        "version": "v0.9.33",
+        "dateModified": "2026-08-31",
         "mainEntityOfPage": "https://hkjang.github.io/dataworks/user-guide.html",
         "publisher": {"@type": "Organization", "name": "Data Works"},
         "about": {"@type": "SoftwareApplication", "name": "Data Works", "applicationCategory": "BusinessApplication"}
@@ -76,7 +76,7 @@
       </ol>
 
       <header class="hero">
-        <p class="eyebrow">Data Works v0.9.32 · 사용자 문서</p>
+        <p class="eyebrow">Data Works v0.9.33 · 사용자 문서</p>
         <h1>데이터 상품 운영을 한 흐름으로</h1>
         <p class="lead">관제실에서 처리할 일을 찾고, 상품의 준비도·승인·증적·출시 상태를 확인하며, 개인 API 키와 AI·MCP 연결을 안전하게 관리하는 방법을 설명합니다.</p>
         <div class="meta"><span class="chip">한국어 UI</span><span class="chip">모바일 지원</span><span class="chip">발급 후 키 권한 변경</span><span class="chip">기본 스트리밍</span></div>
@@ -97,7 +97,7 @@
           </tbody>
         </table></div>
         <aside class="note"><strong>권장 접속 주소</strong>일반 사용자와 관리자는 <code>http://&lt;host&gt;:8080/dataworks/</code>로 접속합니다. 조직의 대표 주소 <code>/</code>에서도 화면을 열려면 운영자가 리버스 프록시에서 <code>/</code>를 <code>/dataworks/</code>로 리다이렉트해야 합니다.</aside>
-        <p>로그인 화면 아래와 로그인 후 프로필 메뉴에서 서비스 버전 <strong>v0.9.32</strong>를 확인할 수 있습니다. 프로필 메뉴는 내 작업 공간, 내 API 키, 관리자 설정(권한 보유 시), OpenAPI와 Swagger 링크를 제공합니다.</p>
+        <p>로그인 화면 아래와 로그인 후 프로필 메뉴에서 서비스 버전 <strong>v0.9.33</strong>를 확인할 수 있습니다. 프로필 메뉴는 내 작업 공간, 내 API 키, 관리자 설정(권한 보유 시), OpenAPI와 Swagger 링크를 제공합니다.</p>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/00-login.jpg"><img src="assets/screenshots/desktop/00-login.jpg" alt="이메일과 비밀번호 입력, Keycloak SSO 버튼과 서비스 버전이 있는 Data Works 로그인 화면" width="1440" height="1024" loading="eager"></picture><figcaption>로그인 화면 — 서비스 버전과 SSO 상태를 함께 확인합니다.</figcaption></figure>
         <div class="table-wrap"><table><thead><tr><th>메뉴</th><th>주소</th><th>주요 용도</th></tr></thead><tbody>
           <tr><td>관제실</td><td><code>/dataworks/</code></td><td>생산 흐름과 주의 작업</td></tr>
@@ -128,7 +128,7 @@
       <section id="assets">
         <h2>3. 데이터 자산과 준비도</h2>
         <p>자산 이름·키·도메인·담당자로 검색하고 도메인과 민감도로 필터링합니다. 준비도는 스키마, 최신성, 결측, 외부 제공 가능성, API와 과금 준비 등을 100점으로 나타냅니다.</p>
-        <aside class="warning"><strong>현재 UI 범위</strong><code>준비도 점검 실행</code>은 아직 일괄 실행 API와 연결되지 않았습니다. 현재 화면에서는 조회하고, 운영자는 <code>POST /admin/dataworks/assets/{asset_key}/readiness/check</code>를 사용합니다.</aside>
+        <aside class="note"><strong>자산 관리</strong>쓰기 권한이 있으면 자산을 등록·수정하고, 개별 또는 전체 준비도를 재평가하며, 확인 후 안전하게 삭제할 수 있습니다. 상품이 원천으로 참조 중인 자산은 삭제가 차단됩니다.</aside>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/02-data-assets.jpg"><img src="assets/screenshots/desktop/02-data-assets.jpg" alt="검색 필터와 준비도 점수가 있는 데이터 자산 화면" width="1440" height="1024" loading="lazy"></picture><figcaption>준비도 70 미만의 원천 자산은 민감 상품의 출시를 막을 수 있습니다.</figcaption></figure>
       </section>
 
@@ -141,11 +141,12 @@
 
       <section id="workspace">
         <h2>5. Product Workspace</h2>
-        <p>상품을 선택하면 생명주기 Stepper와 상품별 탭이 열립니다. 현재 실제 데이터를 제공하는 탭은 개요, 데이터 자산, 블루프린트, 위험, 승인, 증적과 계약입니다.</p>
+        <p>상품을 선택하면 생명주기 Stepper와 상품별 탭이 열립니다. 쓰기 권한이 있으면 목록에서 상품을 생성·수정하고 <code>draft</code> 또는 <code>archived</code> 상태만 삭제하며, 삭제한 상품 키는 보존된 과거 이력을 새 상품이 상속하지 않도록 재사용할 수 없습니다. 상품 작업 공간에서는 상태 전환·Canvas 저장·승인 추적 추가/갱신·계약 버전 생성을 수행합니다.</p>
         <div class="cards">
-          <article class="card"><h3>운영 가능한 탭</h3><p>출시 게이트 조회·상품 출시, 자산 준비도, Canvas, 위험, 승인, Evidence Pack, 최신 계약 버전</p></article>
+          <article class="card"><h3>운영 가능한 탭</h3><p>출시 게이트 조회·상품 출시, 자산 준비도, Canvas 편집·저장, 위험, 승인 추적 추가·갱신, Evidence Pack, append-only 계약 버전 생성</p></article>
           <article class="card"><h3>현재 안내 탭</h3><p>API, 고객, 사용량, 수익, 버전, 활동 이력은 향후 모듈 안내 화면입니다.</p></article>
         </div>
+        <aside class="note"><strong>계약 이력</strong>계약은 새 버전을 누적하는 append-only 방식입니다. 기존 계약 버전이나 과거 이력을 수정·삭제하는 기능은 제공하지 않습니다.</aside>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/04-products.jpg"><img src="assets/screenshots/desktop/04-products.jpg" alt="상태별 데이터 상품 목록" width="1440" height="1024" loading="lazy"></picture><figcaption>데이터 상품 목록에서 상품별 작업 공간으로 이동합니다.</figcaption></figure>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/product/00-overview-release-gate.jpg"><img src="assets/screenshots/desktop/product/00-overview-release-gate.jpg" alt="생명주기 단계와 출시 게이트를 보여주는 상품 작업 공간 개요" width="1440" height="1024" loading="lazy"></picture><figcaption>상품 작업 공간 개요와 출시 게이트</figcaption></figure>
       </section>
@@ -160,7 +161,7 @@ POST /admin/dataworks/products/{product_key}/publish</code></pre>
 
       <section id="review">
         <h2>7. 검토, 공급망과 마켓플레이스</h2>
-        <p>검토 센터는 액션 유형과 심각도를 필터링하고 대상 상품으로 연결합니다. 현재 화면에는 승인·반려 입력 버튼이 없으므로 결정 기록은 관리 API 또는 기존 관리자 콘솔을 사용합니다.</p>
+        <p>검토 센터는 액션 유형과 심각도를 필터링하고 대상 상품으로 연결합니다. 검토 센터 자체는 분류·이동 화면이고, 연결된 상품 작업 공간의 <strong>승인</strong> 탭에서 승인 추적 항목을 추가하거나 결정·증적·만료 정보를 갱신합니다.</p>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/05-review-center.jpg"><img src="assets/screenshots/desktop/05-review-center.jpg" alt="출시 차단과 승인 대기를 필터링하는 검토 센터" width="1440" height="1024" loading="lazy"></picture><figcaption>검토 센터 — 작업을 분류하고 상품으로 이동합니다.</figcaption></figure>
         <p>공급망 지도에서는 자산, 상품, API 제공 채널과 고객 성과 관계를 탐색합니다. 마켓플레이스에는 <code>published</code> 상품만 표시되며, 현재 접근 신청과 PoC 요청 제출은 화면에 연결되지 않았습니다.</p>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/06-supply-chain-map.jpg"><img src="assets/screenshots/desktop/06-supply-chain-map.jpg" alt="자산 상품 API 고객 관계를 시각화한 공급망 지도" width="1440" height="1024" loading="lazy"></picture><figcaption>공급망 지도 — 연결 관계와 영향 범위를 탐색합니다.</figcaption></figure>
@@ -250,7 +251,7 @@ POST /admin/dataworks/products/{product_key}/publish</code></pre>
 
       <footer class="guide-footer">
         <nav aria-label="관련 문서"><a href="admin-guide.html">관리자 가이드</a><a href="OPERATIONS.md">운영 가이드</a><a href="SAFETY_GUIDE.md">보안 가이드</a><a href="RELEASE_GUIDE.md">릴리즈 가이드</a></nav>
-        <p>Data Works v0.9.32 · 최종 갱신 2026-08-28</p>
+        <p>Data Works v0.9.33 · 최종 갱신 2026-08-31</p>
       </footer>
     </main>
   </div>

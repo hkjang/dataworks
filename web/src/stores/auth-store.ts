@@ -8,9 +8,28 @@ export interface AuthUser {
   name?: string
   role?: string
   team_id?: string
+  scopes?: string[]
+  default_home?: string
 }
 
-type AuthMode = 'checking' | 'jwt' | 'legacy' | 'unauthenticated'
+export type AuthMode = 'checking' | 'jwt' | 'legacy' | 'unauthenticated'
+
+export function canAccessDataWorks(mode: AuthMode, user: AuthUser | null) {
+  return mode === 'legacy' || (mode === 'jwt' && Boolean(user?.scopes?.includes('admin:read')))
+}
+
+export function canWriteDataWorks(mode: AuthMode, user: AuthUser | null) {
+  return mode === 'legacy' || (mode === 'jwt' && Boolean(user?.scopes?.includes('admin:write')))
+}
+
+export function canManageDataWorksSettings(mode: AuthMode, user: AuthUser | null) {
+  if (mode === 'legacy') return true
+  if (mode !== 'jwt') return false
+  return Boolean(
+    user?.scopes?.includes('admin:write') ||
+    (user?.scopes?.includes('admin:read') && user?.role?.toLowerCase().includes('admin')),
+  )
+}
 
 interface TokenResponse {
   access_token: string
@@ -114,7 +133,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authStorage.clearJWT()
       set({ mode: 'unauthenticated', user: null, version: await getPublicVersion(), ssoError })
     } catch {
-      set({ mode: 'legacy', ssoError })
+      set({ mode: 'unauthenticated', user: null, version: await getPublicVersion(), ssoError })
     }
   },
   login: async (email, password) => {

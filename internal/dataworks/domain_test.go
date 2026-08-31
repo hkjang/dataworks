@@ -41,6 +41,36 @@ func TestEvaluatePublishGateBlocksStrictProductUntilEvidenceIsComplete(t *testin
 	if !gate.Allowed {
 		t.Fatalf("strict product should pass when evidence is complete: %+v", gate)
 	}
+
+	approvals = append(approvals, store.ApprovalTrace{Step: "security", Status: "pending", Required: true})
+	gate = EvaluatePublishGate(product, readiness, approvals, &pack, time.Date(2026, 7, 8, 0, 0, 0, 0, time.UTC))
+	if gate.Allowed || !hasString(gate.RequiredApprovals, "security") || !hasString(gate.MissingApprovals, "security") {
+		t.Fatalf("custom required approval must block publishing: %+v", gate)
+	}
+	approvals[len(approvals)-1].Status = "approved"
+	gate = EvaluatePublishGate(product, readiness, approvals, &pack, time.Date(2026, 7, 8, 0, 0, 0, 0, time.UTC))
+	if !gate.Allowed {
+		t.Fatalf("approved custom requirement should unblock publishing: %+v", gate)
+	}
+}
+
+func TestEvaluatePublishGateHonorsCustomRequirementForStandardProduct(t *testing.T) {
+	product := store.DataProduct{ProductKey: "standard", Sensitivity: "internal", RiskScore: 10}
+	approvals := []store.ApprovalTrace{{Step: "security", Status: "pending", Required: true}}
+	gate := EvaluatePublishGate(product, nil, approvals, nil, time.Date(2026, 7, 8, 0, 0, 0, 0, time.UTC))
+	if gate.Allowed || !hasString(gate.MissingApprovals, "security") {
+		t.Fatalf("custom requirement must apply to a standard product: %+v", gate)
+	}
+	approvals[0].Required = false
+	gate = EvaluatePublishGate(product, nil, approvals, nil, time.Date(2026, 7, 8, 0, 0, 0, 0, time.UTC))
+	if !gate.Allowed || len(gate.RequiredApprovals) != 0 {
+		t.Fatalf("optional approval must not block a standard product: %+v", gate)
+	}
+	approvals[0] = store.ApprovalTrace{Step: "security", Status: "approved", Required: true, ExpiresAt: "invalid-time"}
+	gate = EvaluatePublishGate(product, nil, approvals, nil, time.Date(2026, 7, 8, 0, 0, 0, 0, time.UTC))
+	if gate.Allowed || gate.ApprovalStatus["security"] != "expired" {
+		t.Fatalf("invalid legacy expiration must fail closed: %+v", gate)
+	}
 }
 
 func TestCustomerFitScoreAndSnapshotDiff(t *testing.T) {

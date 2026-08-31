@@ -18,7 +18,7 @@ func (s *Server) handleDataWorksAssetByKey(w http.ResponseWriter, r *http.Reques
 		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
 		return
 	}
-	parts := dataWorksPathParts(r.URL.Path, "/admin/dataworks/assets/")
+	parts := dataWorksPathParts(r.URL.EscapedPath(), "/admin/dataworks/assets/")
 	if len(parts) < 2 {
 		writeOpenAIError(w, http.StatusNotFound, "asset action required", "invalid_request_error", "not_found")
 		return
@@ -87,7 +87,7 @@ func (s *Server) handleDataWorksProductByKey(w http.ResponseWriter, r *http.Requ
 		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
 		return
 	}
-	parts := dataWorksPathParts(r.URL.Path, "/admin/dataworks/products/")
+	parts := dataWorksPathParts(r.URL.EscapedPath(), "/admin/dataworks/products/")
 	if len(parts) < 2 {
 		writeOpenAIError(w, http.StatusNotFound, "product action required", "invalid_request_error", "not_found")
 		return
@@ -213,7 +213,7 @@ func (s *Server) handleDataWorksProposalByID(w http.ResponseWriter, r *http.Requ
 		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
 		return
 	}
-	parts := dataWorksPathParts(r.URL.Path, "/admin/dataworks/proposals/")
+	parts := dataWorksPathParts(r.URL.EscapedPath(), "/admin/dataworks/proposals/")
 	if len(parts) != 2 || parts[1] != "feedback" {
 		writeOpenAIError(w, http.StatusNotFound, "proposal feedback action required", "invalid_request_error", "not_found")
 		return
@@ -266,7 +266,7 @@ func (s *Server) handleDataWorksPOCByID(w http.ResponseWriter, r *http.Request) 
 		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
 		return
 	}
-	parts := dataWorksPathParts(r.URL.Path, "/admin/dataworks/poc/")
+	parts := dataWorksPathParts(r.URL.EscapedPath(), "/admin/dataworks/poc/")
 	if len(parts) != 2 || parts[1] != "outcome" {
 		writeOpenAIError(w, http.StatusNotFound, "poc outcome action required", "invalid_request_error", "not_found")
 		return

@@ -1,10 +1,10 @@
 # Data Works 관리자 가이드
 
-> 적용 버전: **v0.9.32**<br>
+> 적용 버전: **v0.9.33**<br>
 > 서비스 관리자 화면: `http://<host>:8080/dataworks/settings`<br>
 > 일반 사용 방법은 [사용자 가이드](USER_GUIDE.md)를 참고하세요.
 
-이 문서는 폐쇄망 설치, 최초 관리자 로그인, AI·MCP, Keycloak SSO, 키 정책과 데이터 상품 운영 절차를 실제 v0.9.32 구현 기준으로 설명합니다.
+이 문서는 폐쇄망 설치, 최초 관리자 로그인, AI·MCP, Keycloak SSO, 키 정책과 데이터 상품 운영 절차를 실제 v0.9.33 구현 기준으로 설명합니다.
 
 ## 1. 운영 구성
 
@@ -24,13 +24,13 @@ Data Works 배포 이미지는 React SPA와 Go API를 하나의 바이너리로 
 GitHub Release의 운영 산출물은 다음 하나의 custom asset입니다.
 
 ```text
-dataworks-v0.9.32.tar.gz
+dataworks-v0.9.33.tar.gz
 ```
 
 압축 파일을 적재하면 다음 이미지가 생성됩니다.
 
 ```text
-dataworks:v0.9.32
+dataworks:v0.9.33
 ```
 
 ## 2. 폐쇄망 설치
@@ -57,9 +57,9 @@ openssl rand -hex 32
 ### 이미지 적재
 
 ```bash
-gzip -t dataworks-v0.9.32.tar.gz
-gunzip -c dataworks-v0.9.32.tar.gz | docker load
-docker image inspect dataworks:v0.9.32
+gzip -t dataworks-v0.9.33.tar.gz
+gunzip -c dataworks-v0.9.33.tar.gz | docker load
+docker image inspect dataworks:v0.9.33
 ```
 
 ### 컨테이너 실행
@@ -73,7 +73,7 @@ docker run -d --name dataworks --restart=always \
   -e BOOTSTRAP_ADMIN='admin@dataworks.local' \
   -e BOOTSTRAP_ADMIN_PASSWORD='replace-with-a-strong-password' \
   -e ENCRYPTION_KEY='replace-with-64-hex-characters' \
-  dataworks:v0.9.32
+  dataworks:v0.9.33
 ```
 
 저장소의 `docker-compose.yml`을 함께 반입한 환경에서는 같은 네 값을 `.env`에 저장한 뒤 실행할 수 있습니다.
@@ -87,7 +87,7 @@ ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 ```bash
 docker compose config --images
-# dataworks:v0.9.32
+# dataworks:v0.9.33
 docker compose up -d
 ```
 
@@ -114,7 +114,7 @@ PostgreSQL 마이그레이션은 기동 시 자동 실행됩니다. 외부 공�
 
 1. `http://<host>:8080/dataworks/`를 엽니다.
 2. Bootstrap 이메일과 비밀번호로 로그인합니다.
-3. 로그인 화면 또는 프로필 메뉴에서 `v0.9.32`를 확인합니다.
+3. 로그인 화면 또는 프로필 메뉴에서 `v0.9.33`를 확인합니다.
 4. 왼쪽 아래 `관리자 설정`을 엽니다.
 
 ![로그인 화면](assets/screenshots/desktop/00-login.jpg)
@@ -303,18 +303,18 @@ POST /me/connection-doctor
 
 ## 11. 데이터 상품 운영 흐름
 
-React Workbench는 현황 탐색, 상품 작업 공간, 출시 게이트와 조건 충족 상품의 출시를 중심으로 제공합니다. 생성·승인 입력과 일부 고급 운영은 REST API 또는 기존 관리자 콘솔을 사용합니다.
+React Workbench는 현황 탐색과 출시 게이트 외에도 쓰기 권한이 있는 사용자에게 자산 등록·수정·준비도 재평가·안전 삭제, 상품 생성·수정·상태 전환·초안/보관 삭제, Canvas 저장, 승인 추적 추가·갱신과 append-only 계약 버전 생성을 제공합니다. AI 상품 공장 실행 생성·재생과 일부 고급 운영은 REST API 또는 기존 관리자 콘솔을 사용합니다.
 
 ### 11.1 데이터 자산
 
 ```http
-GET/POST /admin/dataworks/assets
+GET/POST/DELETE /admin/dataworks/assets
 GET/POST /admin/dataworks/assets/readiness
 POST     /admin/dataworks/assets/{asset_key}/readiness/check
 GET      /admin/dataworks/assets/{asset_key}/lineage
 ```
 
-자산에 키, 이름, 도메인, 담당자, 컬럼 요약, 민감도와 갱신 주기를 등록합니다. 민감 상품 출시 전에 준비도 70 이상인지 확인합니다.
+화면에서 자산의 키, 이름, 도메인, 담당자, 컬럼 요약, 민감도와 갱신 주기를 등록·수정하고 개별 또는 전체 준비도를 재평가합니다. 삭제는 확인 절차를 거치며, 상품이 원천 자산으로 참조 중이면 `409 Conflict`로 차단됩니다. 민감 상품 출시 전에 준비도 70 이상인지 확인합니다.
 
 ### 11.2 아이디어와 상품 정의
 
@@ -323,9 +323,11 @@ POST /admin/dataworks/factory/ideas
 POST /admin/dataworks/factory/definitions
 POST /admin/dataworks/scoring/evaluate
 POST /admin/dataworks/similarity/check
+GET/POST/DELETE /admin/dataworks/products
+POST /admin/dataworks/products/{product_key}/{submit|approve|reject|archive}
 ```
 
-React 상품 공장은 현재 실행 관찰 화면이며 새 실행 생성 UI가 아닙니다.
+React 상품 공장은 현재 실행 관찰 화면이며 새 실행 생성 UI가 아닙니다. 대신 `데이터 상품` 목록에서 상품을 생성·수정하고, 상품 작업 공간에서 제출·승인·반려·보관 상태 전환을 제어합니다. 화면의 삭제 동작은 `draft` 또는 `archived` 상태에서만 제공되며, 삭제한 상품 키는 보존된 과거 승인·계약 이력의 오연결을 막기 위해 재사용할 수 없습니다.
 
 ### 11.3 Product Canvas
 
@@ -334,7 +336,7 @@ GET/POST /admin/dataworks/products/{product_key}/canvas
 POST     /admin/dataworks/products/{product_key}/canvas/generate
 ```
 
-고객 문제, 구매자, 사용 사례, 제공 데이터, 차별점, 가격 모델, 위험 참고, PoC 성공 기준과 예상 수익을 관리합니다.
+고객 문제, 구매자, 사용 사례, 제공 데이터, 차별점, 가격 모델, 위험 참고, PoC 성공 기준과 예상 수익을 관리합니다. 상품 작업 공간의 `블루프린트` 탭에서 Canvas를 편집해 저장할 수 있습니다.
 
 ### 11.4 위험 검토와 승인
 
@@ -346,7 +348,7 @@ POST /admin/dataworks/reviews/{product_key}/reject
 GET/POST /admin/dataworks/products/{product_key}/approvals
 ```
 
-필수 승인 step은 `data_owner`, `legal`, `compliance`입니다. 승인 `expires_at`이 지나면 출시 증적으로 인정되지 않습니다. React 검토 센터는 현재 필터와 상품 이동만 제공하며 승인·반려 입력 버튼은 없습니다.
+필수 승인 step은 `data_owner`, `legal`, `compliance`입니다. 승인 `expires_at`이 지나면 출시 증적으로 인정되지 않습니다. React 검토 센터는 필터와 상품 이동을 제공하고, 연결된 상품 작업 공간의 `승인` 탭에서 승인 추적 항목을 추가하거나 기존 결정·증적·만료 정보를 갱신할 수 있습니다.
 
 ### 11.5 Evidence Pack
 
@@ -388,12 +390,14 @@ POST     /v1/data-products/{product_key}/query
 
 권장 순서:
 
-1. 계약 버전과 고객별 허용 필드, 호출 한도, 기간, 목적을 등록합니다.
+1. 상품 작업 공간의 `계약` 탭에서 계약 정의를 새 버전으로 추가하고, 고객별 허용 필드, 호출 한도, 기간과 목적을 관리합니다.
 2. Entitlement로 고객 API 키를 계약 Scope에 연결합니다.
 3. SLA, 최신성 Watermark와 비용·마진을 설정합니다.
 4. 런타임 상품 API를 호출해 출시, 계약 범위와 만료 검사를 확인합니다.
 
 Product Workspace의 API·고객·사용량·수익·버전·활동 이력 탭은 현재 안내 화면입니다. 위 API가 React 탭에서 편집 가능하다고 가정하지 마세요.
+
+계약 버전은 감사 가능성을 유지하기 위한 append-only 이력입니다. React UI와 관리 API는 새 버전 생성을 지원하지만 기존 계약 버전이나 과거 이력의 수정·삭제는 지원하지 않습니다.
 
 ## 13. OpenAPI와 개발자 문서
 

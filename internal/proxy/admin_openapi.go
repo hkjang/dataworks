@@ -285,7 +285,7 @@ var apiEndpoints = []apiEndpoint{
 	{"/admin/factory/products/{id}/publish", []string{"post"}, "factory", "Publish a product", false},
 	{"/admin/factory/products/{id}/archive", []string{"post"}, "factory", "Archive a product", false},
 	{"/admin/dataworks/home", []string{"get"}, "dataworks", "Data Works home KPIs", false},
-	{"/admin/dataworks/assets", []string{"get", "post"}, "dataworks", "List/upsert Data Works data assets", false},
+	{"/admin/dataworks/assets", []string{"get", "post", "delete"}, "dataworks", "List/upsert/delete Data Works data assets", false},
 	{"/admin/dataworks/assets/{key}/readiness/check", []string{"post"}, "dataworks", "Evaluate an asset's productization readiness score", false},
 	{"/admin/dataworks/assets/{key}/lineage", []string{"get"}, "dataworks", "Asset-to-product lineage graph", false},
 	{"/admin/dataworks/factory/ideas", []string{"post"}, "dataworks", "Generate Data Works product ideas", false},

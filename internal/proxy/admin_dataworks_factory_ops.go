@@ -71,7 +71,7 @@ func (s *Server) handleDataWorksFactoryRunAction(w http.ResponseWriter, r *http.
 		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
 		return
 	}
-	parts := dataWorksPathParts(r.URL.Path, "/admin/dataworks/factory/runs/")
+	parts := dataWorksPathParts(r.URL.EscapedPath(), "/admin/dataworks/factory/runs/")
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 		writeOpenAIError(w, http.StatusNotFound, "factory run action not found", "invalid_request_error", "not_found")
 		return

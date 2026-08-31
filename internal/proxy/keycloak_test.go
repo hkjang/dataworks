@@ -47,6 +47,116 @@ func TestKeycloakCallbackErrorRedirectsToReactSPA(t *testing.T) {
 	}
 }
 
+func TestDataWorksSSOLandingPathFollowsAdminReadScope(t *testing.T) {
+	if got := dataWorksSSOLandingPath(roleScopes["admin"]); got != "/dataworks/" {
+		t.Fatalf("admin landing=%q, want /dataworks/", got)
+	}
+	if got := dataWorksSSOLandingPath(roleScopes["developer"]); got != "/dataworks/personal" {
+		t.Fatalf("developer landing=%q, want /dataworks/personal", got)
+	}
+}
+
+func TestActionCenterDistinguishesMissingScopeFromInvalidSession(t *testing.T) {
+	_, proxy := newAuthTestServer(t, "http://example.invalid")
+	defer proxy.Close()
+
+	rootLogin := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{
+		"email": "root@example.com", "password": "correct-password",
+	})
+	var rootTokens struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(rootLogin.Body).Decode(&rootTokens); err != nil {
+		t.Fatal(err)
+	}
+	rootLogin.Body.Close()
+
+	created := postJSON(t, proxy.URL+"/admin/users", rootTokens.AccessToken, map[string]string{
+		"email": "sso-developer@example.com", "password": "developer-password", "role": "developer",
+	})
+	created.Body.Close()
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create developer status=%d", created.StatusCode)
+	}
+	developerLogin := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{
+		"email": "sso-developer@example.com", "password": "developer-password",
+	})
+	var developerTokens struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(developerLogin.Body).Decode(&developerTokens); err != nil {
+		t.Fatal(err)
+	}
+	developerLogin.Body.Close()
+
+	actionRequest, _ := http.NewRequest(http.MethodGet, proxy.URL+"/admin/dataworks/action-center", nil)
+	actionRequest.Header.Set("Authorization", "Bearer "+developerTokens.AccessToken)
+	actionResponse, err := http.DefaultClient.Do(actionRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actionResponse.Body.Close()
+	if actionResponse.StatusCode != http.StatusForbidden {
+		t.Fatalf("valid developer session status=%d, want 403", actionResponse.StatusCode)
+	}
+	meRequest, _ := http.NewRequest(http.MethodGet, proxy.URL+"/auth/me", nil)
+	meRequest.Header.Set("Authorization", "Bearer "+developerTokens.AccessToken)
+	meResponse, err := http.DefaultClient.Do(meRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meResponse.Body.Close()
+	if meResponse.StatusCode != http.StatusOK {
+		t.Fatalf("scope denial must not invalidate the SSO session: /auth/me status=%d", meResponse.StatusCode)
+	}
+
+	created = postJSON(t, proxy.URL+"/admin/users", rootTokens.AccessToken, map[string]string{
+		"email": "sso-viewer@example.com", "password": "viewer-password", "role": "viewer",
+	})
+	created.Body.Close()
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create viewer status=%d", created.StatusCode)
+	}
+	viewerLogin := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{
+		"email": "sso-viewer@example.com", "password": "viewer-password",
+	})
+	var viewerTokens struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(viewerLogin.Body).Decode(&viewerTokens); err != nil {
+		t.Fatal(err)
+	}
+	viewerLogin.Body.Close()
+	assetWrite := postJSON(t, proxy.URL+"/admin/dataworks/assets", viewerTokens.AccessToken, map[string]any{
+		"asset_key": "readonly-must-not-write", "name": "Read-only asset",
+	})
+	assetWrite.Body.Close()
+	if assetWrite.StatusCode != http.StatusForbidden {
+		t.Fatalf("valid read-only session write status=%d, want 403", assetWrite.StatusCode)
+	}
+	viewerMeRequest, _ := http.NewRequest(http.MethodGet, proxy.URL+"/auth/me", nil)
+	viewerMeRequest.Header.Set("Authorization", "Bearer "+viewerTokens.AccessToken)
+	viewerMeResponse, err := http.DefaultClient.Do(viewerMeRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	viewerMeResponse.Body.Close()
+	if viewerMeResponse.StatusCode != http.StatusOK {
+		t.Fatalf("write denial must not invalidate the read-only session: /auth/me status=%d", viewerMeResponse.StatusCode)
+	}
+
+	invalidRequest, _ := http.NewRequest(http.MethodGet, proxy.URL+"/admin/dataworks/action-center", nil)
+	invalidRequest.Header.Set("Authorization", "Bearer invalid-session")
+	invalidResponse, err := http.DefaultClient.Do(invalidRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidResponse.Body.Close()
+	if invalidResponse.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("invalid session status=%d, want 401", invalidResponse.StatusCode)
+	}
+}
+
 func TestResolveKeycloakRole(t *testing.T) {
 	cases := []struct {
 		roles []string

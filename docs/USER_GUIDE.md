@@ -1,6 +1,6 @@
 # Data Works 사용자 가이드
 
-> 적용 버전: **v0.9.32**<br>
+> 적용 버전: **v0.9.33**<br>
 > 서비스 화면: `http://<host>:8080/dataworks/`<br>
 > 설치·인증·AI 공급자 설정은 [관리자 가이드](ADMIN_GUIDE.md)를 참고하세요.
 
@@ -75,11 +75,12 @@ Data Works는 데이터 자산을 준비도 평가, 상품 설계, 위험 검토
 
 민감하거나 고위험인 상품의 원천 자산은 준비도 `70` 미만이면 출시가 차단될 수 있습니다.
 
-현재 React 화면의 `준비도 점검 실행`은 아직 일괄 평가 작업에 연결되지 않았습니다. 운영자는 관리 API를 사용합니다.
+쓰기 권한이 있는 사용자는 React 화면에서 자산을 등록·수정하고, 개별 또는 전체 준비도를 재평가하며, 확인 대화상자를 거쳐 자산을 삭제할 수 있습니다. 상품이 원천 자산으로 참조 중인 항목은 관계 무결성을 위해 삭제가 차단됩니다.
 
 ```http
 POST /admin/dataworks/assets/{asset_key}/readiness/check
 GET  /admin/dataworks/assets/readiness?asset_key={asset_key}
+DELETE /admin/dataworks/assets?asset_key={asset_key}
 ```
 
 ![데이터 자산](assets/screenshots/desktop/02-data-assets.jpg)
@@ -108,6 +109,8 @@ POST /admin/dataworks/factory/runs/{id}/evaluate
 ## 5. 데이터 상품과 Product Workspace
 
 `데이터 상품`에서 상품을 선택하면 상품 작업 공간이 열립니다. 상단 생명주기 단계는 자산, 아이디어, 설계, 위험, 승인, 증적, 출시, 계약과 운영 상태를 실제 저장 증적에서 계산합니다.
+
+쓰기 권한이 있으면 상품 목록에서 상품을 생성·수정하고 `draft` 또는 `archived` 상태만 삭제할 수 있습니다. 삭제한 상품의 감사·실행 이력은 보존되며, 과거 승인·계약이 새 상품에 섞이지 않도록 해당 상품 키는 영구 폐기됩니다. 상품 작업 공간에서는 상태 전환, Product Canvas 저장, 승인 추적 항목 추가·갱신과 계약 버전 생성을 수행합니다. 계약은 감사 가능성을 위해 새 버전을 누적하는 append-only 방식이며, 기존 버전이나 과거 이력을 수정·삭제하지 않습니다.
 
 현재 실제 데이터를 제공하는 탭:
 
@@ -147,7 +150,7 @@ POST /admin/dataworks/products/{product_key}/publish
 
 ## 7. 검토 센터와 거버넌스
 
-검토 센터에서는 액션 유형과 심각도를 필터링하고 대상 상품으로 이동합니다. 현재 React 검토 센터에는 승인·반려 입력 버튼이 없습니다. 승인 결정은 운영자가 관리 API 또는 기존 관리자 콘솔에서 기록합니다.
+검토 센터에서는 액션 유형과 심각도를 필터링하고 대상 상품으로 이동합니다. 검토 센터 자체는 분류·이동 화면이며, 승인 추적 항목의 추가·결정 갱신은 연결된 상품 작업 공간의 `승인` 탭에서 수행합니다. 상품 상태를 즉시 승인·반려하는 검토 API는 운영 절차에 따라 별도로 사용할 수 있습니다.
 
 ```http
 GET  /admin/dataworks/reviews

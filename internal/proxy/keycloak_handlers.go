@@ -117,7 +117,15 @@ func (s *Server) handleKeycloakCallback(w http.ResponseWriter, r *http.Request) 
 	frag := url.Values{}
 	frag.Set("kc_access", access)
 	frag.Set("kc_refresh", refresh)
-	http.Redirect(w, r, "/dataworks/#"+frag.Encode(), http.StatusFound)
+	landing := dataWorksSSOLandingPath(s.effectiveScopesForRole(r.Context(), user.Role))
+	http.Redirect(w, r, landing+"#"+frag.Encode(), http.StatusFound)
+}
+
+func dataWorksSSOLandingPath(scopes []string) string {
+	if hasScope(scopes, "admin:read") {
+		return "/dataworks/"
+	}
+	return "/dataworks/personal"
 }
 
 type keycloakTokenResponse struct {

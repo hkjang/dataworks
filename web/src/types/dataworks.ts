@@ -19,6 +19,11 @@ export interface DataAsset {
   updated_at: string
 }
 
+export type DataAssetInput = Pick<
+  DataAsset,
+  'asset_key' | 'name' | 'domain' | 'owner' | 'columns_summary' | 'sensitivity' | 'refresh_cycle'
+> & { id?: string }
+
 export interface AssetReadiness {
   asset_key: string
   schema_score: number
@@ -64,6 +69,32 @@ export interface DataProduct {
   created_at: string
   updated_at: string
 }
+
+export type DataProductInput = Pick<DataProduct, 'product_key' | 'name_ko'> &
+  Partial<Omit<DataProduct, 'product_key' | 'name_ko' | 'version' | 'updated_by' | 'created_at' | 'updated_at'>>
+
+export type ProductLifecycleAction = 'submit' | 'approve' | 'reject' | 'archive'
+
+export type ProductCanvasInput = Pick<
+  ProductCanvas,
+  | 'customer_problem'
+  | 'buyer'
+  | 'use_cases'
+  | 'provided_data'
+  | 'differentiation'
+  | 'pricing_model'
+  | 'risk_notes'
+  | 'poc_success_criteria'
+  | 'expected_revenue'
+  | 'owner'
+>
+
+export type ApprovalTraceInput = Pick<
+  ApprovalTrace,
+  'step' | 'status' | 'required' | 'evidence_ref' | 'notes' | 'decided_by' | 'expires_at'
+> & { id?: string }
+
+export type ContractVersionInput = Pick<ContractVersion, 'contract_json' | 'status'> & { id?: string }
 
 export interface HomeDashboard {
   total_assets: number

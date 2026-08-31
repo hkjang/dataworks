@@ -16,11 +16,7 @@ import (
 )
 
 func (s *Server) requireDataWorksAdmin(w http.ResponseWriter, r *http.Request) bool {
-	if s.authorizeAdmin(r) {
-		return true
-	}
-	writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
-	return false
+	return s.requireAdminAuthorization(w, r)
 }
 
 func platformStableID(prefix, value string) string {

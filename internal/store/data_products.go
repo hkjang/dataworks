@@ -42,6 +42,18 @@ type DataProduct struct {
 	UpdatedAt        string   `json:"updated_at"`
 }
 
+// DataProductKeyRetiredError reports an attempt to reuse a product key that was
+// permanently retired. Product-scoped governance records are intentionally kept
+// after catalog deletion, so reusing the key would attach that history to a new
+// product.
+type DataProductKeyRetiredError struct {
+	ProductKey string
+}
+
+func (e *DataProductKeyRetiredError) Error() string {
+	return "data product key is permanently retired: " + e.ProductKey
+}
+
 // DataProductAccessRequest is a team member's request to use a data product (mirrors the skill
 // marketplace access-request model).
 type DataProductAccessRequest struct {
@@ -57,6 +69,7 @@ type DataProductAccessRequest struct {
 
 // UpsertDataProduct inserts or updates a data product by product_key, bumping version on update.
 func (s *SQLStore) UpsertDataProduct(ctx context.Context, p DataProduct) error {
+	p.ProductKey = strings.TrimSpace(p.ProductKey)
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	if p.Sensitivity == "" {
 		p.Sensitivity = "internal"
@@ -67,7 +80,34 @@ func (s *SQLStore) UpsertDataProduct(ctx context.Context, p DataProduct) error {
 	if p.Status == "" {
 		p.Status = "draft"
 	}
-	_, err := s.db.ExecContext(ctx, s.bind(`INSERT INTO data_products
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Lock an existing catalog row before checking the permanent tombstone. This
+	// serializes updates with DeleteDataProduct, whose lock order is identical.
+	lockQuery := `SELECT product_key FROM data_products WHERE product_key = ?`
+	if s.dialect == "postgres" {
+		lockQuery += ` FOR UPDATE`
+	}
+	var existingKey string
+	if err := tx.QueryRowContext(ctx, s.bind(lockQuery), p.ProductKey).Scan(&existingKey); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	var retiredKey string
+	err = tx.QueryRowContext(ctx, s.bind(`SELECT product_key FROM data_product_retired_keys WHERE product_key = ?`), p.ProductKey).Scan(&retiredKey)
+	if err == nil {
+		return &DataProductKeyRetiredError{ProductKey: retiredKey}
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, s.bind(`INSERT INTO data_products
 		(id, product_key, name_ko, name_en, short_name, description, executive_summary, sales_pitch, source_type, source_ref, owner,
 		 allowed_teams, sensitivity, status, version, target_industries, target_customers, pricing_model, api_spec, poc_plan,
 		 risk_score, revenue_score, differentiation, similar_products, updated_by, created_at, updated_at)
@@ -85,7 +125,10 @@ func (s *SQLStore) UpsertDataProduct(ctx context.Context, p DataProduct) error {
 		strings.Join(p.AllowedTeams, ","), p.Sensitivity, p.Status, strings.Join(p.TargetIndustries, ","), strings.Join(p.TargetCustomers, ","),
 		p.PricingModel, p.APISpec, p.POCPlan, p.RiskScore, p.RevenueScore, p.Differentiation, strings.Join(p.SimilarProducts, ","),
 		p.UpdatedBy, now, now)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func scanDataProduct(sc interface{ Scan(...any) error }) (DataProduct, error) {
@@ -150,6 +193,25 @@ func (s *SQLStore) GetDataProduct(ctx context.Context, idOrKey string) (DataProd
 	return p, true, nil
 }
 
+// GetDataProductByKey returns a product by an exact product_key match. Use this
+// for key-addressed routes so a different row whose id happens to equal the key
+// cannot be selected.
+func (s *SQLStore) GetDataProductByKey(ctx context.Context, productKey string) (DataProduct, bool, error) {
+	row := s.db.QueryRowContext(ctx, s.bind(`SELECT id, product_key, name_ko, COALESCE(name_en,''), COALESCE(short_name,''), description,
+			COALESCE(executive_summary,''), COALESCE(sales_pitch,''), source_type, source_ref, owner, allowed_teams, sensitivity, status, version,
+			COALESCE(target_industries,''), COALESCE(target_customers,''), COALESCE(pricing_model,''), COALESCE(api_spec,''), COALESCE(poc_plan,''),
+			COALESCE(risk_score,0), COALESCE(revenue_score,0), COALESCE(differentiation,''), COALESCE(similar_products,''), updated_by, created_at, updated_at
+		FROM data_products WHERE product_key = ?`), strings.TrimSpace(productKey))
+	p, err := scanDataProduct(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return DataProduct{}, false, nil
+	}
+	if err != nil {
+		return DataProduct{}, false, err
+	}
+	return p, true, nil
+}
+
 func splitCSVField(value string) []string {
 	out := []string{}
 	for _, item := range strings.Split(value, ",") {
@@ -160,10 +222,53 @@ func splitCSVField(value string) []string {
 	return out
 }
 
-// DeleteDataProduct removes a product by id or product_key.
+// DeleteDataProduct atomically retires a product key and removes its catalog
+// row. The permanent tombstone prevents retained canvas, approval, contract,
+// and other product-scoped history from ever being inherited by a new product.
 func (s *SQLStore) DeleteDataProduct(ctx context.Context, idOrKey string) error {
-	_, err := s.db.ExecContext(ctx, s.bind(`DELETE FROM data_products WHERE id = ? OR product_key = ?`), idOrKey, idOrKey)
-	return err
+	idOrKey = strings.TrimSpace(idOrKey)
+	if idOrKey == "" {
+		return errors.New("data product id or product_key is required")
+	}
+	return s.deleteDataProduct(ctx, `SELECT id, product_key FROM data_products WHERE id = ? OR product_key = ?`, idOrKey, idOrKey)
+}
+
+// DeleteDataProductByKey atomically retires and removes only the row whose
+// product_key exactly matches productKey.
+func (s *SQLStore) DeleteDataProductByKey(ctx context.Context, productKey string) error {
+	productKey = strings.TrimSpace(productKey)
+	if productKey == "" {
+		return errors.New("product_key is required")
+	}
+	return s.deleteDataProduct(ctx, `SELECT id, product_key FROM data_products WHERE product_key = ?`, productKey)
+}
+
+func (s *SQLStore) deleteDataProduct(ctx context.Context, lookupQuery string, lookupArgs ...any) error {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if s.dialect == "postgres" {
+		lookupQuery += ` FOR UPDATE`
+	}
+	var productID, productKey string
+	if err := tx.QueryRowContext(ctx, s.bind(lookupQuery), lookupArgs...).Scan(&productID, &productKey); errors.Is(err, sql.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, s.bind(`INSERT INTO data_product_retired_keys
+		(product_key, product_id, retired_at) VALUES (?, ?, ?)
+		ON CONFLICT(product_key) DO NOTHING`), productKey, productID, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, s.bind(`DELETE FROM data_products WHERE id = ? AND product_key = ?`), productID, productKey); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // AddDataProductAccessRequest records a member's access request (defaults to pending).

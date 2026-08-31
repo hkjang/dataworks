@@ -145,6 +145,23 @@ func TestDataWorksFactoryOperationsMigrateFromVersion70(t *testing.T) {
 	)`); err != nil {
 		t.Fatal(err)
 	}
+	// A database recorded at version 70 has these early Data Works history
+	// tables. The fixture only needs product_key because later migrations do not
+	// mutate their other columns.
+	for _, table := range []string{
+		"dw_product_definitions",
+		"dw_product_api_specs",
+		"dw_product_pricing_models",
+		"dw_risk_reviews",
+		"dw_similarity_results",
+		"dw_poc_plans",
+		"dw_proposal_packages",
+		"dw_business_scores",
+	} {
+		if _, err := db.db.ExecContext(ctx, `CREATE TABLE `+table+` (product_key TEXT)`); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if _, err := db.db.ExecContext(ctx, `INSERT INTO data_assets (asset_key, name, owner) VALUES
 		('card_transaction_signals', '?? ???? ??', '?????'),
 		('company_risk_features', '?? ??? ??', '?????'),
@@ -167,8 +184,11 @@ func TestDataWorksFactoryOperationsMigrateFromVersion70(t *testing.T) {
 		t.Fatalf("upgraded factory run mismatch: %+v ok=%v err=%v", got, ok, err)
 	}
 	var version int
-	if err := db.db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 127 {
+	if err := db.db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 129 {
 		t.Fatalf("schema version=%d err=%v", version, err)
+	}
+	if exists, err := db.TableExists(ctx, "data_product_retired_keys"); err != nil || !exists {
+		t.Fatalf("retired-key table exists=%v err=%v", exists, err)
 	}
 	for _, tc := range []struct {
 		key, name, owner string

@@ -4241,6 +4241,72 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			WHERE asset_key IN ('card_transaction_signals', 'company_risk_features', 'credit_bureau_history')
 				AND (name LIKE '%?%' OR owner LIKE '%?%')`,
 		},
+		{
+			version: 128,
+			query: `CREATE TABLE IF NOT EXISTS data_product_retired_keys (
+				product_key TEXT PRIMARY KEY,
+				product_id TEXT NOT NULL DEFAULT '',
+				retired_at TEXT NOT NULL
+			)`,
+		},
+		{
+			version: 129,
+			query: `INSERT INTO data_product_retired_keys (product_key, product_id, retired_at)
+			SELECT TRIM(history.product_key), '', CAST(CURRENT_TIMESTAMP AS TEXT)
+			FROM (
+				SELECT product_key FROM product_definitions
+				UNION SELECT product_key FROM product_api_specs
+				UNION SELECT product_key FROM product_pricing_models
+				UNION SELECT product_key FROM product_risk_reviews
+				UNION SELECT product_key FROM product_similarity
+				UNION SELECT product_key FROM product_poc_plans
+				UNION SELECT product_key FROM proposal_packages
+				UNION SELECT product_key FROM data_product_access_requests
+				UNION SELECT product_key FROM dw_product_definitions
+				UNION SELECT product_key FROM dw_product_api_specs
+				UNION SELECT product_key FROM dw_product_pricing_models
+				UNION SELECT product_key FROM dw_risk_reviews
+				UNION SELECT product_key FROM dw_similarity_results
+				UNION SELECT product_key FROM dw_poc_plans
+				UNION SELECT product_key FROM dw_proposal_packages
+				UNION SELECT product_key FROM dw_business_scores
+				UNION SELECT product_key FROM dw_product_canvas
+				UNION SELECT product_key FROM dw_product_evidence
+				UNION SELECT product_key FROM dw_regulatory_trace
+				UNION SELECT product_key FROM dw_api_contracts
+				UNION SELECT product_key FROM dw_mock_api_logs
+				UNION SELECT product_key FROM dw_proposal_feedback
+				UNION SELECT product_key FROM dw_poc_outcomes
+				UNION SELECT product_key FROM dw_product_canvases
+				UNION SELECT product_key FROM dw_approval_traces
+				UNION SELECT product_key FROM dw_evidence_packs
+				UNION SELECT product_key FROM dw_contract_versions
+				UNION SELECT product_key FROM dw_product_fit_scores
+				UNION SELECT product_key FROM dw_product_versions
+				UNION SELECT product_key FROM dw_contract_scopes
+				UNION SELECT product_key FROM dw_api_entitlements
+				UNION SELECT product_key FROM dw_product_sla
+				UNION SELECT product_key FROM dw_data_watermarks
+				UNION SELECT product_key FROM dw_product_costs
+				UNION SELECT product_key FROM dw_customer_proposal_events
+				UNION SELECT product_key FROM dw_retirement_candidates
+				UNION SELECT product_key FROM dw_sla_metrics
+				UNION SELECT product_key FROM dw_usage_metering
+				UNION SELECT product_key FROM dw_proposal_experiments
+				UNION SELECT product_key FROM dw_marketplace_bookmarks
+				UNION SELECT product_key FROM dw_marketplace_subscriptions
+				UNION SELECT product_key FROM dw_unit_economics
+				UNION SELECT from_key AS product_key FROM dw_product_relationships WHERE LOWER(from_type) = 'product'
+				UNION SELECT to_key AS product_key FROM dw_product_relationships WHERE LOWER(to_type) = 'product'
+				UNION SELECT source_ref AS product_key FROM dw_metadata_entities WHERE LOWER(entity_type) = 'product'
+			) AS history
+			WHERE TRIM(history.product_key) <> ''
+				AND NOT EXISTS (
+					SELECT 1 FROM data_products catalog
+					WHERE TRIM(catalog.product_key) = TRIM(history.product_key)
+				)
+			ON CONFLICT(product_key) DO NOTHING`,
+		},
 	}
 
 	for _, step := range versionedMigrations {

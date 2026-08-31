@@ -70,23 +70,32 @@ func EvaluatePublishGate(p store.DataProduct, readiness []store.AssetReadinessSc
 		now = time.Now().UTC()
 	}
 	result := PublishGateResult{
-		ProductKey:        p.ProductKey,
-		StrictGate:        RequiresStrictPublishGate(p),
-		Allowed:           true,
-		MinimumReadiness:  DefaultReadinessThreshold,
-		RequiredApprovals: append([]string(nil), RequiredPublishApprovals...),
-		ApprovalStatus:    map[string]string{},
-		AssetReadiness:    readiness,
-		CheckedAt:         now.UTC().Format(time.RFC3339Nano),
+		ProductKey:       p.ProductKey,
+		StrictGate:       RequiresStrictPublishGate(p),
+		Allowed:          true,
+		MinimumReadiness: DefaultReadinessThreshold,
+		ApprovalStatus:   map[string]string{},
+		AssetReadiness:   readiness,
+		CheckedAt:        now.UTC().Format(time.RFC3339Nano),
 		Metadata: map[string]any{
 			"risk_score":  p.RiskScore,
 			"sensitivity": p.Sensitivity,
 			"source_type": p.SourceType,
 		},
 	}
+	result.RequiredApprovals = requiredApprovalSteps(result.StrictGate, approvals)
+	for _, step := range result.RequiredApprovals {
+		status := bestApprovalStatus(step, approvals, now)
+		result.ApprovalStatus[step] = status
+		if status != "approved" && status != "waived" {
+			result.MissingApprovals = append(result.MissingApprovals, step)
+			result.BlockedReasons = append(result.BlockedReasons, "missing required approval: "+step)
+		}
+	}
 
 	if !result.StrictGate {
 		result.Warnings = append(result.Warnings, "strict gate is not required for this product risk/sensitivity profile")
+		result.Allowed = len(result.BlockedReasons) == 0
 		return result
 	}
 
@@ -112,15 +121,6 @@ func EvaluatePublishGate(p store.DataProduct, readiness []store.AssetReadinessSc
 		}
 	}
 
-	for _, step := range result.RequiredApprovals {
-		status := bestApprovalStatus(step, approvals, now)
-		result.ApprovalStatus[step] = status
-		if status != "approved" && status != "waived" {
-			result.MissingApprovals = append(result.MissingApprovals, step)
-			result.BlockedReasons = append(result.BlockedReasons, "missing required approval: "+step)
-		}
-	}
-
 	if pack == nil || strings.TrimSpace(pack.PackJSON) == "" || strings.TrimSpace(pack.PackJSON) == "{}" {
 		result.MissingEvidence = append(result.MissingEvidence, "evidence_pack")
 		result.BlockedReasons = append(result.BlockedReasons, "evidence pack must be generated before publishing")
@@ -128,6 +128,34 @@ func EvaluatePublishGate(p store.DataProduct, readiness []store.AssetReadinessSc
 
 	result.Allowed = len(result.BlockedReasons) == 0
 	return result
+}
+
+func requiredApprovalSteps(strict bool, approvals []store.ApprovalTrace) []string {
+	steps := []string{}
+	seen := map[string]bool{}
+	add := func(step string) {
+		step = strings.ToLower(strings.TrimSpace(step))
+		if step == "" || seen[step] {
+			return
+		}
+		seen[step] = true
+		steps = append(steps, step)
+	}
+	if strict {
+		for _, step := range RequiredPublishApprovals {
+			add(step)
+		}
+	}
+	extras := []string{}
+	for _, approval := range approvals {
+		step := strings.ToLower(strings.TrimSpace(approval.Step))
+		if approval.Required && step != "" && !seen[step] {
+			seen[step] = true
+			extras = append(extras, step)
+		}
+	}
+	sort.Strings(extras)
+	return append(steps, extras...)
 }
 
 func EvaluatePublishGateV2(
@@ -636,7 +664,8 @@ func bestApprovalStatus(step string, approvals []store.ApprovalTrace, now time.T
 			status = "pending"
 		}
 		if trace.ExpiresAt != "" {
-			if expiresAt, err := time.Parse(time.RFC3339Nano, trace.ExpiresAt); err == nil && expiresAt.Before(now) {
+			expiresAt, err := time.Parse(time.RFC3339Nano, trace.ExpiresAt)
+			if err != nil || !expiresAt.After(now) {
 				status = "expired"
 			}
 		}
