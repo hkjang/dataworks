@@ -189,7 +189,7 @@ func (s *Server) provisionKeycloakUser(ctx context.Context, claims map[string]an
 	if sub == "" {
 		return store.AuthUser{}, "", &keycloakError{"id_token missing sub"}
 	}
-	role, roleExplicit := resolveKeycloakRoleExplicit(s.effectiveKeycloakRoleMap(), s.keycloakRolesFromClaims(claims), kc.DefaultRole)
+	role, roleExplicit := s.resolveEffectiveKeycloakRoleExplicit(ctx, s.effectiveKeycloakRoleMap(), s.keycloakRolesFromClaims(claims), kc.DefaultRole)
 	if role == "" {
 		return store.AuthUser{}, "", &keycloakError{"no role mapping matched and no default role — login blocked"}
 	}
@@ -216,10 +216,22 @@ func (s *Server) provisionKeycloakUser(ctx context.Context, claims map[string]an
 			if roleExplicit {
 				newRole = role
 			}
-			_ = s.db.UpdateAuthUserRoleStatus(ctx, user.ID, newRole, "active")
+			if removingLast, err := s.wouldRemoveLastActiveSuper(ctx, user, newRole, "active"); err != nil {
+				return store.AuthUser{}, "", err
+			} else if removingLast {
+				return store.AuthUser{}, "", &keycloakError{"the last active super_admin cannot be demoted by SSO role synchronization"}
+			}
+			if newRole != user.Role {
+				if err := s.db.RevokeAuthSessionsForUser(ctx, user.ID); err != nil {
+					return store.AuthUser{}, "", err
+				}
+			}
+			if err := s.db.UpdateAuthUserRoleStatus(ctx, user.ID, newRole, "active"); err != nil {
+				return store.AuthUser{}, "", err
+			}
 			user.Role, user.Status = newRole, "active"
 			eff := effectiveTeam(user.ID)
-			s.finishKeycloakLink(ctx, user.ID, sub, email, username, team)
+			s.finishKeycloakLink(ctx, user.ID, sub, email, username, team, newRole)
 			return user, eff, nil
 		}
 	}
@@ -227,7 +239,7 @@ func (s *Server) provisionKeycloakUser(ctx context.Context, claims map[string]an
 	if email != "" {
 		if user, found, _ := s.db.AuthUserByEmail(ctx, email); found {
 			eff := effectiveTeam(user.ID)
-			s.finishKeycloakLink(ctx, user.ID, sub, email, username, team)
+			s.finishKeycloakLink(ctx, user.ID, sub, email, username, team, user.Role)
 			return user, eff, nil
 		}
 	}
@@ -243,12 +255,12 @@ func (s *Server) provisionKeycloakUser(ctx context.Context, claims map[string]an
 	if err := s.db.CreateAuthUser(ctx, user); err != nil {
 		return store.AuthUser{}, "", err
 	}
-	s.finishKeycloakLink(ctx, user.ID, sub, email, username, team)
+	s.finishKeycloakLink(ctx, user.ID, sub, email, username, team, user.Role)
 	return user, team, nil
 }
 
 // finishKeycloakLink upserts the identity row and (best-effort) the team membership.
-func (s *Server) finishKeycloakLink(ctx context.Context, userID, sub, email, username, team string) {
+func (s *Server) finishKeycloakLink(ctx context.Context, userID, sub, email, username, team, role string) {
 	_ = s.db.UpsertAuthIdentity(ctx, store.AuthIdentity{
 		ID: newID("authid"), UserID: userID, Provider: "keycloak", Issuer: s.keycloakConfig().IssuerURL,
 		Subject: sub, Email: email, PreferredUsername: username,
@@ -256,7 +268,7 @@ func (s *Server) finishKeycloakLink(ctx context.Context, userID, sub, email, use
 	if team != "" {
 		// Group → team auto-create: ensure the team row exists before linking membership.
 		_ = s.db.UpsertAuthTeam(ctx, store.AuthTeam{ID: team, Name: team})
-		_ = s.db.SetUserTeam(ctx, userID, team, "")
+		_ = s.db.SetUserTeam(ctx, userID, team, role)
 	}
 }
 
@@ -601,16 +613,14 @@ func (s *Server) canConfigureSSORole(r *http.Request, targetRole, currentRole st
 	if targetRole == "super_admin" {
 		return false
 	}
-	targetRank, callerRank := roleRank(targetRole), roleRank(claims.Role)
+	targetRank, callerRank := s.effectiveRoleRank(r.Context(), targetRole), s.effectiveRoleRank(r.Context(), claims.Role)
 	if targetRank > 0 && callerRank > 0 {
 		if targetRank < callerRank {
-			return true
+			return scopesWithin(s.effectiveScopesForRole(r.Context(), targetRole), claims.Scopes)
 		}
 		return targetRank == callerRank && targetRole == currentRole
 	}
-	// Custom roles have no built-in rank. They are safe to grant only when every
-	// effective permission is already held by the configuring administrator.
-	return scopesWithin(s.effectiveScopesForRole(r.Context(), targetRole), claims.Scopes)
+	return false
 }
 
 // handleKeycloakTest diagnoses the Keycloak connection: discovery reachability, endpoints,

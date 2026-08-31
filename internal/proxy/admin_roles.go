@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"dataworks/internal/store"
@@ -64,13 +65,33 @@ var roleDescriptions = map[string]string{
 
 // roleInfo is one row of the role catalog (GET /admin/roles).
 type roleInfo struct {
-	Role        string   `json:"role"`
-	Scopes      []string `json:"scopes"`
-	DefaultHome string   `json:"default_home"`
-	IsAdmin     bool     `json:"is_admin"`
-	IsSystem    bool     `json:"is_system"`
-	Rank        int      `json:"rank"`
-	Description string   `json:"description"`
+	Role            string   `json:"role"`
+	Scopes          []string `json:"scopes"`
+	DefaultHome     string   `json:"default_home"`
+	IsAdmin         bool     `json:"is_admin"`
+	IsSystem        bool     `json:"is_system"`
+	Rank            int      `json:"rank"`
+	Description     string   `json:"description"`
+	UserCount       int      `json:"user_count"`
+	ActiveUserCount int      `json:"active_user_count"`
+	CanAssign       bool     `json:"can_assign"`
+}
+
+var customRoleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,63}$`)
+
+var scopeDependencies = map[string][]string{
+	"admin:write":   {"admin:read"},
+	"routing:write": {"routing:read"},
+	"mcp:admin":     {"mcp:use"},
+}
+
+var allowedRoleHomes = map[string]bool{
+	"":                 true,
+	"#/dataworks/home": true,
+	"#/dataworks/risk": true,
+	"#/factory":        true,
+	"#/team":           true,
+	"#/settings":       true,
 }
 
 // effectiveScopesForRole resolves a role's scopes through the custom-role overlay first,
@@ -80,6 +101,19 @@ func (s *Server) effectiveScopesForRole(ctx context.Context, role string) []stri
 		return cr.Scopes
 	}
 	return scopesForRole(role)
+}
+
+// effectiveHomeForRole applies a custom role's configured landing page everywhere the
+// server exposes navigation metadata. Older unsafe/unknown stored values fall back to the
+// scope-derived route instead of becoming an open redirect or a dead landing page.
+func (s *Server) effectiveHomeForRole(ctx context.Context, role string, scopes []string) string {
+	if cr, found, err := s.db.GetCustomRole(ctx, role); err == nil && found {
+		home := strings.TrimSpace(cr.DefaultHome)
+		if home != "" && allowedRoleHomes[home] {
+			return home
+		}
+	}
+	return resolveHome(role, scopes)
 }
 
 // effectiveValidRole reports whether a role exists either built-in or as a custom role.
@@ -130,8 +164,47 @@ func customRoleInfo(c store.CustomRole) roleInfo {
 	return roleInfo{
 		Role: c.Role, Scopes: c.Scopes, DefaultHome: home,
 		IsAdmin: hasScope(c.Scopes, "admin:read"), IsSystem: false,
-		Rank: 0, Description: c.Description,
+		Rank: customRoleRank(c.Scopes), Description: c.Description,
 	}
+}
+
+func validateScopeDependencies(scopes []string) (scope, dependency string, ok bool) {
+	for scope, dependencies := range scopeDependencies {
+		if !hasScope(scopes, scope) {
+			continue
+		}
+		for _, dependency := range dependencies {
+			if !hasScope(scopes, dependency) {
+				return scope, dependency, false
+			}
+		}
+	}
+	return "", "", true
+}
+
+func (s *Server) canDefineCustomRole(r *http.Request, scopes []string) bool {
+	if !s.cfg.Auth.Enabled {
+		return true
+	}
+	claims, ok := s.currentAccessClaims(r)
+	if !ok {
+		return false
+	}
+	if claims.Role == "super_admin" {
+		return true
+	}
+	return customRoleRank(scopes) < s.effectiveRoleRank(r.Context(), claims.Role) && s.scopesAssignable(r, scopes)
+}
+
+func (s *Server) enrichRoleInfo(ctx context.Context, r *http.Request, info roleInfo) (roleInfo, error) {
+	total, active, err := s.db.CountAuthUsersByRole(ctx, info.Role)
+	if err != nil {
+		return roleInfo{}, err
+	}
+	info.UserCount = total
+	info.ActiveUserCount = active
+	info.CanAssign = s.canAssignRole(r, info.Role)
+	return info, nil
 }
 
 // handleAdminRoles manages the role catalog. Admin-only.
@@ -139,16 +212,25 @@ func customRoleInfo(c store.CustomRole) roleInfo {
 // POST   /admin/roles            → create/update a custom role {role, description, scopes, default_home}
 // DELETE /admin/roles?role=NAME  → remove a custom role
 func (s *Server) handleAdminRoles(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeAdmin(r) {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	if !s.requireAdminAuthorization(w, r) {
 		return
 	}
 	switch r.Method {
 	case http.MethodGet:
 		roles := roleCatalog()
-		if custom, err := s.db.ListCustomRoles(r.Context()); err == nil {
-			for _, c := range custom {
-				roles = append(roles, customRoleInfo(c))
+		custom, err := s.db.ListCustomRoles(r.Context())
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "roles_failed")
+			return
+		}
+		for _, c := range custom {
+			roles = append(roles, customRoleInfo(c))
+		}
+		for i := range roles {
+			roles[i], err = s.enrichRoleInfo(r.Context(), r, roles[i])
+			if err != nil {
+				writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "role_usage_failed")
+				return
 			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"roles": roles, "all_scopes": allScopes})
@@ -164,34 +246,61 @@ func (s *Server) handleAdminRoles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		role := strings.ToLower(strings.TrimSpace(p.Role))
-		if role == "" {
-			writeOpenAIError(w, http.StatusBadRequest, "role is required", "invalid_request_error", "missing_role")
+		if !customRoleNamePattern.MatchString(role) {
+			writeOpenAIError(w, http.StatusBadRequest, "role must match ^[a-z][a-z0-9_]{2,63}$", "invalid_request_error", "invalid_role_name")
 			return
 		}
 		if _, isBuiltin := roleScopes[role]; isBuiltin {
 			writeOpenAIError(w, http.StatusConflict, "'"+role+"' is a built-in role and cannot be overridden", "invalid_request_error", "builtin_role")
 			return
 		}
-		// Validate every scope against the known set.
-		clean := []string{}
-		for _, sc := range p.Scopes {
-			sc = strings.TrimSpace(sc)
-			if sc == "" {
-				continue
-			}
-			if !hasScope(allScopes, sc) {
-				writeOpenAIError(w, http.StatusBadRequest, "unknown scope: "+sc, "invalid_request_error", "invalid_scope")
+		clean, valid := normalizeScopes(p.Scopes)
+		if !valid {
+			writeOpenAIError(w, http.StatusBadRequest, "one or more scopes are unknown", "invalid_request_error", "invalid_scope")
+			return
+		}
+		if scope, dependency, ok := validateScopeDependencies(clean); !ok {
+			writeOpenAIError(w, http.StatusBadRequest, scope+" requires "+dependency, "invalid_request_error", "missing_scope_dependency")
+			return
+		}
+		home := strings.TrimSpace(p.DefaultHome)
+		if !allowedRoleHomes[home] {
+			writeOpenAIError(w, http.StatusBadRequest, "unsupported default_home", "invalid_request_error", "invalid_default_home")
+			return
+		}
+		existing, found, err := s.db.GetCustomRole(r.Context(), role)
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "role_lookup_failed")
+			return
+		}
+		if found && !s.canModifySubjectRole(r, role) {
+			writeOpenAIError(w, http.StatusForbidden, "cannot modify a role at or above your role", "permission_error", "role_escalation_denied")
+			return
+		}
+		if !s.canDefineCustomRole(r, clean) {
+			writeOpenAIError(w, http.StatusForbidden, "cannot define a role at or above your role", "permission_error", "role_escalation_denied")
+			return
+		}
+		cr := store.CustomRole{Role: role, Description: strings.TrimSpace(p.Description), Scopes: clean, DefaultHome: home}
+		if found {
+			// Revoke before changing the definition. A revocation failure must never leave
+			// already-issued tokens carrying stale, potentially broader permissions.
+			if err := s.db.RevokeAuthSessionsForRole(r.Context(), role); err != nil {
+				writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "role_session_revoke_failed")
 				return
 			}
-			clean = append(clean, sc)
 		}
-		cr := store.CustomRole{Role: role, Description: strings.TrimSpace(p.Description), Scopes: clean, DefaultHome: strings.TrimSpace(p.DefaultHome)}
 		if err := s.db.UpsertCustomRole(r.Context(), cr); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "role_save_failed")
 			return
 		}
-		s.auditAdmin(r, "role.upsert", role, auditJSON(map[string]any{"scopes": clean}))
-		writeJSON(w, http.StatusCreated, map[string]any{"role": customRoleInfo(cr)})
+		s.auditAdmin(r, "role.upsert", auditJSON(existing), auditJSON(cr))
+		info, err := s.enrichRoleInfo(r.Context(), r, customRoleInfo(cr))
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "role_usage_failed")
+			return
+		}
+		writeJSON(w, map[bool]int{true: http.StatusOK, false: http.StatusCreated}[found], map[string]any{"role": info})
 	case http.MethodDelete:
 		role := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("role")))
 		if role == "" {
@@ -200,6 +309,28 @@ func (s *Server) handleAdminRoles(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, isBuiltin := roleScopes[role]; isBuiltin {
 			writeOpenAIError(w, http.StatusConflict, "cannot delete built-in role", "invalid_request_error", "builtin_role")
+			return
+		}
+		_, found, err := s.db.GetCustomRole(r.Context(), role)
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "role_lookup_failed")
+			return
+		}
+		if !found {
+			writeOpenAIError(w, http.StatusNotFound, "role not found", "invalid_request_error", "role_not_found")
+			return
+		}
+		if !s.canModifySubjectRole(r, role) {
+			writeOpenAIError(w, http.StatusForbidden, "cannot delete a role at or above your role", "permission_error", "role_escalation_denied")
+			return
+		}
+		total, _, err := s.db.CountAuthUsersByRole(r.Context(), role)
+		if err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "role_usage_failed")
+			return
+		}
+		if total > 0 {
+			writeOpenAIError(w, http.StatusConflict, "role is assigned to users", "invalid_request_error", "role_in_use")
 			return
 		}
 		if err := s.db.DeleteCustomRole(r.Context(), role); err != nil {
@@ -261,7 +392,7 @@ func (s *Server) handlePermissionsEffective(w http.ResponseWriter, r *http.Reque
 		"role":         role,
 		"scopes":       scopes,
 		"features":     features,
-		"default_home": resolveHome(role, scopes),
+		"default_home": s.effectiveHomeForRole(r.Context(), role, scopes),
 		"is_admin":     hasScope(scopes, "admin:read"),
 		"menu_version": menuVersion,
 		"menus":        menus,

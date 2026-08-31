@@ -86,6 +86,15 @@ func (s *SQLStore) ListAuthUsers(ctx context.Context) ([]AuthUser, error) {
 	return out, rows.Err()
 }
 
+// CountAuthUsersByRole returns both total and active account usage for a role. Role
+// deletion and the admin catalog use the same query so the UI cannot race a weaker
+// server-side safety check.
+func (s *SQLStore) CountAuthUsersByRole(ctx context.Context, role string) (total, active int, err error) {
+	err = s.db.QueryRowContext(ctx, s.bind(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0)
+		FROM users WHERE role = ?`), role).Scan(&total, &active)
+	return
+}
+
 // UpdateAuthUserRoleStatus applies a partial role/status update (empty = keep).
 func (s *SQLStore) UpdateAuthUserRoleStatus(ctx context.Context, id, role, status string) error {
 	_, err := s.db.ExecContext(ctx, s.bind(`UPDATE users SET
@@ -104,6 +113,19 @@ func (s *SQLStore) RevokeAuthSessionsForUser(ctx context.Context, userID string)
 		return err
 	}
 	_, err := s.db.ExecContext(ctx, s.bind(`UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`), now, userID)
+	return err
+}
+
+// RevokeAuthSessionsForRole invalidates cached JWT permissions after a custom role's
+// scope definition changes. Users sign in again and receive the updated scope set.
+func (s *SQLStore) RevokeAuthSessionsForRole(ctx context.Context, role string) error {
+	now := formatTime(time.Now().UTC())
+	if _, err := s.db.ExecContext(ctx, s.bind(`UPDATE auth_sessions SET revoked_at = ?
+		WHERE user_id IN (SELECT id FROM users WHERE role = ?) AND revoked_at IS NULL`), now, role); err != nil {
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, s.bind(`UPDATE refresh_tokens SET revoked_at = ?
+		WHERE user_id IN (SELECT id FROM users WHERE role = ?) AND revoked_at IS NULL`), now, role)
 	return err
 }
 

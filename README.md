@@ -32,6 +32,8 @@
 | `GET` | `/admin/dataworks/home` | Data Works Home KPI |
 | `GET` | `/admin/dataworks/catalog-health` | 전체 등록소 텍스트 무결성, 이름·오너 누락 상태 점검 |
 | `GET` | `/admin/dataworks/action-center` | 운영 액션 센터: 출시 차단, 승인 대기, 만료 임박 계약, 비활성 권한 |
+| `GET/POST/DELETE` | `/admin/roles` | 역할 카탈로그·사용 현황 조회, 사용자 정의 역할 저장과 안전 삭제 |
+| `GET/PATCH` | `/admin/users[/{id}]` | 로그인 계정 조회, 역할·활성 상태 변경과 세션 즉시 반영 |
 | `GET/POST` | `/admin/dataworks/customer-segments` | 고객 세그먼트 등록 및 조회 |
 | `GET/POST` | `/admin/dataworks/assets` | 데이터 자산 목록 조회 및 업서트 |
 | `GET/POST` | `/admin/dataworks/assets/readiness` | 자산 준비도 점수 조회 및 업서트 |
@@ -157,7 +159,7 @@ docker run -d --name dataworks --restart=always -p 8080:8080 \
 
 Docker 빌드는 Node 단계에서 React SPA를 생성한 후 결과물을 Go binary에 embed합니다.
 
-`docker-compose.yml`은 이번 오프라인 릴리즈 archive와 동일한 `dataworks:v0.9.33`를 명시적으로 사용합니다. 별도 이미지 버전 환경변수 없이 위 네 필수 환경변수만 설정하면 실행됩니다.
+`docker-compose.yml`은 이번 오프라인 릴리즈 archive와 동일한 `dataworks:v0.9.34`를 명시적으로 사용합니다. 별도 이미지 버전 환경변수 없이 위 네 필수 환경변수만 설정하면 실행됩니다.
 
 ## 저장소
 

@@ -37,8 +37,7 @@ func (s *Server) teamNameByID(r *http.Request) map[string]string {
 }
 
 func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeAdmin(r) {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	if !s.requireAdminAuthorization(w, r) {
 		return
 	}
 	switch r.Method {
@@ -234,8 +233,7 @@ func (s *Server) handleTeamDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUserDetail(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeAdmin(r) {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+	if !s.requireAdminAuthorization(w, r) {
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, "/admin/users/")
@@ -389,33 +387,61 @@ func (s *Server) handleAuthUserUpdate(w http.ResponseWriter, r *http.Request, id
 		writeOpenAIError(w, http.StatusBadRequest, "nothing to update", "invalid_request_error", "empty_update")
 		return
 	}
+	nextRole, nextStatus := user.Role, user.Status
+	if role != "" {
+		nextRole = role
+	}
+	if status != "" {
+		nextStatus = status
+	}
+	if removingLast, countErr := s.wouldRemoveLastActiveSuper(r.Context(), user, nextRole, nextStatus); countErr != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, countErr.Error(), "server_error", "super_admin_count_failed")
+		return
+	} else if removingLast {
+		writeOpenAIError(w, http.StatusConflict, "the last active super_admin cannot be demoted or disabled", "invalid_request_error", "last_super_admin")
+		return
+	}
+
+	// Validate the team before applying role/status so an invalid team cannot leave a
+	// partially updated account.
+	var requestedTeam string
+	if p.TeamID != nil {
+		requestedTeam = strings.TrimSpace(*p.TeamID)
+		if requestedTeam != "" {
+			team, found, terr := s.db.AuthTeamByIDOrName(r.Context(), requestedTeam)
+			if terr != nil || !found {
+				writeOpenAIError(w, http.StatusBadRequest, "unknown team", "invalid_request_error", "unknown_team")
+				return
+			}
+			requestedTeam = team.ID
+		}
+	}
+	oldTeam, _ := s.db.PrimaryTeamForUser(r.Context(), id)
+	shouldRevoke := status == "disabled" || (role != "" && role != user.Role)
+	if shouldRevoke {
+		// Invalidate existing role claims before persisting the change. If revocation
+		// fails, abort instead of allowing a stale higher-privilege token to survive.
+		if err := s.db.RevokeAuthSessionsForUser(r.Context(), id); err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "user_session_revoke_failed")
+			return
+		}
+	}
 	if role != "" || status != "" {
 		if err := s.db.UpdateAuthUserRoleStatus(r.Context(), id, role, status); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "user_update_failed")
 			return
 		}
 	}
-	oldTeam, _ := s.db.PrimaryTeamForUser(r.Context(), id)
 	if p.TeamID != nil {
-		teamID := strings.TrimSpace(*p.TeamID)
-		if teamID != "" {
-			if _, found, terr := s.db.AuthTeamByIDOrName(r.Context(), teamID); terr != nil || !found {
-				writeOpenAIError(w, http.StatusBadRequest, "unknown team", "invalid_request_error", "unknown_team")
-				return
-			}
-		}
-		memberRole := role
-		if memberRole == "" {
-			memberRole = user.Role
-		}
-		if err := s.db.SetUserTeam(r.Context(), id, teamID, memberRole); err != nil {
+		if err := s.db.SetUserTeam(r.Context(), id, requestedTeam, nextRole); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "team_update_failed")
 			return
 		}
-	}
-	if status == "disabled" {
-		// kill live sessions + refresh tokens so the account stops working now
-		_ = s.db.RevokeAuthSessionsForUser(r.Context(), id)
+	} else if role != "" && role != user.Role && oldTeam != "" {
+		if err := s.db.SetUserTeam(r.Context(), id, oldTeam, nextRole); err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "team_role_sync_failed")
+			return
+		}
 	}
 	if role != "" && role != user.Role {
 		_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "role_changed", ActorUserID: id, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: user.Role + " → " + role, CreatedAt: time.Now().UTC()})

@@ -497,7 +497,7 @@ var apiEndpoints = []apiEndpoint{
 	{"/admin/skill-studio/adopt", []string{"post"}, "skills", "Adopt a skill candidate", false},
 	{"/admin/skill-studio/readiness", []string{"get"}, "skills", "Skill-studio readiness checks", false},
 	// ---- admin: RBAC / secrets / SSO ----
-	{"/admin/roles", []string{"get", "post"}, "rbac", "List/create custom roles", false},
+	{"/admin/roles", []string{"get", "post", "delete"}, "rbac", "List built-in/custom roles with usage, create/update a custom role, or safely delete an unused custom role", false},
 	{"/admin/secrets/rotate", []string{"post"}, "security", "Rotate the gateway secret", false},
 	{"/admin/sso/keycloak/config", []string{"get", "put"}, "auth", "Get/save the DB-backed Keycloak provider config", false},
 	{"/admin/sso/keycloak/test", []string{"post"}, "auth", "Diagnose the Keycloak connection", false},

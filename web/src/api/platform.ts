@@ -107,6 +107,34 @@ export interface ProviderConfig {
   created_at: string
 }
 
+export interface RoleInfo {
+  role: string
+  scopes: string[]
+  default_home: string
+  is_admin: boolean
+  is_system: boolean
+  rank: number
+  description: string
+  user_count: number
+  active_user_count: number
+  can_assign: boolean
+}
+
+export interface RoleCatalogResponse {
+  roles: RoleInfo[]
+  all_scopes: string[]
+}
+
+export interface AdminUserSummary {
+  id: string
+  email: string
+  name: string
+  role: string
+  status: string
+  team_id: string
+  created_at: string
+}
+
 export const platformApi = {
   personalDashboard: () => apiRequest<PersonalDashboard>('/me/dashboard'),
   myKeys: () => apiRequest<MyKeysResponse>('/me/keys'),
@@ -128,4 +156,12 @@ export const platformApi = {
   providers: () => apiRequest<{ providers: ProviderConfig[] }>('/admin/providers'),
   saveProvider: (payload: Record<string, unknown>) =>
     apiRequest<{ provider: ProviderConfig }>('/admin/providers', { method: 'POST', body: JSON.stringify(payload) }),
+  roles: () => apiRequest<RoleCatalogResponse>('/admin/roles'),
+  saveRole: (payload: { role: string; description: string; scopes: string[]; default_home: string }) =>
+    apiRequest<{ role: RoleInfo }>('/admin/roles', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteRole: (role: string) =>
+    apiRequest<{ role: string; deleted: boolean }>(`/admin/roles?role=${encodeURIComponent(role)}`, { method: 'DELETE' }),
+  adminUsers: () => apiRequest<{ auth_users: AdminUserSummary[] }>('/admin/users'),
+  updateAdminUser: (id: string, payload: { role?: string; status?: 'active' | 'disabled' }) =>
+    apiRequest<{ user: AdminUserSummary; team_id: string }>(`/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 }

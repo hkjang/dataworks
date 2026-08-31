@@ -10,12 +10,14 @@ import { PageHeader } from '@/components/ui/page-header'
 import { ErrorState, PageLoader } from '@/components/ui/query-state'
 import { formatDate } from '@/lib/utils'
 import { canManageDataWorksSettings, useAuthStore } from '@/stores/auth-store'
+import { RoleManagement } from './role-management'
 
-type SettingsTab = 'ai' | 'sso' | 'runtime'
+type SettingsTab = 'ai' | 'sso' | 'roles' | 'runtime'
 
 const tabItems: Array<{ key: SettingsTab; label: string; description: string }> = [
   { key: 'ai', label: 'AI 및 MCP', description: '공급자·스트리밍·토큰' },
   { key: 'sso', label: 'Keycloak SSO', description: 'OIDC 로그인 연동' },
+  { key: 'roles', label: '역할 및 권한', description: 'RBAC 설계·사용자 할당' },
   { key: 'runtime', label: '전체 설정', description: '런타임 설정 관리' },
 ]
 
@@ -27,11 +29,11 @@ export function SettingsPage() {
   if (!canManageDataWorksSettings(mode, user)) return <div><PageHeader eyebrow="서비스 관리" title="관리자 설정" description="서비스 관리자만 운영 설정을 변경할 수 있습니다." /><Card><CardContent className="flex min-h-72 flex-col items-center justify-center text-center"><span className="grid size-12 place-items-center rounded-xl bg-[var(--danger-soft)] text-[var(--danger)]"><LockKeyhole className="size-5" /></span><h2 className="mt-4 text-base font-bold text-[var(--ink)]">접근 권한이 없습니다</h2><p className="mt-2 text-sm text-[var(--muted)]">서비스 관리자에게 설정 권한을 요청해 주세요.</p></CardContent></Card></div>
   return (
     <div>
-      <PageHeader eyebrow="서비스 관리 · 관리자" title="관리자 설정" description="AI, 인증, MCP와 운영 정책을 환경변수 추가 없이 암호화된 관리 설정으로 적용합니다." actions={<Badge tone="info">서비스 {version || '버전 확인 중'}</Badge>} />
-      <div className="mb-5 grid gap-2 md:grid-cols-3" role="tablist" aria-label="설정 영역">
+      <PageHeader eyebrow="서비스 관리 · 관리자" title="관리자 설정" description="AI, 인증, 역할, MCP와 운영 정책을 환경변수 추가 없이 안전하게 적용합니다." actions={<Badge tone="info">서비스 {version || '버전 확인 중'}</Badge>} />
+      <div className="mb-5 grid gap-2 md:grid-cols-4" role="tablist" aria-label="설정 영역">
         {tabItems.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={`settings-tab ${tab === item.key ? 'is-active' : ''}`} onClick={() => setTab(item.key)}><strong>{item.label}</strong><span>{item.description}</span></button>)}
       </div>
-      {tab === 'ai' ? <AISettings /> : tab === 'sso' ? <KeycloakSettings /> : <RuntimeSettings />}
+      {tab === 'ai' ? <AISettings /> : tab === 'sso' ? <KeycloakSettings /> : tab === 'roles' ? <RoleManagement /> : <RuntimeSettings />}
     </div>
   )
 }

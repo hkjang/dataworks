@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"net/http"
 	"strings"
 )
@@ -188,12 +189,12 @@ func resolveHome(role string, scopes []string) string {
 }
 
 // navigationFor builds the full navigation payload for a caller's scopes/features.
-func (s *Server) navigationFor(scopes []string, role string) map[string]any {
+func (s *Server) navigationFor(ctx context.Context, scopes []string, role string) map[string]any {
 	features := s.featureFlags()
 	return map[string]any{
 		"menus":        accessibleMenus(scopes, features),
 		"allowed_tabs": allowedTabs(scopes, features),
-		"default_home": resolveHome(role, scopes),
+		"default_home": s.effectiveHomeForRole(ctx, role, scopes),
 		"role":         role,
 		"scopes":       scopes,
 		"features":     features,
@@ -211,7 +212,7 @@ func (s *Server) handleMeNavigation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.cfg.Auth.Enabled {
-		writeJSON(w, http.StatusOK, s.navigationFor(append([]string{}, allScopes...), "admin"))
+		writeJSON(w, http.StatusOK, s.navigationFor(r.Context(), append([]string{}, allScopes...), "admin"))
 		return
 	}
 	claims, ok := s.currentAccessClaims(r)
@@ -219,5 +220,5 @@ func (s *Server) handleMeNavigation(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, http.StatusUnauthorized, "invalid access token", "invalid_request_error", "invalid_access_token")
 		return
 	}
-	writeJSON(w, http.StatusOK, s.navigationFor(claims.Scopes, claims.Role))
+	writeJSON(w, http.StatusOK, s.navigationFor(r.Context(), claims.Scopes, claims.Role))
 }

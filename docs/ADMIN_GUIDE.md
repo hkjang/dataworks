@@ -1,10 +1,10 @@
 # Data Works 관리자 가이드
 
-> 적용 버전: **v0.9.33**<br>
+> 적용 버전: **v0.9.34**<br>
 > 서비스 관리자 화면: `http://<host>:8080/dataworks/settings`<br>
 > 일반 사용 방법은 [사용자 가이드](USER_GUIDE.md)를 참고하세요.
 
-이 문서는 폐쇄망 설치, 최초 관리자 로그인, AI·MCP, Keycloak SSO, 키 정책과 데이터 상품 운영 절차를 실제 v0.9.33 구현 기준으로 설명합니다.
+이 문서는 폐쇄망 설치, 최초 관리자 로그인, AI·MCP, Keycloak SSO, 키 정책과 데이터 상품 운영 절차를 실제 v0.9.34 구현 기준으로 설명합니다.
 
 ## 1. 운영 구성
 
@@ -24,13 +24,13 @@ Data Works 배포 이미지는 React SPA와 Go API를 하나의 바이너리로 
 GitHub Release의 운영 산출물은 다음 하나의 custom asset입니다.
 
 ```text
-dataworks-v0.9.33.tar.gz
+dataworks-v0.9.34.tar.gz
 ```
 
 압축 파일을 적재하면 다음 이미지가 생성됩니다.
 
 ```text
-dataworks:v0.9.33
+dataworks:v0.9.34
 ```
 
 ## 2. 폐쇄망 설치
@@ -57,9 +57,9 @@ openssl rand -hex 32
 ### 이미지 적재
 
 ```bash
-gzip -t dataworks-v0.9.33.tar.gz
-gunzip -c dataworks-v0.9.33.tar.gz | docker load
-docker image inspect dataworks:v0.9.33
+gzip -t dataworks-v0.9.34.tar.gz
+gunzip -c dataworks-v0.9.34.tar.gz | docker load
+docker image inspect dataworks:v0.9.34
 ```
 
 ### 컨테이너 실행
@@ -73,7 +73,7 @@ docker run -d --name dataworks --restart=always \
   -e BOOTSTRAP_ADMIN='admin@dataworks.local' \
   -e BOOTSTRAP_ADMIN_PASSWORD='replace-with-a-strong-password' \
   -e ENCRYPTION_KEY='replace-with-64-hex-characters' \
-  dataworks:v0.9.33
+  dataworks:v0.9.34
 ```
 
 저장소의 `docker-compose.yml`을 함께 반입한 환경에서는 같은 네 값을 `.env`에 저장한 뒤 실행할 수 있습니다.
@@ -87,7 +87,7 @@ ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 ```bash
 docker compose config --images
-# dataworks:v0.9.33
+# dataworks:v0.9.34
 docker compose up -d
 ```
 
@@ -114,7 +114,7 @@ PostgreSQL 마이그레이션은 기동 시 자동 실행됩니다. 외부 공�
 
 1. `http://<host>:8080/dataworks/`를 엽니다.
 2. Bootstrap 이메일과 비밀번호로 로그인합니다.
-3. 로그인 화면 또는 프로필 메뉴에서 `v0.9.33`를 확인합니다.
+3. 로그인 화면 또는 프로필 메뉴에서 `v0.9.34`를 확인합니다.
 4. 왼쪽 아래 `관리자 설정`을 엽니다.
 
 ![로그인 화면](assets/screenshots/desktop/00-login.jpg)
@@ -132,6 +132,28 @@ PostgreSQL 마이그레이션은 기동 시 자동 실행됩니다. 외부 공�
 관리자 영역과 개인화 영역은 별도 메뉴와 권한으로 분리됩니다. 설정 쓰기는 서버가 역할과 설정 카테고리별 권한을 다시 검사합니다.
 
 주요 내장 역할에는 `super_admin`, `admin`, `team_admin`, `team_manager`, `developer`, `viewer`, `service_account`, `ops_admin`, `ai_admin`, `security_admin`, `billing_admin`, `readonly_admin`이 있습니다. Bootstrap 계정은 모든 Scope를 가진 `super_admin`입니다.
+
+### 역할 및 권한 관리
+
+`관리자 설정 → 역할 및 권한`은 기본 역할과 사용자 정의 역할, 역할별 사용자 수와 실제 할당 계정을 한 화면에서 관리합니다.
+
+- 기본 역할은 제품 권한 기준이므로 수정하거나 삭제할 수 없습니다.
+- 사용자 정의 역할은 영문 소문자로 시작하는 식별자, 설명, 로그인 시작 화면과 필요한 Scope를 조합해 생성합니다.
+- `admin:write`, `routing:write`, `mcp:admin`을 선택하면 각각 필요한 조회·사용 Scope가 자동 포함되며 서버도 같은 종속성을 검증합니다.
+- 관리자는 자기 역할보다 낮은 등급만 설계·할당할 수 있고 `super_admin`만 관리자 동급 역할을 위임할 수 있습니다.
+- 사용자에게 할당된 역할은 먼저 다른 역할로 이동해야 삭제할 수 있습니다.
+- 사용자 역할 또는 사용자 정의 역할의 Scope를 변경하면 기존 로그인 세션이 즉시 종료되어 다음 로그인부터 새 권한이 적용됩니다.
+- 마지막 활성 `super_admin`은 강등하거나 비활성화할 수 없습니다.
+
+역할 변경은 확인 대화상자를 거쳐 적용되고 감사 로그에 남습니다. Keycloak 역할 매핑의 내부 역할 이름에도 기본 역할과 여기서 만든 사용자 정의 역할을 사용할 수 있습니다.
+
+```http
+GET    /admin/roles
+POST   /admin/roles
+DELETE /admin/roles?role={role}
+GET    /admin/users
+PATCH  /admin/users/{user_id}
+```
 
 ## 5. AI 공급자 설정
 

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 async function mockPlatform(page: Page) {
-  await page.route('**/auth/me', (route) => route.fulfill({ json: { auth_enabled: true, version: 'v0.9.33', user: { id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin', scopes: ['admin:read', 'admin:write'], default_home: '#/dataworks/home' } } }))
-  await page.route('**/auth/sso/status', (route) => route.fulfill({ json: { keycloak_enabled: false, version: 'v0.9.33' } }))
+  await page.route('**/auth/me', (route) => route.fulfill({ json: { auth_enabled: true, version: 'v0.9.34', user: { id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin', scopes: ['admin:read', 'admin:write'], default_home: '#/dataworks/home' } } }))
+  await page.route('**/auth/sso/status', (route) => route.fulfill({ json: { keycloak_enabled: false, version: 'v0.9.34' } }))
   await page.route('**/me/dashboard', (route) => route.fulfill({ json: {
     user_id: 'tester', today: { requests: 2, tokens: 100, cost_krw: 10, errors: 0 }, month: { requests: 20, tokens: 1000, cost_krw: 100, errors: 1 },
     profile: { requests: 20, total_cost_krw: 100, avg_cost_per_request: 5, avg_latency_ms: 120, success_rate: .95, error_rate: .05, cache_rate: .2, text2sql_usage_rate: .1, mcp_usage_rate: .3, risk_score: 4, summary: '정상 사용 패턴입니다.' },
@@ -15,6 +15,15 @@ async function mockPlatform(page: Page) {
     enabled: false, issuer_url: '', client_id: '', client_secret_set: false, redirect_uri: '', scopes: ['openid', 'profile', 'email'],
     default_role: 'developer', role_claim: 'realm_access.roles', group_claim: 'groups', allow_local_login: true, role_map: {}, source: 'default', updated_at: '',
   } }))
+  await page.route('**/admin/roles', (route) => route.fulfill({ json: {
+    all_scopes: ['models:read', 'admin:read', 'admin:write', 'costs:read'],
+    roles: [
+      { role: 'super_admin', description: '최고 관리자', scopes: ['models:read', 'admin:read', 'admin:write'], default_home: '#/dataworks/home', is_admin: true, is_system: true, rank: 5, user_count: 1, active_user_count: 1, can_assign: true },
+      { role: 'developer', description: '개발자', scopes: ['models:read'], default_home: '#/factory', is_admin: false, is_system: true, rank: 2, user_count: 0, active_user_count: 0, can_assign: true },
+      { role: 'cost_analyst', description: '비용 분석 담당', scopes: ['models:read', 'costs:read'], default_home: '#/factory', is_admin: false, is_system: false, rank: 1, user_count: 0, active_user_count: 0, can_assign: true },
+    ],
+  } }))
+  await page.route('**/admin/users', (route) => route.fulfill({ json: { auth_users: [{ id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin', status: 'active', team_id: 'team_data', created_at: '2026-08-01T00:00:00Z' }] } }))
   await page.route('**/admin/dataworks/**', (route) => {
     const url = route.request().url()
     if (url.includes('/action-center')) return route.fulfill({ json: { summary: { approval_pending: 0, blocked_launches: 0, low_fit_scores: 0, expiring_contracts: 0, inactive_access: 0, stale_watermarks: 0, negative_margin: 0, retirement_candidates: 0 }, actions: [] } })
@@ -39,7 +48,7 @@ test('developer SSO 세션은 action-center를 호출하지 않고 개인 작업
     meAuthorization = route.request().headers().authorization ?? ''
     return route.fulfill({ json: {
       auth_enabled: true,
-      version: 'v0.9.33',
+      version: 'v0.9.34',
       user: {
         id: 'sso-developer',
         email: 'developer@dataworks.local',
@@ -114,6 +123,34 @@ test('통합 검색을 Escape 키로 닫는다', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: '통합 검색' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: '통합 검색' })).toBeHidden()
+})
+
+test('사용자 정의 역할을 설계하고 저장 전 권한 영향을 확인한다', async ({ page }) => {
+  let created: Record<string, unknown> | undefined
+  await page.unroute('**/admin/roles')
+  await page.route('**/admin/roles', async (route) => {
+    if (route.request().method() === 'POST') {
+      created = route.request().postDataJSON() as Record<string, unknown>
+      return route.fulfill({ status: 201, json: { role: { ...created, is_system: false, rank: 1, user_count: 0, active_user_count: 0, can_assign: true } } })
+    }
+    return route.fulfill({ json: {
+      all_scopes: ['models:read', 'admin:read', 'admin:write', 'costs:read'],
+      roles: [{ role: 'super_admin', description: '최고 관리자', scopes: ['models:read', 'admin:read', 'admin:write'], default_home: '#/dataworks/home', is_admin: true, is_system: true, rank: 5, user_count: 1, active_user_count: 1, can_assign: true }],
+    } })
+  })
+
+  await page.goto('./settings')
+  await page.getByRole('tab', { name: /역할 및 권한/ }).click()
+  await expect(page.getByRole('heading', { name: '역할 카탈로그' })).toBeVisible()
+  await page.getByRole('button', { name: '역할 만들기' }).click()
+  const dialog = page.getByRole('dialog', { name: '사용자 정의 역할 만들기' })
+  await dialog.getByLabel('역할 식별자').fill('product_analyst')
+  await dialog.getByLabel('설명').fill('상품 비용 분석 담당')
+  await expect(dialog.getByText('권한 영향 미리보기')).toBeVisible()
+  await dialog.getByRole('button', { name: '역할 저장' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect.poll(() => created).toMatchObject({ role: 'product_analyst', description: '상품 비용 분석 담당', scopes: ['models:read'] })
 })
 
 test('핵심 화면을 콘솔 오류 없이 탐색한다', async ({ page }) => {

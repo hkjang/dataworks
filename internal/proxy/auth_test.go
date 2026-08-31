@@ -166,6 +166,16 @@ func TestAuthUserRoleChangeAndDeactivation(t *testing.T) {
 	if user.Role != "admin" {
 		t.Fatalf("role not updated: %q", user.Role)
 	}
+	meAfterRole, _ := http.NewRequest(http.MethodGet, proxy.URL+"/auth/me", nil)
+	meAfterRole.Header.Set("Authorization", "Bearer "+devTok.AccessToken)
+	meAfterRoleRes, err := http.DefaultClient.Do(meAfterRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meAfterRoleRes.Body.Close()
+	if meAfterRoleRes.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("role change must revoke the old access token immediately, got %d", meAfterRoleRes.StatusCode)
+	}
 	events, _ := db.ListAuditEvents(context.Background(), 50)
 	foundRoleChange := false
 	for _, e := range events {
@@ -177,7 +187,10 @@ func TestAuthUserRoleChangeAndDeactivation(t *testing.T) {
 		t.Fatalf("role_changed audit event missing: %+v", events)
 	}
 
-	// deactivate → live access token dies immediately (session revoked)
+	// Log in with the new role, then deactivate → the new live access token also dies.
+	adminLogin := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{"email": "dev@example.com", "password": "dev-password"})
+	_ = json.NewDecoder(adminLogin.Body).Decode(&devTok)
+	adminLogin.Body.Close()
 	patch2, _ := http.NewRequest(http.MethodPatch, proxy.URL+"/admin/users/"+created.User.ID, strings.NewReader(`{"status":"disabled"}`))
 	patch2.Header.Set("Authorization", "Bearer "+rootTok.AccessToken)
 	patch2.Header.Set("Content-Type", "application/json")
@@ -205,6 +218,198 @@ func TestAuthUserRoleChangeAndDeactivation(t *testing.T) {
 	if relogin.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("deactivated user login should fail, got %d", relogin.StatusCode)
 	}
+}
+
+func TestRoleManagementLifecycleAndSafetyGuards(t *testing.T) {
+	db, proxy := newAuthTestServer(t, "http://example.invalid")
+	defer proxy.Close()
+
+	login := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{"email": "root@example.com", "password": "correct-password"})
+	var rootTok struct {
+		AccessToken string `json:"access_token"`
+	}
+	_ = json.NewDecoder(login.Body).Decode(&rootTok)
+	login.Body.Close()
+
+	request := func(method, path, body string) *http.Response {
+		req, _ := http.NewRequest(method, proxy.URL+path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+rootTok.AccessToken)
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+
+	missingDependency := postJSON(t, proxy.URL+"/admin/roles", rootTok.AccessToken, map[string]any{
+		"role": "route_editor", "scopes": []string{"routing:write"},
+	})
+	missingDependency.Body.Close()
+	if missingDependency.StatusCode != http.StatusBadRequest {
+		t.Fatalf("scope dependency must be enforced, got %d", missingDependency.StatusCode)
+	}
+
+	createRole := postJSON(t, proxy.URL+"/admin/roles", rootTok.AccessToken, map[string]any{
+		"role": "cost_analyst", "description": "비용 분석 담당", "scopes": []string{"models:read", "costs:read"}, "default_home": "#/factory",
+	})
+	createRole.Body.Close()
+	if createRole.StatusCode != http.StatusCreated {
+		t.Fatalf("custom role create failed: %d", createRole.StatusCode)
+	}
+
+	createUser := postJSON(t, proxy.URL+"/admin/users", rootTok.AccessToken, map[string]string{
+		"email": "analyst@example.com", "password": "analyst-password", "name": "Analyst", "role": "cost_analyst",
+	})
+	var created struct {
+		User struct {
+			ID string `json:"id"`
+		} `json:"user"`
+	}
+	_ = json.NewDecoder(createUser.Body).Decode(&created)
+	createUser.Body.Close()
+	if createUser.StatusCode != http.StatusCreated || created.User.ID == "" {
+		t.Fatalf("custom-role user create failed: %d", createUser.StatusCode)
+	}
+
+	analystLogin := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{"email": "analyst@example.com", "password": "analyst-password"})
+	var analystTok struct {
+		AccessToken string `json:"access_token"`
+	}
+	_ = json.NewDecoder(analystLogin.Body).Decode(&analystTok)
+	analystLogin.Body.Close()
+	if analystTok.AccessToken == "" {
+		t.Fatal("custom-role user login should succeed")
+	}
+
+	catalog := request(http.MethodGet, "/admin/roles", "")
+	var catalogOut struct {
+		Roles []roleInfo `json:"roles"`
+	}
+	_ = json.NewDecoder(catalog.Body).Decode(&catalogOut)
+	catalog.Body.Close()
+	var custom roleInfo
+	for _, role := range catalogOut.Roles {
+		if role.Role == "cost_analyst" {
+			custom = role
+		}
+	}
+	if custom.UserCount != 1 || custom.ActiveUserCount != 1 || custom.Rank != 1 || !custom.CanAssign {
+		t.Fatalf("custom role usage metadata mismatch: %+v", custom)
+	}
+
+	inUse := request(http.MethodDelete, "/admin/roles?role=cost_analyst", "")
+	inUse.Body.Close()
+	if inUse.StatusCode != http.StatusConflict {
+		t.Fatalf("assigned role delete must be blocked, got %d", inUse.StatusCode)
+	}
+
+	updateRole := postJSON(t, proxy.URL+"/admin/roles", rootTok.AccessToken, map[string]any{
+		"role": "cost_analyst", "description": "비용·관측 분석 담당", "scopes": []string{"models:read", "costs:read", "observability:read"}, "default_home": "#/factory",
+	})
+	updateRole.Body.Close()
+	if updateRole.StatusCode != http.StatusOK {
+		t.Fatalf("custom role update failed: %d", updateRole.StatusCode)
+	}
+	oldMe := requestWithBearer(t, http.MethodGet, proxy.URL+"/auth/me", analystTok.AccessToken, "")
+	oldMe.Body.Close()
+	if oldMe.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("custom role update must revoke assigned sessions, got %d", oldMe.StatusCode)
+	}
+
+	moveUser := request(http.MethodPatch, "/admin/users/"+created.User.ID, `{"role":"developer"}`)
+	moveUser.Body.Close()
+	if moveUser.StatusCode != http.StatusOK {
+		t.Fatalf("reassign custom-role user failed: %d", moveUser.StatusCode)
+	}
+	deleted := request(http.MethodDelete, "/admin/roles?role=cost_analyst", "")
+	deleted.Body.Close()
+	if deleted.StatusCode != http.StatusOK {
+		t.Fatalf("unused custom role delete failed: %d", deleted.StatusCode)
+	}
+
+	root, found, err := db.AuthUserByEmail(context.Background(), "root@example.com")
+	if err != nil || !found {
+		t.Fatalf("bootstrap admin lookup failed: found=%v err=%v", found, err)
+	}
+	demoteLast := request(http.MethodPatch, "/admin/users/"+root.ID, `{"role":"admin"}`)
+	demoteLast.Body.Close()
+	if demoteLast.StatusCode != http.StatusConflict {
+		t.Fatalf("last super_admin demotion must be blocked, got %d", demoteLast.StatusCode)
+	}
+}
+
+func TestCustomAdministratorCannotDelegateScopesItDoesNotHold(t *testing.T) {
+	_, proxy := newAuthTestServer(t, "http://example.invalid")
+	defer proxy.Close()
+
+	login := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{"email": "root@example.com", "password": "correct-password"})
+	var rootTok struct {
+		AccessToken string `json:"access_token"`
+	}
+	_ = json.NewDecoder(login.Body).Decode(&rootTok)
+	login.Body.Close()
+
+	for _, role := range []map[string]any{
+		{"role": "limited_admin", "description": "제한 관리자", "scopes": []string{"admin:read", "admin:write"}},
+		{"role": "security_reader", "description": "보안 조회", "scopes": []string{"admin:read", "security:read"}},
+		{"role": "operations_reader", "description": "운영 조회", "scopes": []string{"admin:read"}},
+	} {
+		res := postJSON(t, proxy.URL+"/admin/roles", rootTok.AccessToken, role)
+		res.Body.Close()
+		if res.StatusCode != http.StatusCreated {
+			t.Fatalf("role %v create failed: %d", role["role"], res.StatusCode)
+		}
+	}
+
+	createAdmin := postJSON(t, proxy.URL+"/admin/users", rootTok.AccessToken, map[string]string{
+		"email": "limited@example.com", "password": "limited-password", "role": "limited_admin",
+	})
+	createAdmin.Body.Close()
+	if createAdmin.StatusCode != http.StatusCreated {
+		t.Fatalf("limited administrator create failed: %d", createAdmin.StatusCode)
+	}
+	limitedLogin := postJSON(t, proxy.URL+"/auth/login", "", map[string]string{"email": "limited@example.com", "password": "limited-password"})
+	var limitedTok struct {
+		AccessToken string `json:"access_token"`
+	}
+	_ = json.NewDecoder(limitedLogin.Body).Decode(&limitedTok)
+	limitedLogin.Body.Close()
+
+	denied := postJSON(t, proxy.URL+"/admin/users", limitedTok.AccessToken, map[string]string{
+		"email": "security@example.com", "password": "security-password", "role": "security_reader",
+	})
+	denied.Body.Close()
+	if denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("custom administrator must not delegate security:read it does not hold, got %d", denied.StatusCode)
+	}
+
+	allowed := postJSON(t, proxy.URL+"/admin/users", limitedTok.AccessToken, map[string]string{
+		"email": "reader@example.com", "password": "reader-password", "role": "operations_reader",
+	})
+	allowed.Body.Close()
+	if allowed.StatusCode != http.StatusCreated {
+		t.Fatalf("custom administrator should delegate a lower subset role, got %d", allowed.StatusCode)
+	}
+}
+
+func requestWithBearer(t *testing.T, method, url, bearer, body string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(method, url, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+bearer)
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
 }
 
 // TestHardDeleteKeyTeamChangeAndScopeEdit covers the three management additions:

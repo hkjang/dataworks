@@ -28,9 +28,9 @@ var allScopes = []string{
 }
 
 var roleScopes = map[string][]string{
-	"super_admin":     allScopes,
-	"admin":           allScopes,
-	"team_admin":      {"chat:completion", "embeddings:create", "models:read", "admin:read", "routing:read", "observability:read", "costs:read", "security:read", "mcp:use", "team:read"},
+	"super_admin": allScopes,
+	"admin":       allScopes,
+	"team_admin":  {"chat:completion", "embeddings:create", "models:read", "admin:read", "routing:read", "observability:read", "costs:read", "security:read", "mcp:use", "team:read"},
 	// team_manager sees only their team's surface (team:read) — NOT the full operator
 	// dashboard (no admin:read), so they land on /team rather than /admin.
 	"team_manager":    {"chat:completion", "embeddings:create", "models:read", "observability:read", "costs:read", "mcp:use", "team:read"},
@@ -276,6 +276,42 @@ func roleRank(role string) int {
 	}
 }
 
+// customRoleRank derives an assignability tier from effective privileges. A custom role
+// that can mutate admin state is admin-equivalent; read-only operational and team roles
+// remain delegable by a strictly higher-ranked administrator.
+func customRoleRank(scopes []string) int {
+	switch {
+	case hasScope(scopes, "admin:write"):
+		return 4
+	case hasScope(scopes, "admin:read") || hasScope(scopes, "mcp:admin") || hasScope(scopes, "routing:write"):
+		return 3
+	case hasScope(scopes, "team:read"):
+		return 2
+	default:
+		return 1
+	}
+}
+
+func (s *Server) effectiveRoleRank(ctx context.Context, role string) int {
+	if rank := roleRank(strings.TrimSpace(role)); rank > 0 {
+		return rank
+	}
+	if custom, found, err := s.db.GetCustomRole(ctx, strings.TrimSpace(role)); err == nil && found {
+		return customRoleRank(custom.Scopes)
+	}
+	return 0
+}
+
+// wouldRemoveLastActiveSuper protects the recovery path across both local admin changes
+// and SSO-driven role synchronization.
+func (s *Server) wouldRemoveLastActiveSuper(ctx context.Context, user store.AuthUser, nextRole, nextStatus string) (bool, error) {
+	if user.Role != "super_admin" || user.Status != "active" || (nextRole == "super_admin" && nextStatus == "active") {
+		return false, nil
+	}
+	_, active, err := s.db.CountAuthUsersByRole(ctx, "super_admin")
+	return active <= 1, err
+}
+
 func (s *Server) canAssignRole(r *http.Request, role string) bool {
 	role = strings.TrimSpace(role)
 	if role == "" || !s.cfg.Auth.Enabled {
@@ -288,7 +324,9 @@ func (s *Server) canAssignRole(r *http.Request, role string) bool {
 	if claims.Role == "super_admin" {
 		return true
 	}
-	return roleRank(role) > 0 && roleRank(role) < roleRank(claims.Role)
+	targetRank := s.effectiveRoleRank(r.Context(), role)
+	return targetRank > 0 && targetRank < s.effectiveRoleRank(r.Context(), claims.Role) &&
+		scopesWithin(s.effectiveScopesForRole(r.Context(), role), claims.Scopes)
 }
 
 func (s *Server) canModifySubjectRole(r *http.Request, currentRole string) bool {
@@ -302,7 +340,9 @@ func (s *Server) canModifySubjectRole(r *http.Request, currentRole string) bool 
 	if claims.Role == "super_admin" {
 		return true
 	}
-	return roleRank(currentRole) > 0 && roleRank(currentRole) < roleRank(claims.Role)
+	targetRank := s.effectiveRoleRank(r.Context(), currentRole)
+	return targetRank > 0 && targetRank < s.effectiveRoleRank(r.Context(), claims.Role) &&
+		scopesWithin(s.effectiveScopesForRole(r.Context(), currentRole), claims.Scopes)
 }
 
 func normalizeScopes(scopes []string) ([]string, bool) {

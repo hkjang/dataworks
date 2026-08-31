@@ -258,7 +258,7 @@ func (s *Server) verifyKeycloakAccessToken(ctx context.Context, token string) (a
 	if subject == "" {
 		return accessClaims{}, false
 	}
-	role := resolveKeycloakRoleWith(s.effectiveKeycloakRoleMap(), s.keycloakRolesFromClaims(claims), s.keycloakConfig().DefaultRole)
+	role, _ := s.resolveEffectiveKeycloakRoleExplicit(ctx, s.effectiveKeycloakRoleMap(), s.keycloakRolesFromClaims(claims), s.keycloakConfig().DefaultRole)
 	if role == "" {
 		return accessClaims{}, false
 	}
@@ -418,6 +418,29 @@ func resolveKeycloakRoleExplicit(roleMap map[string]string, roles []string, defa
 	for _, r := range roles {
 		if internal, ok := roleMap[strings.TrimSpace(r)]; ok {
 			if rank := roleRank(internal); rank > bestRank {
+				bestRank = rank
+				best = internal
+			}
+		}
+	}
+	if best != "" {
+		return best, true
+	}
+	return strings.TrimSpace(defaultRole), false
+}
+
+// resolveEffectiveKeycloakRoleExplicit is the persisted-role-aware counterpart used by
+// live SSO flows. It lets a custom administrative role outrank a lower built-in mapping
+// according to the same tier model used by assignment and role-editor guards.
+func (s *Server) resolveEffectiveKeycloakRoleExplicit(ctx context.Context, roleMap map[string]string, roles []string, defaultRole string) (string, bool) {
+	if len(roleMap) == 0 {
+		roleMap = keycloakRoleMap
+	}
+	best := ""
+	bestRank := -1
+	for _, role := range roles {
+		if internal, ok := roleMap[strings.TrimSpace(role)]; ok {
+			if rank := s.effectiveRoleRank(ctx, internal); rank > 0 && rank > bestRank {
 				bestRank = rank
 				best = internal
 			}
