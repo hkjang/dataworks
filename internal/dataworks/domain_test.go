@@ -107,6 +107,55 @@ func TestCustomerFitScoreAndSnapshotDiff(t *testing.T) {
 	}
 }
 
+func TestCustomerFitScoreMatchesKoreanPositioningTerms(t *testing.T) {
+	product := store.DataProduct{
+		ProductKey: "dw_credit_score", NameKO: "여신 승인 신용 위험 스코어",
+		Description:      "여신 승인 심사와 신용 위험 평가를 지원하는 스코어 데이터",
+		TargetIndustries: []string{"은행"}, TargetCustomers: []string{"리스크 팀"},
+		PricingModel: "엔터프라이즈 구독", RevenueScore: 80, RiskScore: 30,
+	}
+	segment := store.CustomerSegment{
+		SegmentKey: "bank_enterprise", Industry: "은행", BuyerType: "리스크 팀",
+		PainPoints: []string{"여신 승인", "신용 위험"}, BudgetLevel: "enterprise",
+	}
+
+	score := ComputeCustomerFitScore(product, segment)
+	if !hasString(score.EvidenceRefs, "segment_pain_points") {
+		t.Fatalf("korean pain points must count as positioning evidence: %+v", score)
+	}
+	if score.FitScore < 70 {
+		t.Fatalf("expected strong korean customer fit, got %+v", score)
+	}
+
+	// An unrelated segment must still score materially lower, so the tokenizer
+	// change does not simply inflate every pairing.
+	other := ComputeCustomerFitScore(product, store.CustomerSegment{
+		SegmentKey: "retail_smb", Industry: "유통", BuyerType: "매장 운영",
+		PainPoints: []string{"재고 회전", "매장 방문객"}, BudgetLevel: "low",
+	})
+	if other.FitScore >= score.FitScore {
+		t.Fatalf("unrelated segment should score lower: matched=%+v unrelated=%+v", score, other)
+	}
+	if hasString(other.EvidenceRefs, "segment_pain_points") {
+		t.Fatalf("unrelated segment must not claim positioning evidence: %+v", other)
+	}
+}
+
+func TestTokenSetSkipsPunctuationAndSingleRuneTerms(t *testing.T) {
+	tokens := tokenSet("여신 및 승인, Credit-Score a 42 x_y")
+	want := []string{"여신", "승인", "credit", "score", "42", "x_y"}
+	for _, term := range want {
+		if !tokens[term] {
+			t.Fatalf("expected token %q in %v", term, tokens)
+		}
+	}
+	for _, term := range []string{"및", "a", "-", ","} {
+		if tokens[term] {
+			t.Fatalf("unexpected token %q in %v", term, tokens)
+		}
+	}
+}
+
 func TestDynamicOpenAPIProposalVariantsAndRetirement(t *testing.T) {
 	product := store.DataProduct{
 		ProductKey: "dw_credit_score", NameEN: "Credit Score API", SourceType: "api", SourceRef: "loan_history",

@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"dataworks/internal/store"
 )
@@ -715,12 +717,17 @@ func flattenJSON(prefix string, value any, out map[string]string) {
 	}
 }
 
+// tokenSet splits free-form product/segment text into comparable terms. The
+// separator test is Unicode-aware so Korean product copy (name_ko, description,
+// pain points) produces tokens instead of being dropped as punctuation, and the
+// minimum length is counted in runes so single-syllable noise words are ignored
+// the same way single ASCII letters are.
 func tokenSet(value string) map[string]bool {
 	set := map[string]bool{}
 	for _, tok := range strings.FieldsFunc(strings.ToLower(value), func(r rune) bool {
-		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '_'
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 	}) {
-		if len(tok) >= 2 {
+		if utf8.RuneCountInString(tok) >= 2 {
 			set[tok] = true
 		}
 	}
