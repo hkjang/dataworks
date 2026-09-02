@@ -153,11 +153,13 @@ func main() {
 		}
 	}
 
+	// A source we cannot read is fatal, not a warning: an empty CLI/SDK source yields zero client
+	// paths, which makes the contract check silently pass no matter how badly the surface drifted.
 	read := func(p string) string {
 		b, err := os.ReadFile(filepath.Join(root, p))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: cannot read %s: %v\n", p, err)
-			return ""
+			fmt.Fprintf(os.Stderr, "FAIL: cannot read %s: %v\n", p, err)
+			os.Exit(1)
 		}
 		return string(b)
 	}
@@ -173,8 +175,8 @@ func main() {
 	}
 	rep := buildReport(serverSrcs,
 		read(filepath.Join("internal", "proxy", "admin_openapi.go")),
-		read(filepath.Join("cmd", "vibe", "main.go")),
-		read(filepath.Join("sdk", "typescript", "vibe.ts")))
+		read(filepath.Join("cmd", "clustara-cli", "main.go")),
+		read(filepath.Join("sdk", "typescript", "clustara.ts")))
 
 	if jsonOut {
 		b, _ := json.MarshalIndent(rep, "", "  ")
