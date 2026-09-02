@@ -54,7 +54,7 @@ test('문서용 전체 화면을 가상 데이터로 캡처한다', async ({ pag
 
   await page.goto('./')
   await expect(page.getByRole('heading', { name: '다시 만나 반갑습니다' })).toBeVisible()
-  await expect(page.getByText('서비스 버전 v0.9.35')).toBeVisible()
+  await expect(page.getByText('서비스 버전 v0.9.36')).toBeVisible()
   await capture(page, path.join(outputDir, '00-login.jpg'), false)
 
   routeState.setAuthenticated(true)

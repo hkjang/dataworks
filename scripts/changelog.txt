@@ -1,3 +1,6 @@
+v0.9.36:
+- **API surface 감사 복구와 미문서화 라우트 86건 카탈로그 등록 (v0.9.36)**: `cmd/api-surface-audit`가 리브랜딩으로 사라진 `cmd/vibe/main.go`와 `sdk/typescript/vibe.ts`를 읽으며 경고만 남기고 빈 문자열을 반환해, CLI·SDK 계약 검사가 항상 0건 기준으로 통과하던 무력 상태를 해소. 실제 클라이언트 소스인 `cmd/clustara-cli/main.go`와 `sdk/typescript/clustara.ts`로 경로를 정정하고 읽기 실패를 경고 대신 즉시 실패로 바꿔 감사 도구가 다시 실질적인 계약 검사를 수행. mux에는 등록됐지만 `apiEndpoints` 카탈로그에 없어 `/openapi.json`에서 누락되던 라우트 86건을 각 핸들러가 실제로 허용하는 메서드대로 등록해 API 문서와 런타임 표면을 일치. 라우트 커버리지, 죽은 카탈로그 항목, 항목 형식 불변식을 `go test ./...` 회귀 테스트로 고정해 다음 라우트 추가 때 문서 누락이 다시 발생하면 빌드가 실패하도록 보강. `dataworks:v0.9.36` 이미지를 `dataworks-v0.9.36.tar.gz` 단일 오프라인 GitHub Release asset으로 배포.
+
 v0.9.35:
 - **관리자 API 인증 공백 차단과 토큰 로그 노출 제거 (v0.9.35)**: 관리자 라우트 전수 점검에서 인증 게이트 없이 노출되던 엔드포인트 4건을 차단. `GET /admin/llm/prompts/compare`는 mux에 독립 패턴으로 등록되어 `/admin/llm/prompts` 핸들러의 관리자 검사를 우회했고, `/admin/dataworks/marketplace/products`, `/admin/dataworks/marketplace/bookmarks`, `/admin/dataworks/marketplace/subscriptions`는 인증 없이 조회와 생성이 가능해 프롬프트 본문, 출시된 데이터 상품 목록, 구독·북마크 데이터가 열려 있었음. 네 핸들러 모두 다른 관리자 API와 동일한 `authorizeAdmin` 프롤로그를 적용해 미인증 요청을 401로 차단. 관리자 토큰 불일치 경고 로그가 수신 토큰과 설정된 관리자 토큰을 평문으로 남기던 문제를 제거해 로그 수집 경로로의 자격증명 유출을 차단. `dataworks:v0.9.35` 이미지를 `dataworks-v0.9.35.tar.gz` 단일 오프라인 GitHub Release asset으로 배포.
 
