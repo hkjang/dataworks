@@ -1,3 +1,6 @@
+v0.9.39:
+- **한글 단어가 고객 적합도 점수에서 누락되던 문제 수정 (v0.9.39)**: `internal/dataworks/domain.go`의 `tokenSet`이 `[a-z0-9_]` 이외 모든 룬을 구분자로 취급해, 한국어로 작성된 `name_ko`·`description`·`pain_points`는 토큰이 하나도 생성되지 않았음(`tokenSet("여신 승인 신용 위험 스코어")`가 빈 map 반환). 그 결과 `ComputeCustomerFitScore`의 shared positioning terms 항목(최대 +35 및 `product_positioning`·`segment_pain_points` evidence ref)이 한국어 우선 제품에서는 세그먼트 pain point가 글자 그대로 일치해도 절대 발동하지 않아, 동일 내용의 영어 제품이 70점 이상을 받는 동안 한국어 제품은 66점에 머물렀음. 구분자 판정을 `unicode.IsLetter`·`unicode.IsDigit` 기반으로 바꾸고 최소 토큰 길이를 바이트가 아닌 룬 수로 세도록 정렬해 1음절 조사와 단일 ASCII 문자를 동일하게 제외하면서 기존 ASCII 동작은 유지. 한국어 적합도 회귀 테스트와 `tokenSet` 단위 테스트를 추가해 재발을 차단. `dataworks:v0.9.39` 이미지를 `dataworks-v0.9.39.tar.gz` 단일 오프라인 GitHub Release asset으로 배포.
+
 v0.9.38:
 - **음수·0 `?window=` 값이 조회 결과를 비우던 문제 수정 (v0.9.38)**: `internal/proxy/admin_analytics.go`의 `parseWindow`가 `time.ParseDuration` 결과를 부호 검사 없이 그대로 적용해 `?window=-24h`나 `?window=0s` 같은 값이 조회 시작 시각(since)을 현재 시각 이후로 밀어냈고, 이 함수를 사용하는 70여 개 호출부(analytics·cost·MCP·개인화·xview 등 30여 개 엔드포인트)가 기본 윈도우로 폴백하는 대신 빈 데이터를 반환했음. 양수 lookback만 허용하고 그 외 값은 무시해 호출부의 기본 윈도우로 폴백하도록 고쳤으며, 유일하게 fallback 0("무제한" 의도)을 넘기는 `mcpFilterFromQuery`를 위해 비양수 결과는 store 계층 관례대로 zero time을 반환하도록 정렬. 단위 테스트 2건과 `/admin/timeseries?window=-24h` HTTP 회귀 테스트를 추가해 재발을 차단. `dataworks:v0.9.38` 이미지를 `dataworks-v0.9.38.tar.gz` 단일 오프라인 GitHub Release asset으로 배포.
 
