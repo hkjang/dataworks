@@ -1,6 +1,54 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"testing"
+)
+
+// The audit used to point at cmd/vibe/main.go and sdk/typescript/vibe.ts, which no longer exist:
+// the reads warned, returned "", and the CLI/SDK contract check passed on zero paths. Every source
+// main() names must exist, and must actually yield client paths — otherwise the audit is vacuous.
+func TestAuditSourcesExistAndYieldPaths(t *testing.T) {
+	repo := filepath.Join("..", "..")
+	reRead := regexp.MustCompile(`read\(filepath\.Join\((.+)\)\)`)
+	reArg := regexp.MustCompile(`"([^"]+)"`)
+
+	body, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatalf("read main.go: %v", err)
+	}
+	joins := reRead.FindAllStringSubmatch(string(body), -1)
+	if len(joins) != 3 {
+		t.Fatalf("expected main() to read 3 sources (openapi, cli, sdk), found %d", len(joins))
+	}
+	for _, j := range joins {
+		parts := []string{repo}
+		for _, a := range reArg.FindAllStringSubmatch(j[1], -1) {
+			parts = append(parts, a[1])
+		}
+		path := filepath.Join(parts...)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("audit reads a source that does not exist: %s (%v)", path, err)
+		}
+	}
+
+	cli, err := os.ReadFile(filepath.Join(repo, "cmd", "clustara-cli", "main.go"))
+	if err != nil {
+		t.Fatalf("read CLI source: %v", err)
+	}
+	if got := extractMatches(reClientGo, string(cli)); len(got) == 0 {
+		t.Error("CLI source yields no client paths — the contract check would pass vacuously")
+	}
+	sdk, err := os.ReadFile(filepath.Join(repo, "sdk", "typescript", "clustara.ts"))
+	if err != nil {
+		t.Fatalf("read SDK source: %v", err)
+	}
+	if got := extractMatches(reClientTS, string(sdk)); len(got) == 0 {
+		t.Error("SDK source yields no client paths — the contract check would pass vacuously")
+	}
+}
 
 func TestPathCovered(t *testing.T) {
 	routes := []string{"/v1/models", "/v1/apps/", "/mcp/gateway", "/me/connection-doctor", "/v1/"}
