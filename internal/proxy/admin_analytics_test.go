@@ -139,6 +139,86 @@ func TestParseWindowFallbacks(t *testing.T) {
 	}
 }
 
+func TestParseWindowRejectsNonPositiveDurations(t *testing.T) {
+	now := time.Now()
+	// A negative or zero window used to be applied verbatim, which pushed the
+	// cutoff to (or past) now and made every analytics endpoint answer empty.
+	for _, raw := range []string{"-24h", "-1s", "0s", "0", "notaduration"} {
+		got := parseWindow(raw, 24*time.Hour, "hour")
+		delta := now.Sub(got)
+		if delta < 23*time.Hour || delta > 25*time.Hour {
+			t.Errorf("parseWindow(%q): delta=%s, want the 24h fallback", raw, delta)
+		}
+	}
+}
+
+func TestParseWindowWithoutFallbackIsUnbounded(t *testing.T) {
+	// mcpFilterFromQuery passes a zero fallback to mean "no lower bound"; the
+	// store layer spells that as the zero time, not as now.
+	if got := parseWindow("bogus", 0, "day"); !got.IsZero() {
+		t.Fatalf("parseWindow with zero fallback = %s, want zero time", got)
+	}
+	if got := parseWindow("6h", 0, "day"); got.IsZero() {
+		t.Fatal("parseWindow(6h) with zero fallback should still honour the window")
+	}
+}
+
+func TestTimeseriesIgnoresNegativeWindow(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
+	}))
+	defer upstream.Close()
+
+	db := openTestStore(t)
+	defer db.Close()
+	logger := store.NewAsyncLogger(db, 32, filepath.Join(t.TempDir(), "fallback.ndjson"))
+	logger.Start()
+	defer logger.Stop(context.Background())
+
+	server, err := NewServer(testConfig(upstream.URL, "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httptest.NewServer(server.Routes())
+	defer proxy.Close()
+
+	if resp := postJSON(t, proxy.URL+"/admin/api-keys", "", map[string]any{"name": "A", "key": "alpha"}); resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("api key create failed: %d %s", resp.StatusCode, body)
+	}
+	r := postJSON(t, proxy.URL+"/v1/chat/completions", "alpha", chatBody("test-model", false))
+	if r.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(r.Body)
+		t.Fatalf("chat call failed: %d %s", r.StatusCode, body)
+	}
+	r.Body.Close()
+
+	waitFor(t, time.Second, func() bool {
+		s, err := db.Summary(context.Background())
+		return err == nil && s.TotalRequests == 1
+	})
+
+	resp, err := http.Get(proxy.URL + "/admin/timeseries?window=-24h&bucket=hour")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var ts struct {
+		Points []store.TimeseriesPoint `json:"points"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&ts); err != nil {
+		t.Fatal(err)
+	}
+	var sumReq int64
+	for _, p := range ts.Points {
+		sumReq += p.Requests
+	}
+	if sumReq != 1 {
+		t.Fatalf("expected the negative window to fall back to the 24h default and account for 1 request, got %d", sumReq)
+	}
+}
+
 func TestUserDetailIncludesLLMObservability(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

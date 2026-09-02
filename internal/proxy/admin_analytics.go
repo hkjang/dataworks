@@ -366,10 +366,18 @@ func parseWindow(raw string, fallback time.Duration, bucket string) time.Time {
 	case "":
 		dur = fallback
 	default:
-		if d, err := time.ParseDuration(raw); err == nil {
+		// Only a positive lookback makes sense; a negative or zero duration
+		// would push "since" into the future (or to now) and silently hide
+		// every row instead of reporting the malformed window.
+		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
 			dur = d
 		}
 	}
 	_ = bucket
+	if dur <= 0 {
+		// Callers that pass a non-positive fallback want an unbounded window;
+		// the zero time is how the store layer spells "no lower bound".
+		return time.Time{}
+	}
 	return time.Now().Add(-dur)
 }
