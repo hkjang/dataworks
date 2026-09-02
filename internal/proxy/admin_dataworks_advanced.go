@@ -688,6 +688,11 @@ func (s *Server) handleDataWorksProposalExperimentAction(w http.ResponseWriter, 
 
 // 8. Internal Data Product Marketplace Handlers
 func (s *Server) handleDataWorksMarketplaceProducts(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeAdmin(r) {
+		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 		return
@@ -712,6 +717,11 @@ func (s *Server) handleDataWorksMarketplaceProducts(w http.ResponseWriter, r *ht
 }
 
 func (s *Server) handleDataWorksMarketplaceBookmarks(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeAdmin(r) {
+		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+		return
+	}
+
 	userID := adminID(r)
 	if userID == "" {
 		userID = "user_default"
@@ -750,6 +760,11 @@ func (s *Server) handleDataWorksMarketplaceBookmarks(w http.ResponseWriter, r *h
 }
 
 func (s *Server) handleDataWorksMarketplaceSubscriptions(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeAdmin(r) {
+		writeOpenAIError(w, http.StatusUnauthorized, "invalid admin token", "invalid_request_error", "invalid_api_key")
+		return
+	}
+
 	userID := adminID(r)
 	if userID == "" {
 		userID = "user_default"

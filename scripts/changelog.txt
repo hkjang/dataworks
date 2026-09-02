@@ -1,3 +1,6 @@
+v0.9.35:
+- **관리자 API 인증 공백 차단과 토큰 로그 노출 제거 (v0.9.35)**: 관리자 라우트 전수 점검에서 인증 게이트 없이 노출되던 엔드포인트 4건을 차단. `GET /admin/llm/prompts/compare`는 mux에 독립 패턴으로 등록되어 `/admin/llm/prompts` 핸들러의 관리자 검사를 우회했고, `/admin/dataworks/marketplace/products`, `/admin/dataworks/marketplace/bookmarks`, `/admin/dataworks/marketplace/subscriptions`는 인증 없이 조회와 생성이 가능해 프롬프트 본문, 출시된 데이터 상품 목록, 구독·북마크 데이터가 열려 있었음. 네 핸들러 모두 다른 관리자 API와 동일한 `authorizeAdmin` 프롤로그를 적용해 미인증 요청을 401로 차단. 관리자 토큰 불일치 경고 로그가 수신 토큰과 설정된 관리자 토큰을 평문으로 남기던 문제를 제거해 로그 수집 경로로의 자격증명 유출을 차단. `dataworks:v0.9.35` 이미지를 `dataworks-v0.9.35.tar.gz` 단일 오프라인 GitHub Release asset으로 배포.
+
 v0.9.34:
 - **역할 관리와 권한 즉시 반영 고도화 (v0.9.34)**: 최신 React `관리자 설정 → 역할 및 권한`에 기본·사용자 정의 역할 카탈로그, 역할 검색, 사용자 수와 활성 계정 현황, 최소 권한 기반 Scope 설계, 권한 영향 미리보기, 로그인 시작 화면, 사용자 역할 할당과 계정 활성·비활성 제어를 추가. 사용자 정의 역할명·Scope 종속성·권한 상승을 서버에서 검증하고, 사용 중 역할 삭제와 마지막 활성 `super_admin` 강등·비활성화를 차단. 사용자 역할 또는 역할 Scope 변경 시 기존 세션·Refresh Token을 즉시 폐기하고 팀 멤버십 역할을 동기화해 권한 변경이 지연 없이 적용되도록 보강. `dataworks:v0.9.34` 이미지를 `dataworks-v0.9.34.tar.gz` 단일 오프라인 GitHub Release asset으로 배포.
 

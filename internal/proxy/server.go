@@ -31,7 +31,7 @@ import (
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
-const AppVersion = "v0.9.34"
+const AppVersion = "v0.9.35"
 
 type Server struct {
 	cfg            config.Config
@@ -1905,7 +1905,7 @@ func (s *Server) adminAuthorizationStatus(r *http.Request) int {
 		}
 		return http.StatusForbidden
 	}
-	slog.Warn("admin auth failed: token mismatch", "received_token", token, "expected_token", s.cfg.Auth.AdminToken)
+	slog.Warn("admin auth failed: token mismatch")
 	return http.StatusUnauthorized
 }
 

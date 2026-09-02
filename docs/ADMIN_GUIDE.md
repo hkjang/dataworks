@@ -1,10 +1,10 @@
 # Data Works 관리자 가이드
 
-> 적용 버전: **v0.9.34**<br>
+> 적용 버전: **v0.9.35**<br>
 > 서비스 관리자 화면: `http://<host>:8080/dataworks/settings`<br>
 > 일반 사용 방법은 [사용자 가이드](USER_GUIDE.md)를 참고하세요.
 
-이 문서는 폐쇄망 설치, 최초 관리자 로그인, AI·MCP, Keycloak SSO, 키 정책과 데이터 상품 운영 절차를 실제 v0.9.34 구현 기준으로 설명합니다.
+이 문서는 폐쇄망 설치, 최초 관리자 로그인, AI·MCP, Keycloak SSO, 키 정책과 데이터 상품 운영 절차를 실제 v0.9.35 구현 기준으로 설명합니다.
 
 ## 1. 운영 구성
 
@@ -24,13 +24,13 @@ Data Works 배포 이미지는 React SPA와 Go API를 하나의 바이너리로 
 GitHub Release의 운영 산출물은 다음 하나의 custom asset입니다.
 
 ```text
-dataworks-v0.9.34.tar.gz
+dataworks-v0.9.35.tar.gz
 ```
 
 압축 파일을 적재하면 다음 이미지가 생성됩니다.
 
 ```text
-dataworks:v0.9.34
+dataworks:v0.9.35
 ```
 
 ## 2. 폐쇄망 설치
@@ -57,9 +57,9 @@ openssl rand -hex 32
 ### 이미지 적재
 
 ```bash
-gzip -t dataworks-v0.9.34.tar.gz
-gunzip -c dataworks-v0.9.34.tar.gz | docker load
-docker image inspect dataworks:v0.9.34
+gzip -t dataworks-v0.9.35.tar.gz
+gunzip -c dataworks-v0.9.35.tar.gz | docker load
+docker image inspect dataworks:v0.9.35
 ```
 
 ### 컨테이너 실행
@@ -73,7 +73,7 @@ docker run -d --name dataworks --restart=always \
   -e BOOTSTRAP_ADMIN='admin@dataworks.local' \
   -e BOOTSTRAP_ADMIN_PASSWORD='replace-with-a-strong-password' \
   -e ENCRYPTION_KEY='replace-with-64-hex-characters' \
-  dataworks:v0.9.34
+  dataworks:v0.9.35
 ```
 
 저장소의 `docker-compose.yml`을 함께 반입한 환경에서는 같은 네 값을 `.env`에 저장한 뒤 실행할 수 있습니다.
@@ -87,7 +87,7 @@ ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 ```bash
 docker compose config --images
-# dataworks:v0.9.34
+# dataworks:v0.9.35
 docker compose up -d
 ```
 
@@ -114,7 +114,7 @@ PostgreSQL 마이그레이션은 기동 시 자동 실행됩니다. 외부 공�
 
 1. `http://<host>:8080/dataworks/`를 엽니다.
 2. Bootstrap 이메일과 비밀번호로 로그인합니다.
-3. 로그인 화면 또는 프로필 메뉴에서 `v0.9.34`를 확인합니다.
+3. 로그인 화면 또는 프로필 메뉴에서 `v0.9.35`를 확인합니다.
 4. 왼쪽 아래 `관리자 설정`을 엽니다.
 
 ![로그인 화면](assets/screenshots/desktop/00-login.jpg)
