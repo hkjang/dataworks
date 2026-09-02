@@ -972,7 +972,10 @@ func TestK8sGroupsAndOwnership(t *testing.T) {
 	resp.Body.Close()
 
 	// Group roll-up should count the member.
-	resp, _ = http.Get(proxy.URL + "/admin/k8s/groups")
+	resp, err = http.Get(proxy.URL + "/admin/k8s/groups")
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer resp.Body.Close()
 	var groups struct {
 		Groups []struct {
@@ -998,7 +1001,10 @@ func TestK8sGroupsAndOwnership(t *testing.T) {
 		"cluster_id": "prod-a", "namespace": "payments", "team": "core", "owner": "kim", "criticality": "high",
 	})
 	resp.Body.Close()
-	resp, _ = http.Get(proxy.URL + "/admin/k8s/ownership?team=core")
+	resp, err = http.Get(proxy.URL + "/admin/k8s/ownership?team=core")
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer resp.Body.Close()
 	var own struct {
 		Ownership []store.K8sNamespaceOwnership `json:"ownership"`

@@ -47,10 +47,18 @@ func (s *Server) handleK8sCollectSLO(w http.ResponseWriter, r *http.Request) {
 	}
 
 	samples := make([]analyzer.CollectRunSample, 0, len(runs))
+	// The classified gap fields are spelled out instead of embedding analyzer.CollectGap:
+	// both it and store.K8sCollectRun carry a `category` tag, and two conflicting tags at the
+	// same embedding depth make encoding/json drop the field from the response entirely.
 	type failView struct {
 		store.K8sCollectRun
-		analyzer.CollectGap
-		ClusterName string `json:"cluster_name"`
+		ClusterName  string `json:"cluster_name"`
+		Category     string `json:"category"`
+		Title        string `json:"title"`
+		Likely       string `json:"likely"`
+		Remediation  string `json:"remediation"`
+		Confidence   string `json:"confidence"`
+		ClusterIssue bool   `json:"cluster_issue"`
 	}
 	recentFailures := []failView{}
 	for _, run := range runs {
@@ -66,10 +74,16 @@ func (s *Server) handleK8sCollectSLO(w http.ResponseWriter, r *http.Request) {
 			StartedAt:   started,
 		})
 		if !run.OK && len(recentFailures) < 25 {
+			gap := analyzer.ClassifyCollectGap(run.Stage, run.ErrorText)
 			recentFailures = append(recentFailures, failView{
 				K8sCollectRun: run,
-				CollectGap:    analyzer.ClassifyCollectGap(run.Stage, run.ErrorText),
 				ClusterName:   firstNonEmpty(names[run.ClusterID], run.ClusterID),
+				Category:      firstNonEmpty(gap.Category, run.Category),
+				Title:         gap.Title,
+				Likely:        gap.Likely,
+				Remediation:   gap.Remediation,
+				Confidence:    gap.Confidence,
+				ClusterIssue:  gap.ClusterIssue,
 			})
 		}
 	}
