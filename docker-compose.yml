@@ -1,8 +1,8 @@
 # Data Works runtime compose file.
-# Load dataworks-v0.9.37.tar.gz, set the four required variables in .env, then run docker compose up -d.
+# Load dataworks-v0.9.38.tar.gz, set the four required variables in .env, then run docker compose up -d.
 services:
   gateway:
-    image: dataworks:v0.9.37
+    image: dataworks:v0.9.38
     container_name: dataworks
     restart: always
     ports:
