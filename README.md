@@ -145,6 +145,19 @@ npm run test:e2e
 npm run build
 ```
 
+> `npm run build`는 `web/dist`를 비우므로 빌드 후 `git checkout -- web/dist/.gitkeep`으로 placeholder를 복구하세요.
+
+백엔드 검증:
+
+```bash
+go build ./...
+go vet ./...
+go test ./...
+go run ./cmd/api-surface-audit   # CLI/SDK/OpenAPI/서버 라우트 계약 검사
+```
+
+이 명령들은 `.github/workflows/ci.yml`의 CI 게이트와 동일합니다. push와 pull request마다 Go 잡(build·vet·test·API surface audit)과 Web 잡(lint·test·build)이 실행됩니다. e2e(`npm run test:e2e`)는 실행 중인 서버가 필요하므로 CI에서는 제외되어 있습니다.
+
 ## Docker
 
 ```bash
