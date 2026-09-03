@@ -1271,6 +1271,12 @@ func (s *Server) handleDataWorksContractScopes(w http.ResponseWriter, r *http.Re
 		if !dataWorksTimestampOK(w, "valid_from", scope.ValidFrom) || !dataWorksTimestampOK(w, "valid_to", scope.ValidTo) {
 			return
 		}
+		// A negative ceiling would read as "unlimited" at runtime, so reject it instead of
+		// storing a contract that silently enforces nothing.
+		if scope.RateLimit < 0 {
+			writeOpenAIError(w, http.StatusBadRequest, "rate_limit must be zero (unlimited) or a positive calls-per-minute ceiling", "invalid_request_error", "invalid_rate_limit")
+			return
+		}
 		scope.ContractKey = firstNonEmpty(strings.TrimSpace(scope.ContractKey), newID("scope"))
 		scope.ProductKey = product.ProductKey
 		scope.CreatedBy = adminID(r)

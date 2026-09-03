@@ -100,6 +100,15 @@
 
 조건을 만족하지 않으면 publish 요청은 `409 Conflict`와 `publish_gate.blocked_reasons`를 반환합니다.
 
+## Contract Rate Limit
+
+Contract Scope의 `rate_limit`은 해당 계약의 **분당 호출 한도**이며 `POST /v1/data-products/{key}/query` 에서 강제됩니다. `0`은 무제한이고 음수는 저장 시 `400 invalid_rate_limit`으로 거부합니다.
+
+- 한도 안의 호출은 `X-DataWorks-RateLimit-Limit`, `X-DataWorks-RateLimit-Used`, `X-DataWorks-RateLimit-Reset` 헤더를 함께 반환합니다.
+- 한도를 넘긴 호출은 `429 Too Many Requests`(`contract_rate_limited`)와 `Retry-After`를 반환하고, 거부된 호출은 창(window)을 소모하지 않습니다.
+- 창은 벽시계 분 단위로 고정되며 카운터는 프로세스별로 유지됩니다. 복제본이 여러 개면 각 인스턴스가 자신이 처리한 트래픽에 대해 한도를 적용합니다.
+- 차단된 호출은 감사 로그(`data_product_query_denied` / `rate_limit_exceeded:<contract_key>`)와 `dw_usage_metering.over_limit_calls`에 기록됩니다.
+
 ## 실행
 
 React Workbench를 처음 실행하거나 프런트엔드를 변경한 뒤에는 SPA를 먼저 빌드합니다.

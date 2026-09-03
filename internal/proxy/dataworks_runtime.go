@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -74,15 +75,16 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 
 	var contractKey string
 	var customerKey string
+	var overLimit bool
 	var errCode = http.StatusOK
 	defer func() {
 		if contractKey != "" {
-			failed := errCode != http.StatusOK
+			failed := errCode != http.StatusOK && !overLimit
 			billingAmount := 0.0
-			if !failed {
+			if errCode == http.StatusOK {
 				billingAmount = 10.0
 			}
-			_ = s.db.IncrementUsageMetering(r.Context(), customerKey, productKey, contractKey, failed, billingAmount)
+			_ = s.db.IncrementUsageMetering(r.Context(), customerKey, productKey, contractKey, failed, overLimit, billingAmount)
 		}
 	}()
 
@@ -112,6 +114,20 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "missing_contract_purpose:"+contract.ContractKey)
 		writeOpenAIError(w, http.StatusForbidden, "contract purpose is required for sensitive data products", "invalid_request_error", "missing_contract_purpose")
 		return
+	}
+	if contract.RateLimit > 0 {
+		allowed, used, resetAt := s.dwRateLimits.allow(contract.ContractKey, contract.RateLimit, now)
+		w.Header().Set("X-DataWorks-RateLimit-Limit", strconv.Itoa(contract.RateLimit))
+		w.Header().Set("X-DataWorks-RateLimit-Used", strconv.Itoa(used))
+		w.Header().Set("X-DataWorks-RateLimit-Reset", resetAt.Format(time.RFC3339))
+		if !allowed {
+			errCode = http.StatusTooManyRequests
+			overLimit = true
+			w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(resetAt, now)))
+			s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "rate_limit_exceeded:"+contract.ContractKey)
+			writeOpenAIError(w, http.StatusTooManyRequests, "contract rate limit exceeded", "rate_limit_error", "contract_rate_limited")
+			return
+		}
 	}
 
 	requestBody, err := decodeDataProductQueryBody(r)
@@ -178,6 +194,20 @@ func entitlementActive(ent store.APIEntitlement, now time.Time) bool {
 	}
 	expiresAt, err := time.Parse(time.RFC3339Nano, ent.ExpiresAt)
 	return err == nil && expiresAt.After(now)
+}
+
+// retryAfterSeconds rounds the wait until the rate limit window resets up to a whole
+// second, so a client that honours Retry-After never retries inside the closed window.
+func retryAfterSeconds(resetAt time.Time, now time.Time) int {
+	remaining := resetAt.Sub(now)
+	if remaining <= 0 {
+		return 1
+	}
+	seconds := int(remaining / time.Second)
+	if remaining%time.Second != 0 {
+		seconds++
+	}
+	return seconds
 }
 
 func contractScopeActive(scope store.ContractScope, now time.Time) bool {
