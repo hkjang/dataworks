@@ -253,23 +253,31 @@ func (s *SQLStore) ListSLAMetrics(ctx context.Context, productKey string) ([]SLA
 }
 
 // Usage Metering
-func (s *SQLStore) IncrementUsageMetering(ctx context.Context, customerKey, productKey, contractKey string, failed bool, billingAmount float64) error {
+// IncrementUsageMetering records one runtime call against the daily contract counter.
+// A call is either billable, failed, or rejected by the contract rate limit (overLimit),
+// so failed and over-limit calls are tracked in separate columns.
+func (s *SQLStore) IncrementUsageMetering(ctx context.Context, customerKey, productKey, contractKey string, failed, overLimit bool, billingAmount float64) error {
 	dateStr := time.Now().UTC().Format("2006-01-02")
 	id := customerKey + ":" + productKey + ":" + contractKey + ":" + dateStr
 	failedVal := 0
 	if failed {
 		failedVal = 1
 	}
+	overLimitVal := 0
+	if overLimit {
+		overLimitVal = 1
+	}
 
 	// SQLite ON CONFLICT DO UPDATE
 	_, err := s.db.ExecContext(ctx, s.bind(`INSERT INTO dw_usage_metering
 		(id, customer_key, product_key, contract_key, total_calls, failed_calls, over_limit_calls, billing_amount, billed_date)
-		VALUES (?, ?, ?, ?, 1, ?, 0, ?, ?)
+		VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			total_calls = total_calls + 1,
 			failed_calls = failed_calls + ?,
+			over_limit_calls = over_limit_calls + ?,
 			billing_amount = billing_amount + ?`),
-		id, customerKey, productKey, contractKey, failedVal, billingAmount, dateStr, failedVal, billingAmount)
+		id, customerKey, productKey, contractKey, failedVal, overLimitVal, billingAmount, dateStr, failedVal, overLimitVal, billingAmount)
 	return err
 }
 

@@ -76,6 +76,7 @@ type Server struct {
 	chFactDropped  atomic.Int64                            // requests dropped when the fact queue was full
 	alertWorker    atomic.Pointer[AlertWorker]             // optional alert worker attached by cmd/clustara
 	dwCache        *dwQueryCache                           // short-TTL cache for DW dashboard ClickHouse reads
+	dwRateLimits   contractRateLimiter                     // per-minute call ceiling per data product contract scope
 	sessions       *sessionInferer
 	sessionGCAt    atomic.Int64
 	extSeen        sync.Map // external key id -> struct{}; dedupes lazy registration
