@@ -793,7 +793,9 @@ func expiredAt(raw string, now time.Time) bool {
 		return false
 	}
 	t, err := time.Parse(time.RFC3339Nano, raw)
-	return err == nil && t.Before(now)
+	// An unparseable expiry is rejected by the runtime access gate, so it must not count as
+	// live access here either.
+	return err != nil || t.Before(now)
 }
 
 func splitLoose(value string) []string {
