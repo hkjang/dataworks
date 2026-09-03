@@ -242,21 +242,25 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 	}
 	now := time.Now().UTC()
 	for _, scope := range contractScopes {
-		if scope.ValidTo == "" {
+		if strings.TrimSpace(scope.ValidTo) == "" {
 			continue
 		}
-		if expiresAt, err := time.Parse(time.RFC3339Nano, scope.ValidTo); err == nil && expiresAt.Before(now.Add(30*24*time.Hour)) {
-			summary["expiring_contracts"]++
-			severity := "medium"
-			if expiresAt.Before(now) {
-				severity = "high"
-			}
-			actions = append(actions, map[string]any{
-				"type": "contract_expiring", "severity": severity, "product_key": scope.ProductKey,
-				"contract_key": scope.ContractKey, "customer_key": scope.CustomerKey, "valid_to": scope.ValidTo,
-				"next_action": "renew, narrow, or retire the customer contract scope",
-			})
+		expiresAt, err := time.Parse(time.RFC3339Nano, scope.ValidTo)
+		if err == nil && !expiresAt.Before(now.Add(30*24*time.Hour)) {
+			continue
 		}
+		summary["expiring_contracts"]++
+		// contractScopeActive denies every query on an unparseable valid_to, so surface it
+		// with the same urgency as an already expired window instead of skipping it.
+		severity := "medium"
+		if err != nil || expiresAt.Before(now) {
+			severity = "high"
+		}
+		actions = append(actions, map[string]any{
+			"type": "contract_expiring", "severity": severity, "product_key": scope.ProductKey,
+			"contract_key": scope.ContractKey, "customer_key": scope.CustomerKey, "valid_to": scope.ValidTo,
+			"next_action": "renew, narrow, or retire the customer contract scope",
+		})
 	}
 	for _, ent := range entitlements {
 		if ent.Status != "active" || entitlementExpired(ent.ExpiresAt, now) {
@@ -1008,11 +1012,8 @@ func (s *Server) handleDataWorksProductApprovals(w http.ResponseWriter, r *http.
 			return
 		}
 		expiresAt := strings.TrimSpace(payload.ExpiresAt)
-		if expiresAt != "" {
-			if _, err := time.Parse(time.RFC3339Nano, expiresAt); err != nil {
-				writeOpenAIError(w, http.StatusBadRequest, "expires_at must be an RFC3339 timestamp", "invalid_request_error", "invalid_expires_at")
-				return
-			}
+		if !dataWorksTimestampOK(w, "expires_at", expiresAt) {
+			return
 		}
 		trace := store.ApprovalTrace{
 			ID: firstNonEmpty(strings.TrimSpace(payload.ID), newID("appr")), ProductKey: product.ProductKey,
@@ -1265,6 +1266,11 @@ func (s *Server) handleDataWorksContractScopes(w http.ResponseWriter, r *http.Re
 			writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "invalid_body")
 			return
 		}
+		scope.ValidFrom = strings.TrimSpace(scope.ValidFrom)
+		scope.ValidTo = strings.TrimSpace(scope.ValidTo)
+		if !dataWorksTimestampOK(w, "valid_from", scope.ValidFrom) || !dataWorksTimestampOK(w, "valid_to", scope.ValidTo) {
+			return
+		}
 		scope.ContractKey = firstNonEmpty(strings.TrimSpace(scope.ContractKey), newID("scope"))
 		scope.ProductKey = product.ProductKey
 		scope.CreatedBy = adminID(r)
@@ -1296,6 +1302,10 @@ func (s *Server) handleDataWorksAPIEntitlements(w http.ResponseWriter, r *http.R
 		}
 		if strings.TrimSpace(ent.ContractKey) == "" {
 			writeOpenAIError(w, http.StatusBadRequest, "contract_key is required", "invalid_request_error", "missing_contract")
+			return
+		}
+		ent.ExpiresAt = strings.TrimSpace(ent.ExpiresAt)
+		if !dataWorksTimestampOK(w, "expires_at", ent.ExpiresAt) {
 			return
 		}
 		if scope, ok, err := s.db.GetContractScope(r.Context(), ent.ContractKey); err != nil {
@@ -1583,7 +1593,23 @@ func entitlementExpired(raw string, now time.Time) bool {
 		return false
 	}
 	expiresAt, err := time.Parse(time.RFC3339Nano, raw)
-	return err == nil && expiresAt.Before(now)
+	// entitlementActive rejects an unparseable expiry at runtime, so report it as expired
+	// here instead of showing the access rule as healthy.
+	return err != nil || expiresAt.Before(now)
+}
+
+// dataWorksTimestampOK rejects an optional access-window timestamp the runtime gate cannot parse.
+// entitlementActive and contractScopeActive treat an unparseable value as inactive, so storing one
+// would publish an access rule that silently denies every query while the admin views call it active.
+func dataWorksTimestampOK(w http.ResponseWriter, field, raw string) bool {
+	if raw == "" {
+		return true
+	}
+	if _, err := time.Parse(time.RFC3339Nano, raw); err != nil {
+		writeOpenAIError(w, http.StatusBadRequest, field+" must be an RFC3339 timestamp", "invalid_request_error", "invalid_"+field)
+		return false
+	}
+	return true
 }
 
 func (s *Server) enforceDataWorksPublishGate(w http.ResponseWriter, r *http.Request, product store.DataProduct) bool {

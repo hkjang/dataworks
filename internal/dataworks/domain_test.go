@@ -198,3 +198,23 @@ func hasString(values []string, want string) bool {
 	}
 	return false
 }
+
+func TestRetirementIgnoresEntitlementWithUnparseableExpiry(t *testing.T) {
+	product := store.DataProduct{ProductKey: "dw_credit_score", RiskScore: 30, RevenueScore: 80}
+	now := time.Date(2026, 7, 9, 0, 0, 0, 0, time.UTC)
+
+	live := EvaluateRetirementCandidate(product, nil, nil, nil, []store.APIEntitlement{
+		{ProductKey: product.ProductKey, Status: "active", ExpiresAt: "2030-01-01T00:00:00Z"},
+	}, now)
+	if live.UsageCount != 1 || strings.Contains(live.Reason, "no active API entitlements") {
+		t.Fatalf("parseable future expiry should count as active usage: %+v", live)
+	}
+
+	// The runtime access gate denies a malformed expiry, so it must not be reported as live usage.
+	broken := EvaluateRetirementCandidate(product, nil, nil, nil, []store.APIEntitlement{
+		{ProductKey: product.ProductKey, Status: "active", ExpiresAt: "2026-12-31"},
+	}, now)
+	if broken.UsageCount != 0 || !strings.Contains(broken.Reason, "no active API entitlements") {
+		t.Fatalf("unparseable expiry should not count as active usage: %+v", broken)
+	}
+}
