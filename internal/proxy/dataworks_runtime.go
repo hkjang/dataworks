@@ -67,7 +67,7 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 		writeOpenAIError(w, http.StatusForbidden, "data product entitlement is inactive or expired", "invalid_request_error", "inactive_entitlement")
 		return
 	}
-	if ent.Scope != "" && ent.Scope != "*" && !strings.Contains(strings.ToLower(ent.Scope), "query") {
+	if !entitlementAllowsQuery(ent.Scope) {
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "scope_not_allowed:"+ent.Scope)
 		writeOpenAIError(w, http.StatusForbidden, "entitlement scope does not allow query", "invalid_request_error", "scope_denied")
 		return
@@ -183,6 +183,28 @@ func dataProductQueryKey(path string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(parts[0]), true
+}
+
+// entitlementAllowsQuery reports whether an entitlement scope grants the data product
+// query action. The scope is a free-form list of grants separated by commas or spaces
+// (the documented value is "data_product:query"), so it is matched grant by grant: a
+// substring test accepts a deny marker such as "no-query" and rejects the wildcard
+// "data_product:*". An empty scope stays unrestricted for entitlements written before
+// the field existed.
+func entitlementAllowsQuery(scope string) bool {
+	if strings.TrimSpace(scope) == "" {
+		return true
+	}
+	grants := strings.FieldsFunc(strings.ToLower(scope), func(r rune) bool {
+		return r == ',' || r == ';' || r == '|' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+	for _, grant := range grants {
+		switch grant {
+		case "*", "query", "data_product:*", "data_product:query":
+			return true
+		}
+	}
+	return false
 }
 
 func entitlementActive(ent store.APIEntitlement, now time.Time) bool {

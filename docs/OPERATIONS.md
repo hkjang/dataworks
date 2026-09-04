@@ -141,6 +141,10 @@ curl -X POST "$BASE/v1/data-products/dw_credit_score/query" \
 
 `fields`가 계약 범위를 벗어나면 `403`과 `forbidden_fields`가 반환됩니다.
 
+Entitlement 의 `scope` 는 쉼표·공백으로 구분한 권한 목록이며, 런타임 조회는 `data_product:query`,
+`data_product:*`, `query`, `*` 중 하나가 목록에 정확히 포함될 때만 허용됩니다(빈 값은 무제한).
+`data_product:export` 처럼 조회 권한이 없는 값만 있으면 `403 scope_denied` 가 반환됩니다.
+
 ## 6. Watermark, Cost, Retirement 운영
 
 운영자는 Action Center에서 stale 데이터, 음수 margin, 개선/폐기 후보를 같이 확인합니다.
