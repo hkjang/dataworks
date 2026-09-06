@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Data Works 관리자 가이드 | 폐쇄망 설치·Keycloak·AI·MCP</title>
-  <meta name="description" content="Data Works v0.9.42 관리자 가이드. 네 환경변수로 폐쇄망 Docker 설치, Keycloak OIDC, AI 기본 스트리밍과 262144 토큰, MCP, OpenAPI, 개인 키 정책과 데이터 상품 출시를 설명합니다.">
+  <meta name="description" content="Data Works v0.9.43 관리자 가이드. 네 환경변수로 폐쇄망 Docker 설치, Keycloak OIDC, AI 기본 스트리밍과 262144 토큰, MCP, OpenAPI, 개인 키 정책과 데이터 상품 출시를 설명합니다.">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://hkjang.github.io/dataworks/admin-guide.html">
   <link rel="stylesheet" href="guide.css">
@@ -15,20 +15,20 @@
       {
         "@type": "HowTo",
         "@id": "https://hkjang.github.io/dataworks/admin-guide.html#howto",
-        "name": "Data Works v0.9.42 폐쇄망 설치와 관리자 설정",
+        "name": "Data Works v0.9.43 폐쇄망 설치와 관리자 설정",
         "description": "Docker 이미지 적재, 네 필수 환경변수, 최초 관리자, AI 공급자, Keycloak OIDC와 운영 정책 설정 방법",
         "inLanguage": "ko-KR",
         "dateModified": "2026-09-01",
         "tool": [{"@type": "HowToTool", "name": "Docker"}, {"@type": "HowToTool", "name": "PostgreSQL"}],
         "supply": [
-          {"@type": "HowToSupply", "name": "dataworks-v0.9.42.tar.gz"},
+          {"@type": "HowToSupply", "name": "dataworks-v0.9.43.tar.gz"},
           {"@type": "HowToSupply", "name": "POSTGRES_DSN"},
           {"@type": "HowToSupply", "name": "BOOTSTRAP_ADMIN"},
           {"@type": "HowToSupply", "name": "BOOTSTRAP_ADMIN_PASSWORD"},
           {"@type": "HowToSupply", "name": "ENCRYPTION_KEY"}
         ],
         "step": [
-          {"@type": "HowToStep", "position": 1, "name": "Docker 이미지 적재", "text": "dataworks-v0.9.42.tar.gz를 docker load하여 dataworks:v0.9.42 이미지를 적재합니다."},
+          {"@type": "HowToStep", "position": 1, "name": "Docker 이미지 적재", "text": "dataworks-v0.9.43.tar.gz를 docker load하여 dataworks:v0.9.43 이미지를 적재합니다."},
           {"@type": "HowToStep", "position": 2, "name": "네 환경변수 설정", "text": "POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY를 설정합니다."},
           {"@type": "HowToStep", "position": 3, "name": "서비스 실행과 상태 확인", "text": "컨테이너를 실행하고 /health와 /ready를 확인합니다."},
           {"@type": "HowToStep", "position": 4, "name": "최초 관리자 로그인", "text": "Bootstrap super_admin으로 /dataworks/에 로그인합니다."},
@@ -88,7 +88,7 @@
       </ol>
 
       <header class="hero">
-        <p class="eyebrow">Data Works v0.9.42 · 운영자 문서</p>
+        <p class="eyebrow">Data Works v0.9.43 · 운영자 문서</p>
         <h1>폐쇄망 설치부터 상품 출시까지</h1>
         <p class="lead">하나의 Docker 이미지, PostgreSQL과 네 필수 환경변수로 시작하고, AI·MCP·Keycloak과 데이터 상품 정책은 한국어 관리자 화면에서 관리합니다.</p>
         <div class="meta"><span class="chip">오프라인 Docker</span><span class="chip">Keycloak OIDC</span><span class="chip">암호화 설정</span><span class="chip">262144 토큰 상한</span></div>
@@ -98,7 +98,7 @@
 
       <section id="architecture">
         <h2>1. 운영 구성</h2>
-        <p>React SPA와 Go API는 하나의 <code>dataworks:v0.9.42</code> 이미지에 포함됩니다. 운영 저장소는 PostgreSQL이며 브라우저 UI, 관리 API, AI API와 MCP를 같은 서비스에서 제공합니다.</p>
+        <p>React SPA와 Go API는 하나의 <code>dataworks:v0.9.43</code> 이미지에 포함됩니다. 운영 저장소는 PostgreSQL이며 브라우저 UI, 관리 API, AI API와 MCP를 같은 서비스에서 제공합니다.</p>
         <div class="cards">
           <article class="card"><h3>사용자 화면</h3><p><code>/dataworks/</code> — 한국어 React Workbench와 주소 기반 라우팅</p></article>
           <article class="card"><h3>관리자 설정</h3><p><code>/dataworks/settings</code> — AI, Keycloak, MCP와 런타임 정책</p></article>
@@ -119,7 +119,7 @@
 
       <section id="offline">
         <h2>2. 네 환경변수로 폐쇄망 설치</h2>
-        <p class="answer"><strong>폐쇄망 설치에 무엇이 필요한가요?</strong> GitHub Release의 <code>dataworks-v0.9.42.tar.gz</code>, 접근 가능한 PostgreSQL과 네 환경변수만 준비합니다.</p>
+        <p class="answer"><strong>폐쇄망 설치에 무엇이 필요한가요?</strong> GitHub Release의 <code>dataworks-v0.9.43.tar.gz</code>, 접근 가능한 PostgreSQL과 네 환경변수만 준비합니다.</p>
         <div class="table-wrap"><table><thead><tr><th>환경변수</th><th>용도</th></tr></thead><tbody>
           <tr><td><code>POSTGRES_DSN</code></td><td>운영 PostgreSQL 연결 문자열</td></tr>
           <tr><td><code>BOOTSTRAP_ADMIN</code></td><td>최초 최고 관리자 이메일</td></tr>
@@ -127,9 +127,9 @@
           <tr><td><code>ENCRYPTION_KEY</code></td><td>JWT 서명과 저장 비밀 암호화</td></tr>
         </tbody></table></div>
         <ol class="steps">
-          <li><strong>Archive 검증과 적재</strong><pre><code>gzip -t dataworks-v0.9.42.tar.gz
-gunzip -c dataworks-v0.9.42.tar.gz | docker load
-docker image inspect dataworks:v0.9.42</code></pre></li>
+          <li><strong>Archive 검증과 적재</strong><pre><code>gzip -t dataworks-v0.9.43.tar.gz
+gunzip -c dataworks-v0.9.43.tar.gz | docker load
+docker image inspect dataworks:v0.9.43</code></pre></li>
           <li><strong>암호화 키 생성</strong><pre><code>openssl rand -hex 32</code></pre></li>
           <li><strong>컨테이너 실행</strong><pre><code>docker run -d --name dataworks --restart=always \
   -p 8080:8080 \
@@ -137,7 +137,7 @@ docker image inspect dataworks:v0.9.42</code></pre></li>
   -e BOOTSTRAP_ADMIN='admin@dataworks.local' \
   -e BOOTSTRAP_ADMIN_PASSWORD='replace-with-a-strong-password' \
   -e ENCRYPTION_KEY='replace-with-64-hex-characters' \
-  dataworks:v0.9.42</code></pre></li>
+  dataworks:v0.9.43</code></pre></li>
           <li><strong>상태 확인</strong><pre><code>curl -fsS http://127.0.0.1:8080/health
 curl -fsS http://127.0.0.1:8080/ready
 docker logs --tail=100 dataworks</code></pre></li>
@@ -149,7 +149,7 @@ docker logs --tail=100 dataworks</code></pre></li>
       <section id="first-login">
         <h2>3. 최초 최고 관리자 로그인</h2>
         <p><code>BOOTSTRAP_ADMIN</code> 이메일이 DB에 없으면 최초 기동 시 <code>super_admin</code>으로 생성됩니다. 이미 존재하면 계정이나 비밀번호를 덮어쓰지 않습니다.</p>
-        <ol class="steps"><li><code>/dataworks/</code>를 엽니다.</li><li>Bootstrap 이메일과 비밀번호로 로그인합니다.</li><li>로그인 또는 프로필 메뉴에서 <strong>v0.9.42</strong>를 확인합니다.</li><li><strong>관리자 설정</strong>을 엽니다.</li></ol>
+        <ol class="steps"><li><code>/dataworks/</code>를 엽니다.</li><li>Bootstrap 이메일과 비밀번호로 로그인합니다.</li><li>로그인 또는 프로필 메뉴에서 <strong>v0.9.43</strong>를 확인합니다.</li><li><strong>관리자 설정</strong>을 엽니다.</li></ol>
         <figure><picture><source media="(max-width: 640px)" srcset="assets/screenshots/mobile/00-login.jpg"><img src="assets/screenshots/desktop/00-login.jpg" alt="서비스 버전이 표시되는 Data Works 로그인 화면" width="1440" height="1024" loading="eager"></picture><figcaption>로그인 화면에서 배포 버전을 즉시 확인합니다.</figcaption></figure>
       </section>
 
@@ -290,7 +290,7 @@ POST     /v1/data-products/{key}/query</code></pre>
 
       <footer class="guide-footer">
         <nav aria-label="관련 문서"><a href="user-guide.html">사용자 가이드</a><a href="OPERATIONS.md">운영 가이드</a><a href="POSTGRES_GUIDE.md">PostgreSQL 가이드</a><a href="RELEASE_GUIDE.md">릴리즈 가이드</a></nav>
-        <p>Data Works v0.9.42 · 최종 갱신 2026-09-01</p>
+        <p>Data Works v0.9.43 · 최종 갱신 2026-09-01</p>
       </footer>
     </main>
   </div>
