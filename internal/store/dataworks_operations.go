@@ -449,6 +449,13 @@ func (s *SQLStore) ListAPIEntitlements(ctx context.Context, productKey string, a
 	return out, rows.Err()
 }
 
+// FindAPIEntitlement returns the entitlement the runtime access gate evaluates for an API key.
+// Entitlements are keyed by id alone, so one key can hold several rows for the same product: a
+// renewal issued next to the expired trial it replaces, or a revoked row kept for audit. Taking
+// only the most recently written row would then deny a caller whose active grant happens to be
+// older, so active rows are preferred and the newest of those wins. When no row is active the
+// newest row is still returned, so the gate reports an inactive entitlement rather than a
+// missing one.
 func (s *SQLStore) FindAPIEntitlement(ctx context.Context, productKey string, apiKeyID string, apiKeyHash string) (APIEntitlement, bool, error) {
 	productKey = strings.TrimSpace(productKey)
 	apiKeyID = strings.TrimSpace(apiKeyID)
@@ -469,18 +476,68 @@ func (s *SQLStore) FindAPIEntitlement(ctx context.Context, productKey string, ap
 		conds = append(conds, `api_key_hash = ?`)
 		args = append(args, apiKeyHash)
 	}
-	q += strings.Join(conds, ` OR `) + `) ORDER BY updated_at DESC LIMIT 1`
-	row := s.db.QueryRowContext(ctx, s.bind(q), args...)
-	var ent APIEntitlement
-	err := row.Scan(&ent.ID, &ent.APIKeyID, &ent.APIKeyHash, &ent.CustomerKey, &ent.ProductKey, &ent.ContractKey,
-		&ent.Scope, &ent.ExpiresAt, &ent.Status, &ent.CreatedBy, &ent.CreatedAt, &ent.UpdatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return APIEntitlement{}, false, nil
-	}
+	// A key holds a handful of rows per product at most; the cap only bounds the scan.
+	q += strings.Join(conds, ` OR `) + `) ORDER BY updated_at DESC LIMIT 50`
+	rows, err := s.db.QueryContext(ctx, s.bind(q), args...)
 	if err != nil {
 		return APIEntitlement{}, false, err
 	}
-	return ent, true, nil
+	defer rows.Close()
+	now := time.Now().UTC()
+	var active, newest APIEntitlement
+	foundActive, foundAny := false, false
+	for rows.Next() {
+		var ent APIEntitlement
+		if err := rows.Scan(&ent.ID, &ent.APIKeyID, &ent.APIKeyHash, &ent.CustomerKey, &ent.ProductKey, &ent.ContractKey,
+			&ent.Scope, &ent.ExpiresAt, &ent.Status, &ent.CreatedBy, &ent.CreatedAt, &ent.UpdatedAt); err != nil {
+			return APIEntitlement{}, false, err
+		}
+		if !foundAny || entitlementNewer(ent, newest) {
+			newest = ent
+			foundAny = true
+		}
+		if EntitlementActive(ent, now) && (!foundActive || entitlementNewer(ent, active)) {
+			active = ent
+			foundActive = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return APIEntitlement{}, false, err
+	}
+	if foundActive {
+		return active, true, nil
+	}
+	if foundAny {
+		return newest, true, nil
+	}
+	return APIEntitlement{}, false, nil
+}
+
+// EntitlementActive reports whether an entitlement grants access right now. An expiry the
+// gateway cannot parse counts as expired so a broken timestamp never keeps access open.
+func EntitlementActive(ent APIEntitlement, now time.Time) bool {
+	if !strings.EqualFold(strings.TrimSpace(ent.Status), "active") {
+		return false
+	}
+	if strings.TrimSpace(ent.ExpiresAt) == "" {
+		return true
+	}
+	expiresAt, ok := parseStoredTime(strings.TrimSpace(ent.ExpiresAt))
+	return ok && expiresAt.After(now)
+}
+
+// entitlementNewer orders two entitlement rows by last write. Rows written in the same instant
+// fall back to the id so repeated requests keep resolving to the same grant.
+func entitlementNewer(a APIEntitlement, b APIEntitlement) bool {
+	at, aok := parseStoredTime(a.UpdatedAt)
+	bt, bok := parseStoredTime(b.UpdatedAt)
+	if aok && bok && !at.Equal(bt) {
+		return at.After(bt)
+	}
+	if a.UpdatedAt != b.UpdatedAt {
+		return a.UpdatedAt > b.UpdatedAt
+	}
+	return a.ID > b.ID
 }
 
 func (s *SQLStore) UpsertProductSLA(ctx context.Context, sla ProductSLA) error {

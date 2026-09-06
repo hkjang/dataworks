@@ -207,15 +207,10 @@ func entitlementAllowsQuery(scope string) bool {
 	return false
 }
 
+// entitlementActive is the runtime access gate. It delegates to the store so the row
+// FindAPIEntitlement picks for a key is judged by the same rule that selected it.
 func entitlementActive(ent store.APIEntitlement, now time.Time) bool {
-	if strings.ToLower(strings.TrimSpace(ent.Status)) != "active" {
-		return false
-	}
-	if strings.TrimSpace(ent.ExpiresAt) == "" {
-		return true
-	}
-	expiresAt, err := time.Parse(time.RFC3339Nano, ent.ExpiresAt)
-	return err == nil && expiresAt.After(now)
+	return store.EntitlementActive(ent, now)
 }
 
 // retryAfterSeconds rounds the wait until the rate limit window resets up to a whole

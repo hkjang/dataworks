@@ -145,6 +145,11 @@ Entitlement 의 `scope` 는 쉼표·공백으로 구분한 권한 목록이며, 
 `data_product:*`, `query`, `*` 중 하나가 목록에 정확히 포함될 때만 허용됩니다(빈 값은 무제한).
 `data_product:export` 처럼 조회 권한이 없는 값만 있으면 `403 scope_denied` 가 반환됩니다.
 
+Entitlement 는 `id` 단위로 저장되므로 같은 API 키가 한 상품에 여러 행을 가질 수 있습니다(만료된 체험 계약 옆에
+발급한 갱신 계약, 감사용으로 남겨 둔 `revoked` 행 등). 런타임 게이트는 그중 `active` 이고 만료되지 않은 행을 먼저
+고르고, 그런 행이 여럿이면 가장 최근에 갱신된 것을 사용합니다. 활성 행이 하나도 없으면 가장 최근 행을 근거로
+`403 inactive_entitlement` 가 반환됩니다.
+
 ## 6. Watermark, Cost, Retirement 운영
 
 운영자는 Action Center에서 stale 데이터, 음수 margin, 개선/폐기 후보를 같이 확인합니다.
