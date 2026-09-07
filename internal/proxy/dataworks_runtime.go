@@ -309,15 +309,34 @@ func contractResponseFields(allowed []string, requested []string) ([]string, []s
 		return requested, nil
 	}
 	forbidden := []string{}
+	response := []string{}
 	for _, field := range requested {
-		if !containsFold(allowed, field) {
+		contractField, ok := matchFieldFold(allowed, field)
+		if !ok {
 			forbidden = append(forbidden, field)
+			continue
 		}
+		// Answer with the contract's spelling. Allowed fields are matched case-insensitively,
+		// but BuildDynamicOpenAPIDocument declares the response properties from
+		// allowed_fields verbatim, so echoing the request casing would return a data key the
+		// product's own published schema does not have (and drop a required one).
+		response = append(response, contractField)
 	}
 	if len(forbidden) > 0 {
 		return nil, forbidden
 	}
-	return requested, nil
+	return response, nil
+}
+
+// matchFieldFold returns the contract spelling of field when the contract allows it,
+// matching case-insensitively like containsFold.
+func matchFieldFold(allowed []string, field string) (string, bool) {
+	for _, candidate := range allowed {
+		if strings.EqualFold(candidate, field) {
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 func normalizeFieldList(fields []string) []string {

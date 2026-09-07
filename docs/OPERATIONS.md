@@ -141,6 +141,12 @@ curl -X POST "$BASE/v1/data-products/dw_credit_score/query" \
 
 `fields`가 계약 범위를 벗어나면 `403`과 `forbidden_fields`가 반환됩니다.
 
+`allowed_fields` 는 최소 한 개 이상이어야 하며(전체 스키마 허용은 `["*"]`), 비어 있거나 공백뿐이면
+`400 invalid_allowed_fields` 로 거부됩니다. 값이 없는 Contract Scope 는 런타임에서 모든 조회를 `403`
+(`empty_contract_scope` 또는 `forbidden_fields`)으로 막기 때문입니다. 저장 시 공백 제거와 대소문자 무시
+중복 제거가 적용되고, 응답 `data` 의 키는 항상 계약에 적힌 표기를 씁니다 — 요청이 `Score` 로 와도
+계약이 `score` 면 상품 OpenAPI 문서가 선언한 대로 `score` 로 내려갑니다.
+
 Entitlement 의 `scope` 는 쉼표·공백으로 구분한 권한 목록이며, 런타임 조회는 `data_product:query`,
 `data_product:*`, `query`, `*` 중 하나가 목록에 정확히 포함될 때만 허용됩니다(빈 값은 무제한).
 `data_product:export` 처럼 조회 권한이 없는 값만 있으면 `403 scope_denied` 가 반환됩니다.

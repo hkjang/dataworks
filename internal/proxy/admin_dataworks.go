@@ -1277,6 +1277,15 @@ func (s *Server) handleDataWorksContractScopes(w http.ResponseWriter, r *http.Re
 			writeOpenAIError(w, http.StatusBadRequest, "rate_limit must be zero (unlimited) or a positive calls-per-minute ceiling", "invalid_request_error", "invalid_rate_limit")
 			return
 		}
+		// The runtime builds the response field list from allowed_fields alone, so a scope
+		// without one answers every query with 403 (empty_contract_scope when the caller asks
+		// for no field, forbidden_fields otherwise) while the admin views still list it as an
+		// active contract. Reject it instead of storing a contract that can never serve data.
+		scope.AllowedFields = normalizeFieldList(scope.AllowedFields)
+		if len(scope.AllowedFields) == 0 {
+			writeOpenAIError(w, http.StatusBadRequest, `allowed_fields must list at least one response field (use "*" for the full product schema)`, "invalid_request_error", "invalid_allowed_fields")
+			return
+		}
 		scope.ContractKey = firstNonEmpty(strings.TrimSpace(scope.ContractKey), newID("scope"))
 		scope.ProductKey = product.ProductKey
 		scope.CreatedBy = adminID(r)
