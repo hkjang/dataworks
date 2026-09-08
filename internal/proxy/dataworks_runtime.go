@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,17 +52,25 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ent, found, err := s.db.FindAPIEntitlement(r.Context(), product.ProductKey, apiKeyID, apiKeyHash)
+	candidates, err := s.db.ListAPIEntitlementCandidates(r.Context(), product.ProductKey, apiKeyID, apiKeyHash)
 	if err != nil {
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "entitlement_lookup_failed")
 		return
 	}
-	if !found {
+	if len(candidates) == 0 {
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "missing_entitlement:"+product.ProductKey)
 		writeOpenAIError(w, http.StatusForbidden, "data product entitlement is required", "invalid_request_error", "missing_entitlement")
 		return
 	}
 	now := time.Now().UTC()
+	// Prefer a grant that clears every access check. Falling straight through to the store's
+	// first choice would deny a caller whose selected entitlement points at a retired contract
+	// while another entitlement on the same key points at a live one. When nothing is usable
+	// the store's first choice still runs the checks below so the denial names the real reason.
+	ent := candidates[0]
+	if usable, ok := s.usableEntitlement(r.Context(), product, candidates, now); ok {
+		ent = usable
+	}
 	if !entitlementActive(ent, now) {
 		s.auditDataProductQuery(r, authCtx, apiKeyID, "data_product_query_denied", "inactive_entitlement:"+ent.ID)
 		writeOpenAIError(w, http.StatusForbidden, "data product entitlement is inactive or expired", "invalid_request_error", "inactive_entitlement")
@@ -225,6 +234,34 @@ func retryAfterSeconds(resetAt time.Time, now time.Time) int {
 		seconds++
 	}
 	return seconds
+}
+
+// usableEntitlement returns the first candidate grant that clears the access checks a query
+// cannot influence: the entitlement itself is active and allows querying, and the contract
+// scope it names still exists for this product, is inside its valid window, and carries the
+// purpose a sensitive product requires. One API key can hold several entitlements for a
+// product, each naming its own contract, so stopping at the first one hands 403s to callers
+// whose other grant is perfectly valid. Checks that depend on the request body (allowed
+// fields) or that consume quota (rate limit) stay out, so selection never burns a window.
+func (s *Server) usableEntitlement(ctx context.Context, product store.DataProduct, candidates []store.APIEntitlement, now time.Time) (store.APIEntitlement, bool) {
+	sensitive := sensitiveProduct(product)
+	for _, ent := range candidates {
+		if !entitlementActive(ent, now) || !entitlementAllowsQuery(ent.Scope) {
+			continue
+		}
+		contract, found, err := s.db.GetContractScope(ctx, ent.ContractKey)
+		if err != nil || !found || contract.ProductKey != product.ProductKey {
+			continue
+		}
+		if !contractScopeActive(contract, now) {
+			continue
+		}
+		if sensitive && strings.TrimSpace(contract.Purpose) == "" {
+			continue
+		}
+		return ent, true
+	}
+	return store.APIEntitlement{}, false
 }
 
 func contractScopeActive(scope store.ContractScope, now time.Time) bool {

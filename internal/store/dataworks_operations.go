@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 )
@@ -449,19 +450,18 @@ func (s *SQLStore) ListAPIEntitlements(ctx context.Context, productKey string, a
 	return out, rows.Err()
 }
 
-// FindAPIEntitlement returns the entitlement the runtime access gate evaluates for an API key.
-// Entitlements are keyed by id alone, so one key can hold several rows for the same product: a
-// renewal issued next to the expired trial it replaces, or a revoked row kept for audit. Taking
-// only the most recently written row would then deny a caller whose active grant happens to be
-// older, so active rows are preferred and the newest of those wins. When no row is active the
-// newest row is still returned, so the gate reports an inactive entitlement rather than a
-// missing one.
-func (s *SQLStore) FindAPIEntitlement(ctx context.Context, productKey string, apiKeyID string, apiKeyHash string) (APIEntitlement, bool, error) {
+// ListAPIEntitlementCandidates returns every entitlement row an API key holds for one product,
+// ordered the way the runtime access gate should consider them. Entitlements are keyed by id
+// alone, so one key can hold several rows for the same product: a renewal issued next to the
+// expired trial it replaces, or a revoked row kept for audit. Rows that are active right now
+// come first and the newest wins inside each group, so the caller can walk the list until it
+// finds a grant whose contract scope is usable too.
+func (s *SQLStore) ListAPIEntitlementCandidates(ctx context.Context, productKey string, apiKeyID string, apiKeyHash string) ([]APIEntitlement, error) {
 	productKey = strings.TrimSpace(productKey)
 	apiKeyID = strings.TrimSpace(apiKeyID)
 	apiKeyHash = strings.TrimSpace(apiKeyHash)
 	if productKey == "" || (apiKeyID == "" && apiKeyHash == "") {
-		return APIEntitlement{}, false, nil
+		return nil, nil
 	}
 	q := `SELECT id, api_key_id, api_key_hash, customer_key, product_key, contract_key, scope, expires_at, status, created_by, created_at, updated_at
 		FROM dw_api_entitlements
@@ -480,37 +480,42 @@ func (s *SQLStore) FindAPIEntitlement(ctx context.Context, productKey string, ap
 	q += strings.Join(conds, ` OR `) + `) ORDER BY updated_at DESC LIMIT 50`
 	rows, err := s.db.QueryContext(ctx, s.bind(q), args...)
 	if err != nil {
-		return APIEntitlement{}, false, err
+		return nil, err
 	}
 	defer rows.Close()
-	now := time.Now().UTC()
-	var active, newest APIEntitlement
-	foundActive, foundAny := false, false
+	var ents []APIEntitlement
 	for rows.Next() {
 		var ent APIEntitlement
 		if err := rows.Scan(&ent.ID, &ent.APIKeyID, &ent.APIKeyHash, &ent.CustomerKey, &ent.ProductKey, &ent.ContractKey,
 			&ent.Scope, &ent.ExpiresAt, &ent.Status, &ent.CreatedBy, &ent.CreatedAt, &ent.UpdatedAt); err != nil {
-			return APIEntitlement{}, false, err
+			return nil, err
 		}
-		if !foundAny || entitlementNewer(ent, newest) {
-			newest = ent
-			foundAny = true
-		}
-		if EntitlementActive(ent, now) && (!foundActive || entitlementNewer(ent, active)) {
-			active = ent
-			foundActive = true
-		}
+		ents = append(ents, ent)
 	}
 	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	sort.SliceStable(ents, func(i, j int) bool {
+		activeI, activeJ := EntitlementActive(ents[i], now), EntitlementActive(ents[j], now)
+		if activeI != activeJ {
+			return activeI
+		}
+		return entitlementNewer(ents[i], ents[j])
+	})
+	return ents, nil
+}
+
+// FindAPIEntitlement returns the entitlement the runtime access gate falls back to for an API
+// key: the newest active row, or the newest row overall when none is active so the gate reports
+// an inactive entitlement rather than a missing one. Callers that can tell whether a grant is
+// actually usable should walk ListAPIEntitlementCandidates instead.
+func (s *SQLStore) FindAPIEntitlement(ctx context.Context, productKey string, apiKeyID string, apiKeyHash string) (APIEntitlement, bool, error) {
+	ents, err := s.ListAPIEntitlementCandidates(ctx, productKey, apiKeyID, apiKeyHash)
+	if err != nil || len(ents) == 0 {
 		return APIEntitlement{}, false, err
 	}
-	if foundActive {
-		return active, true, nil
-	}
-	if foundAny {
-		return newest, true, nil
-	}
-	return APIEntitlement{}, false, nil
+	return ents[0], true, nil
 }
 
 // EntitlementActive reports whether an entitlement grants access right now. An expiry the
