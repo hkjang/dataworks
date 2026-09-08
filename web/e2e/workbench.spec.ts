@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 async function mockPlatform(page: Page) {
-  await page.route('**/auth/me', (route) => route.fulfill({ json: { auth_enabled: true, version: 'v0.9.46', user: { id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin', scopes: ['admin:read', 'admin:write'], default_home: '#/dataworks/home' } } }))
-  await page.route('**/auth/sso/status', (route) => route.fulfill({ json: { keycloak_enabled: false, version: 'v0.9.46' } }))
+  await page.route('**/auth/me', (route) => route.fulfill({ json: { auth_enabled: true, version: 'v0.9.47', user: { id: 'tester', email: 'tester@dataworks.local', name: '테스트 관리자', role: 'super_admin', scopes: ['admin:read', 'admin:write'], default_home: '#/dataworks/home' } } }))
+  await page.route('**/auth/sso/status', (route) => route.fulfill({ json: { keycloak_enabled: false, version: 'v0.9.47' } }))
   await page.route('**/me/dashboard', (route) => route.fulfill({ json: {
     user_id: 'tester', today: { requests: 2, tokens: 100, cost_krw: 10, errors: 0 }, month: { requests: 20, tokens: 1000, cost_krw: 100, errors: 1 },
     profile: { requests: 20, total_cost_krw: 100, avg_cost_per_request: 5, avg_latency_ms: 120, success_rate: .95, error_rate: .05, cache_rate: .2, text2sql_usage_rate: .1, mcp_usage_rate: .3, risk_score: 4, summary: '정상 사용 패턴입니다.' },
@@ -48,7 +48,7 @@ test('developer SSO 세션은 action-center를 호출하지 않고 개인 작업
     meAuthorization = route.request().headers().authorization ?? ''
     return route.fulfill({ json: {
       auth_enabled: true,
-      version: 'v0.9.46',
+      version: 'v0.9.47',
       user: {
         id: 'sso-developer',
         email: 'developer@dataworks.local',
