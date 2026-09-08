@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test'
 
-export const DEMO_VERSION = 'v0.9.45'
+export const DEMO_VERSION = 'v0.9.46'
 export const PRIMARY_PRODUCT = 'sme-credit-insight'
 
 const timestamp = '2026-08-28T09:30:00Z'
