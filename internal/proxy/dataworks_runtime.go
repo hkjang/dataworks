@@ -282,6 +282,18 @@ func contractScopeCanServe(scope store.ContractScope, now time.Time) bool {
 	return true
 }
 
+// contractScopeStatuses lists the lifecycle states a contract scope may be stored with.
+// contractScopeCanServe only serves "active", so every other value has to be a state an
+// operator picked on purpose rather than a typo that quietly closes the contract.
+var contractScopeStatuses = map[string]bool{"active": true, "draft": true, "suspended": true, "revoked": true}
+
+// contractScopeStatusKnown reports whether a contract scope status is one the platform
+// recognises. "" is stored as "active".
+func contractScopeStatusKnown(status string) bool {
+	status = strings.ToLower(strings.TrimSpace(status))
+	return status == "" || contractScopeStatuses[status]
+}
+
 func contractScopeActive(scope store.ContractScope, now time.Time) bool {
 	if !contractScopeCanServe(scope, now) {
 		return false

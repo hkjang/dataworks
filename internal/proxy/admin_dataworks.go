@@ -1336,6 +1336,9 @@ func (s *Server) handleDataWorksContractScopes(w http.ResponseWriter, r *http.Re
 		if !dataWorksTimestampOK(w, "valid_from", scope.ValidFrom) || !dataWorksTimestampOK(w, "valid_to", scope.ValidTo) {
 			return
 		}
+		if !dataWorksAccessWindowOrdered(w, scope.ValidFrom, scope.ValidTo) {
+			return
+		}
 		// A negative ceiling would read as "unlimited" at runtime, so reject it instead of
 		// storing a contract that silently enforces nothing.
 		if scope.RateLimit < 0 {
@@ -1358,6 +1361,15 @@ func (s *Server) handleDataWorksContractScopes(w http.ResponseWriter, r *http.Re
 			writeOpenAIError(w, http.StatusBadRequest, "masking_policy must be one of none, redact, hash", "invalid_request_error", "invalid_masking_policy")
 			return
 		}
+		// Only "active" lets the runtime serve queries, so a typo such as "actve" or a synonym
+		// such as "enabled" stores a contract that answers every call with 403
+		// contract_scope_inactive while the admin views still list it as a customer contract.
+		scope.Status = strings.ToLower(strings.TrimSpace(scope.Status))
+		if !contractScopeStatusKnown(scope.Status) {
+			writeOpenAIError(w, http.StatusBadRequest, "status must be one of active, draft, suspended, revoked", "invalid_request_error", "invalid_contract_status")
+			return
+		}
+		scope.Status = firstNonEmpty(scope.Status, "active")
 		scope.ContractKey = firstNonEmpty(strings.TrimSpace(scope.ContractKey), newID("scope"))
 		scope.ProductKey = product.ProductKey
 		scope.CreatedBy = adminID(r)
@@ -1699,6 +1711,30 @@ func dataWorksTimestampOK(w http.ResponseWriter, field, raw string) bool {
 	}
 	if _, err := time.Parse(time.RFC3339Nano, raw); err != nil {
 		writeOpenAIError(w, http.StatusBadRequest, field+" must be an RFC3339 timestamp", "invalid_request_error", "invalid_"+field)
+		return false
+	}
+	return true
+}
+
+// dataWorksAccessWindowOrdered rejects an access window that closes before it opens.
+// contractScopeActive requires now to sit inside the window, so an inverted one denies every
+// query for the whole life of the contract while the admin views list it as an active contract.
+// Both values are already known to parse when this runs; an unparseable one is reported by
+// dataWorksTimestampOK instead.
+func dataWorksAccessWindowOrdered(w http.ResponseWriter, from, to string) bool {
+	if from == "" || to == "" {
+		return true
+	}
+	validFrom, err := time.Parse(time.RFC3339Nano, from)
+	if err != nil {
+		return true
+	}
+	validTo, err := time.Parse(time.RFC3339Nano, to)
+	if err != nil {
+		return true
+	}
+	if validFrom.After(validTo) {
+		writeOpenAIError(w, http.StatusBadRequest, "valid_from must not be later than valid_to", "invalid_request_error", "invalid_access_window")
 		return false
 	}
 	return true
