@@ -156,6 +156,14 @@ Entitlement 는 `id` 단위로 저장되므로 같은 API 키가 한 상품에 �
 고르고, 그런 행이 여럿이면 가장 최근에 갱신된 것을 사용합니다. 활성 행이 하나도 없으면 가장 최근 행을 근거로
 `403 inactive_entitlement` 가 반환됩니다.
 
+각 Entitlement 는 자기 `contract_key` 를 가리키므로, 우선순위가 높은 행이 이미 종료된 계약을 가리키고 다른 행이
+살아 있는 계약을 가리키는 경우가 생깁니다. 런타임은 후보를 순서대로 훑어 **Entitlement 가 활성이고 `scope` 가 조회를
+허용하며, 그 계약이 이 상품의 것이고 `active` 이며 유효 기간 안에 있고(민감 상품이면 `purpose` 까지 있는)** 첫 행을
+사용합니다. 조건을 모두 만족하는 행이 하나도 없으면 위 우선순위 1순위 행으로 판정해 `inactive_entitlement`,
+`contract_scope_missing`, `contract_scope_inactive`, `missing_contract_purpose` 중 실제 원인을 응답합니다. 요청
+본문에 따라 달라지는 `allowed_fields` 검사와 호출량을 소모하는 `rate_limit` 은 선택 기준에서 제외되므로, 후보를
+훑는 과정이 분당 한도를 앞당겨 소진하지 않습니다.
+
 ### 만료 예정 계약·권한 확인
 
 `GET /admin/dataworks/action-center` 는 기본적으로 30일 안에 만료되는 Contract Scope(`expiring_contracts`,
