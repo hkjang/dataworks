@@ -164,6 +164,18 @@ Entitlement 는 `id` 단위로 저장되므로 같은 API 키가 한 상품에 �
 본문에 따라 달라지는 `allowed_fields` 검사와 호출량을 소모하는 `rate_limit` 은 선택 기준에서 제외되므로, 후보를
 훑는 과정이 분당 한도를 앞당겨 소진하지 않습니다.
 
+### 마스킹 정책과 Publish Gate
+
+Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(기본), `redact`, `hash` 만 허용하며 그 외 값은
+`400 invalid_masking_policy` 로 거부됩니다(대소문자·앞뒤 공백은 정규화). 자유 서술형 문구를 저장하면 응답은 원본
+값 그대로 나가면서 민감 상품 Publish Gate 의 `masking_configured` 만 통과하기 때문입니다.
+
+마스킹은 계약별로 적용되므로 민감 상품의 `masking_configured` 는 **아직 조회를 처리할 수 있는 계약이 모두**
+`redact`·`hash` 를 가질 때만 참입니다. 계약 하나만 마스킹하고 다른 계약이 `none` 이면 그 고객은 원본 값을 그대로
+받으므로 `masking_configured=false`(`missing_evidence: masking_policy`)로 막힙니다. `active` 가 아니거나 유효 기간이
+이미 끝난 계약은 다시는 조회를 처리할 수 없으므로 판정에서 제외하고, 아직 시작되지 않은 계약은 나중에 조회를
+처리하므로 그대로 포함합니다. 계약이 하나도 없으면 조회 자체가 불가능하므로 통과합니다.
+
 ### 만료 예정 계약·권한 확인
 
 `GET /admin/dataworks/action-center` 는 기본적으로 30일 안에 만료되는 Contract Scope(`expiring_contracts`,

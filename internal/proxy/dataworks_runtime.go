@@ -264,19 +264,31 @@ func (s *Server) usableEntitlement(ctx context.Context, product store.DataProduc
 	return store.APIEntitlement{}, false
 }
 
-func contractScopeActive(scope store.ContractScope, now time.Time) bool {
+// contractScopeCanServe reports whether a contract scope is able to answer product queries
+// now or at any later point. A revoked scope or a window that already closed never will, so
+// governance readers can ignore what such a scope promises; a scope whose window opens later
+// still has to hold up.
+func contractScopeCanServe(scope store.ContractScope, now time.Time) bool {
 	if strings.ToLower(strings.TrimSpace(scope.Status)) != "active" {
+		return false
+	}
+	if raw := strings.TrimSpace(scope.ValidTo); raw != "" {
+		validTo, err := time.Parse(time.RFC3339Nano, raw)
+		// An unparseable window denies every query below, so the scope can never serve either.
+		if err != nil || validTo.Before(now) {
+			return false
+		}
+	}
+	return true
+}
+
+func contractScopeActive(scope store.ContractScope, now time.Time) bool {
+	if !contractScopeCanServe(scope, now) {
 		return false
 	}
 	if strings.TrimSpace(scope.ValidFrom) != "" {
 		validFrom, err := time.Parse(time.RFC3339Nano, scope.ValidFrom)
 		if err != nil || validFrom.After(now) {
-			return false
-		}
-	}
-	if strings.TrimSpace(scope.ValidTo) != "" {
-		validTo, err := time.Parse(time.RFC3339Nano, scope.ValidTo)
-		if err != nil || validTo.Before(now) {
 			return false
 		}
 	}
@@ -428,6 +440,24 @@ func (s *Server) auditDataProductQuery(r *http.Request, authCtx *store.AuthConte
 		event.TeamID = authCtx.TeamID
 	}
 	_ = s.db.InsertAuditEvent(r.Context(), event)
+}
+
+// maskingPolicies lists the contract masking policies applyMasking actually implements.
+// Any other value falls through unmasked, so the admin write path refuses to store one and
+// the publish gate must not count it as configured masking.
+var maskingPolicies = map[string]bool{"redact": true, "hash": true}
+
+// maskingPolicyKnown reports whether a contract masking policy is one the runtime
+// understands. "" and "none" are the explicit no-masking values.
+func maskingPolicyKnown(policy string) bool {
+	policy = strings.ToLower(strings.TrimSpace(policy))
+	return policy == "" || policy == "none" || maskingPolicies[policy]
+}
+
+// maskingPolicyMasks reports whether a contract masking policy makes applyMasking rewrite
+// response values, which is the only sense in which masking is configured for a contract.
+func maskingPolicyMasks(policy string) bool {
+	return maskingPolicies[strings.ToLower(strings.TrimSpace(policy))]
 }
 
 func applyMasking(value any, policy string) any {

@@ -1351,6 +1351,13 @@ func (s *Server) handleDataWorksContractScopes(w http.ResponseWriter, r *http.Re
 			writeOpenAIError(w, http.StatusBadRequest, `allowed_fields must list at least one response field (use "*" for the full product schema)`, "invalid_request_error", "invalid_allowed_fields")
 			return
 		}
+		// The runtime only masks responses for the policies applyMasking implements, so an
+		// unknown value would satisfy the publish gate while every query answers unmasked.
+		scope.MaskingPolicy = strings.ToLower(strings.TrimSpace(scope.MaskingPolicy))
+		if !maskingPolicyKnown(scope.MaskingPolicy) {
+			writeOpenAIError(w, http.StatusBadRequest, "masking_policy must be one of none, redact, hash", "invalid_request_error", "invalid_masking_policy")
+			return
+		}
 		scope.ContractKey = firstNonEmpty(strings.TrimSpace(scope.ContractKey), newID("scope"))
 		scope.ProductKey = product.ProductKey
 		scope.CreatedBy = adminID(r)
@@ -1652,20 +1659,25 @@ func (s *Server) dataWorksPublishGate(ctx context.Context, product store.DataPro
 	}
 
 	// Fetch Masking Configured
-	maskingConfigured := true
+	now := time.Now().UTC()
+	// applyMasking runs per contract, so the product only answers masked while every contract
+	// that can still serve it carries a policy the runtime enforces. Counting a single masked
+	// contract as evidence published sensitive products whose other customers kept receiving
+	// raw values, and free-form policy text masks nothing at all. Contracts that can never
+	// serve again are ignored, and a listing error is no evidence either way.
+	maskingConfigured := false
 	scopes, err := s.db.ListContractScopes(ctx, product.ProductKey, "")
-	if err == nil && len(scopes) > 0 {
-		hasMasking := false
+	if err == nil {
+		maskingConfigured = true
 		for _, sc := range scopes {
-			if sc.MaskingPolicy != "" && sc.MaskingPolicy != "none" {
-				hasMasking = true
+			if contractScopeCanServe(sc, now) && !maskingPolicyMasks(sc.MaskingPolicy) {
+				maskingConfigured = false
 				break
 			}
 		}
-		maskingConfigured = hasMasking
 	}
 
-	return dw.EvaluatePublishGateV2(product, readiness, approvals, packPtr, slaPtr, costPtr, qualityResults, hasRiskReview, maskingConfigured, time.Now().UTC()), nil
+	return dw.EvaluatePublishGateV2(product, readiness, approvals, packPtr, slaPtr, costPtr, qualityResults, hasRiskReview, maskingConfigured, now), nil
 }
 
 func entitlementExpired(raw string, now time.Time) bool {
