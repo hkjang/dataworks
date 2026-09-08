@@ -186,6 +186,11 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 		return
 	}
+	horizon, horizonOK := parseExpiryHorizon(r.URL.Query().Get("expiring_within"))
+	if !horizonOK {
+		writeOpenAIError(w, http.StatusBadRequest, "expiring_within must be a positive lookahead such as 30d, 12w, or 72h", "invalid_request_error", "invalid_expiring_within")
+		return
+	}
 	products, err := s.db.ListDataProducts(r.Context(), "")
 	if err != nil {
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "products_failed")
@@ -204,6 +209,7 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		"blocked_launches":      0,
 		"low_fit_scores":        0,
 		"expiring_contracts":    0,
+		"expiring_access":       0,
 		"inactive_access":       0,
 		"stale_watermarks":      0,
 		"negative_margin":       0,
@@ -241,12 +247,13 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		})
 	}
 	now := time.Now().UTC()
+	deadline := now.Add(horizon)
 	for _, scope := range contractScopes {
 		if strings.TrimSpace(scope.ValidTo) == "" {
 			continue
 		}
 		expiresAt, err := time.Parse(time.RFC3339Nano, scope.ValidTo)
-		if err == nil && !expiresAt.Before(now.Add(30*24*time.Hour)) {
+		if err == nil && !expiresAt.Before(deadline) {
 			continue
 		}
 		summary["expiring_contracts"]++
@@ -269,6 +276,17 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 				"type": "entitlement_inactive", "severity": "medium", "product_key": ent.ProductKey,
 				"entitlement_id": ent.ID, "api_key_id": ent.APIKeyID, "status": ent.Status, "expires_at": ent.ExpiresAt,
 				"next_action": "rotate, reactivate, or remove stale API product access",
+			})
+			continue
+		}
+		// Contracts get a lookahead warning but entitlements did not, so a customer key lost
+		// product access on the expiry day with nothing on this screen beforehand.
+		if entitlementExpiresWithin(ent.ExpiresAt, deadline) {
+			summary["expiring_access"]++
+			actions = append(actions, map[string]any{
+				"type": "entitlement_expiring", "severity": "medium", "product_key": ent.ProductKey,
+				"entitlement_id": ent.ID, "api_key_id": ent.APIKeyID, "contract_key": ent.ContractKey, "expires_at": ent.ExpiresAt,
+				"next_action": "renew the API entitlement before the customer key loses product access",
 			})
 		}
 	}
@@ -307,7 +325,54 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 			})
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"summary": summary, "actions": actions})
+	writeJSON(w, http.StatusOK, map[string]any{"summary": summary, "actions": actions, "expiring_within": horizon.String()})
+}
+
+// defaultExpiryHorizon is how far ahead the action center looks for access that is about to
+// lapse when the caller does not ask for a different window.
+const defaultExpiryHorizon = 30 * 24 * time.Hour
+
+// parseExpiryHorizon reads the action center lookahead window. Renewal cycles are planned in
+// days or quarters rather than hours, so the day and week suffixes time.ParseDuration rejects
+// are accepted too. A malformed or non-positive value is reported instead of falling back to
+// the default, because answering for a different window than the operator asked for hides
+// exactly the contracts and entitlements they were checking on.
+func parseExpiryHorizon(raw string) (time.Duration, bool) {
+	raw = strings.ToLower(strings.TrimSpace(raw))
+	if raw == "" {
+		return defaultExpiryHorizon, true
+	}
+	unit := time.Duration(0)
+	switch {
+	case strings.HasSuffix(raw, "d"):
+		unit = 24 * time.Hour
+	case strings.HasSuffix(raw, "w"):
+		unit = 7 * 24 * time.Hour
+	}
+	if unit > 0 {
+		count, err := strconv.Atoi(strings.TrimSpace(raw[:len(raw)-1]))
+		if err != nil || count <= 0 {
+			return 0, false
+		}
+		return time.Duration(count) * unit, true
+	}
+	dur, err := time.ParseDuration(raw)
+	if err != nil || dur <= 0 {
+		return 0, false
+	}
+	return dur, true
+}
+
+// entitlementExpiresWithin reports whether a still-valid entitlement lapses before the action
+// center deadline. An empty expiry never lapses and an unparseable one is already reported as
+// inactive access, so neither counts as expiring.
+func entitlementExpiresWithin(raw string, deadline time.Time) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, raw)
+	return err == nil && expiresAt.Before(deadline)
 }
 
 func (s *Server) handleDataWorksCustomerSegments(w http.ResponseWriter, r *http.Request) {

@@ -14572,7 +14572,7 @@ const adminHTML = `<!doctype html>
         '<button class="' + (currentFilter === 'pending' ? '' : 'secondary') + '" onclick="actionTabFilter(\'pending\')">승인 대기 (' + (summary.approval_pending || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'fit' ? '' : 'secondary') + '" onclick="actionTabFilter(\'fit\')">고객 적합도 (' + (summary.low_fit_scores || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'contract' ? '' : 'secondary') + '" onclick="actionTabFilter(\'contract\')">계약 만료 (' + (summary.expiring_contracts || 0) + ')</button>' +
-        '<button class="' + (currentFilter === 'access' ? '' : 'secondary') + '" onclick="actionTabFilter(\'access\')">접근 만료 (' + (summary.inactive_access || 0) + ')</button>' +
+        '<button class="' + (currentFilter === 'access' ? '' : 'secondary') + '" onclick="actionTabFilter(\'access\')">접근 만료 (' + ((summary.inactive_access || 0) + (summary.expiring_access || 0)) + ')</button>' +
         '<button class="' + (currentFilter === 'stale' ? '' : 'secondary') + '" onclick="actionTabFilter(\'stale\')">stale 데이터 (' + (summary.stale_watermarks || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'margin' ? '' : 'secondary') + '" onclick="actionTabFilter(\'margin\')">저마진 (' + (summary.negative_margin || 0) + ')</button>' +
         '<button class="' + (currentFilter === 'retire' ? '' : 'secondary') + '" onclick="actionTabFilter(\'retire\')">폐기 추천 (' + (summary.retirement_candidates || 0) + ')</button>' +
@@ -14593,7 +14593,7 @@ const adminHTML = `<!doctype html>
         if (filter === 'pending') return a.type === 'approval_pending';
         if (filter === 'fit') return a.type === 'low_customer_fit';
         if (filter === 'contract') return a.type === 'contract_expiring';
-        if (filter === 'access') return a.type === 'entitlement_inactive';
+        if (filter === 'access') return a.type === 'entitlement_inactive' || a.type === 'entitlement_expiring';
         if (filter === 'stale') return a.type === 'stale_watermark';
         if (filter === 'margin') return a.type === 'negative_margin';
         if (filter === 'retire') return a.type === 'retirement_candidate';
@@ -14622,6 +14622,9 @@ const adminHTML = `<!doctype html>
         }
         if (a.reason) {
           details += '<div style="margin-top:6px;font-size:12px">추천 사유: ' + escapeHTML(a.reason) + '</div>';
+        }
+        if (a.expires_at || a.valid_to) {
+          details += '<div style="margin-top:6px;font-size:12px">만료: <code>' + escapeHTML(a.expires_at || a.valid_to) + '</code></div>';
         }
 
         return '<div style="padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-alt);margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;min-width:0">' +

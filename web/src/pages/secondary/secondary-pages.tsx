@@ -194,7 +194,9 @@ export function ReviewPage() {
   if (query.error) return <ErrorState error={query.error} retry={() => void query.refetch()} />
 
   const requested = params.get('type') ?? 'all'
-  const typeMap: Record<string, string> = { approval_pending: 'approval_pending', blocked_launches: 'launch_blocked', expiring_contracts: 'contract_expiring', negative_margin: 'negative_margin', stale_watermarks: 'stale_watermark' }
+  // Every summary counter becomes a filter button, so each key needs the action type it counts;
+  // a missing entry filters on the counter name and shows an empty list instead.
+  const typeMap: Record<string, string> = { approval_pending: 'approval_pending', blocked_launches: 'launch_blocked', expiring_access: 'entitlement_expiring', expiring_contracts: 'contract_expiring', inactive_access: 'entitlement_inactive', low_fit_scores: 'low_customer_fit', negative_margin: 'negative_margin', retirement_candidates: 'retirement_candidate', stale_watermarks: 'stale_watermark' }
   const type = typeMap[requested] ?? requested
   const actions = query.data.actions.filter((item) => (type === 'all' || item.type === type) && (severity === 'all' || item.severity === severity))
 

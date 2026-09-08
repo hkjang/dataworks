@@ -156,6 +156,22 @@ Entitlement 는 `id` 단위로 저장되므로 같은 API 키가 한 상품에 �
 고르고, 그런 행이 여럿이면 가장 최근에 갱신된 것을 사용합니다. 활성 행이 하나도 없으면 가장 최근 행을 근거로
 `403 inactive_entitlement` 가 반환됩니다.
 
+### 만료 예정 계약·권한 확인
+
+`GET /admin/dataworks/action-center` 는 기본적으로 30일 안에 만료되는 Contract Scope(`expiring_contracts`,
+`contract_expiring`)와 API Entitlement(`expiring_access`, `entitlement_expiring`)를 함께 보고합니다. 이미 만료
+되었거나 `active` 가 아닌 권한은 종전대로 `inactive_access` 로 집계됩니다.
+
+분기 단위 갱신 주기처럼 더 긴 예고가 필요하면 `expiring_within` 으로 조회 창을 지정합니다. `13w`, `45d` 같은
+주·일 표기와 `72h` 같은 Go duration 표기를 받으며, 응답의 `expiring_within` 필드로 실제 적용된 창을 확인할 수
+있습니다. 양수가 아니거나 해석할 수 없는 값은 기본값으로 되돌리지 않고 `400 invalid_expiring_within` 으로
+거부합니다.
+
+```bash
+curl -s "$BASE/admin/dataworks/action-center?expiring_within=13w" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.summary'
+```
+
 ## 6. Watermark, Cost, Retirement 운영
 
 운영자는 Action Center에서 stale 데이터, 음수 margin, 개선/폐기 후보를 같이 확인합니다.
