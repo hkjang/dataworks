@@ -181,7 +181,7 @@ docker run -d --name dataworks --restart=always -p 8080:8080 \
 
 Docker 빌드는 Node 단계에서 React SPA를 생성한 후 결과물을 Go binary에 embed합니다.
 
-`docker-compose.yml`은 이번 오프라인 릴리즈 archive와 동일한 `dataworks:v0.9.44`를 명시적으로 사용합니다. 별도 이미지 버전 환경변수 없이 위 네 필수 환경변수만 설정하면 실행됩니다.
+`docker-compose.yml`은 이번 오프라인 릴리즈 archive와 동일한 `dataworks:v0.9.45`를 명시적으로 사용합니다. 별도 이미지 버전 환경변수 없이 위 네 필수 환경변수만 설정하면 실행됩니다.
 
 ## 저장소
 
