@@ -147,6 +147,14 @@ curl -X POST "$BASE/v1/data-products/dw_credit_score/query" \
 중복 제거가 적용되고, 응답 `data` 의 키는 항상 계약에 적힌 표기를 씁니다 — 요청이 `Score` 로 와도
 계약이 `score` 면 상품 OpenAPI 문서가 선언한 대로 `score` 로 내려갑니다.
 
+Contract Scope 의 `status` 는 `active`(기본), `draft`, `suspended`, `revoked` 만 허용하며 그 외 값은
+`400 invalid_contract_status` 로 거부됩니다(대소문자·앞뒤 공백은 정규화). 런타임은 `active` 인 계약만 서빙하므로
+`actve`·`enabled` 같은 오타를 저장하면 계약이 곧바로 죽고 모든 조회가 `403 contract_scope_inactive` 가 되지만
+admin 목록에는 고객 계약으로 그대로 보입니다.
+
+`valid_from` 이 `valid_to` 보다 뒤인 창은 `400 invalid_access_window` 로 거부됩니다. 런타임 게이트는 현재
+시각이 창 안에 있을 때만 조회를 허용하므로, 뒤집힌 창은 계약이 존재하는 내내 모든 조회를 막습니다.
+
 Entitlement 의 `scope` 는 쉼표·공백으로 구분한 권한 목록이며, 런타임 조회는 `data_product:query`,
 `data_product:*`, `query`, `*` 중 하나가 목록에 정확히 포함될 때만 허용됩니다(빈 값은 무제한).
 `data_product:export` 처럼 조회 권한이 없는 값만 있으면 `403 scope_denied` 가 반환됩니다.
