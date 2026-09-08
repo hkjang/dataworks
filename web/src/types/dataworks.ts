@@ -120,6 +120,7 @@ export interface ActionSummary {
   blocked_launches: number
   low_fit_scores: number
   expiring_contracts: number
+  expiring_access: number
   inactive_access: number
   stale_watermarks: number
   negative_margin: number
