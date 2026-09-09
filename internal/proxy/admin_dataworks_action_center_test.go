@@ -114,6 +114,48 @@ func TestDataWorksActionCenterWarnsBeforeEntitlementExpires(t *testing.T) {
 	}
 }
 
+// A contract an operator parked or closed is not waiting on a renewal, and its valid_to only
+// moves further into the past, so counting it as expiring would pin it to the screen forever
+// at high severity and bury the live contracts that really are about to lapse.
+func TestDataWorksActionCenterSkipsInactiveContractScopes(t *testing.T) {
+	db, srv := newAccessWindowTestServer(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	past := now.Add(-90 * 24 * time.Hour).Format(time.RFC3339Nano)
+	for _, tc := range []struct {
+		contractKey string
+		status      string
+	}{
+		{"ct_revoked", "revoked"},
+		{"ct_draft", "draft"},
+		{"ct_suspended", "suspended"},
+	} {
+		if err := db.UpsertContractScope(ctx, store.ContractScope{
+			ContractKey: tc.contractKey, ProductKey: "dw_credit_score", CustomerKey: "cust_bank",
+			ValidTo: past, Status: tc.status, AllowedFields: []string{"score"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.UpsertContractScope(ctx, store.ContractScope{
+		ContractKey: "ct_live", ProductKey: "dw_credit_score", CustomerKey: "cust_insurer",
+		ValidTo: now.Add(10 * 24 * time.Hour).Format(time.RFC3339Nano), Status: "active",
+		AllowedFields: []string{"score"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	payload := getActionCenter(t, srv.URL, "")
+	if payload.Summary["expiring_contracts"] != 1 {
+		t.Fatalf("expiring_contracts = %d, want 1: %+v", payload.Summary["expiring_contracts"], payload.Actions)
+	}
+	expiring := actionsOfType(payload, "contract_expiring")
+	if len(expiring) != 1 || expiring[0]["contract_key"] != "ct_live" {
+		t.Fatalf("contract_expiring actions = %+v", expiring)
+	}
+}
+
 // Falling back to the default window for a malformed value would answer for a different
 // horizon than the operator asked about, so the request is rejected instead.
 func TestDataWorksActionCenterRejectsInvalidExpiringWindow(t *testing.T) {

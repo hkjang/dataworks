@@ -32,6 +32,26 @@ func TestContractScopeStatusKnown(t *testing.T) {
 	}
 }
 
+func TestContractScopeStatusActive(t *testing.T) {
+	cases := []struct {
+		status string
+		want   bool
+	}{
+		{"active", true},
+		{" ACTIVE ", true},
+		{"Active", true},
+		{"", false},
+		{"draft", false},
+		{"suspended", false},
+		{"revoked", false},
+	}
+	for _, tc := range cases {
+		if got := contractScopeStatusActive(tc.status); got != tc.want {
+			t.Fatalf("contractScopeStatusActive(%q) = %v, want %v", tc.status, got, tc.want)
+		}
+	}
+}
+
 // An inverted window and an unrecognised status both leave a contract that answers every query
 // with 403 while the admin views still list it, so the write path has to refuse them the same way
 // it refuses an unparseable timestamp.
