@@ -190,6 +190,10 @@ Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(
 `contract_expiring`)와 API Entitlement(`expiring_access`, `entitlement_expiring`)를 함께 보고합니다. 이미 만료
 되었거나 `active` 가 아닌 권한은 종전대로 `inactive_access` 로 집계됩니다.
 
+만료 예고는 `active` 인 Contract Scope 에만 붙습니다. `draft`·`suspended`·`revoked` 계약은 런타임이 서빙하지
+않으므로 갱신할 것이 없고, `valid_to` 는 시간이 갈수록 과거로 멀어지기만 해서 한 번 종료한 계약이 영구히
+`contract_expiring`(만료된 창이므로 심각도 `high`)으로 남아 정말 갱신이 필요한 계약을 덮어 버립니다.
+
 분기 단위 갱신 주기처럼 더 긴 예고가 필요하면 `expiring_within` 으로 조회 창을 지정합니다. `13w`, `45d` 같은
 주·일 표기와 `72h` 같은 Go duration 표기를 받으며, 응답의 `expiring_within` 필드로 실제 적용된 창을 확인할 수
 있습니다. 양수가 아니거나 해석할 수 없는 값은 기본값으로 되돌리지 않고 `400 invalid_expiring_within` 으로

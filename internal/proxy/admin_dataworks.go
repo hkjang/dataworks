@@ -249,6 +249,15 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 	now := time.Now().UTC()
 	deadline := now.Add(horizon)
 	for _, scope := range contractScopes {
+		// Only an "active" scope binds the runtime, so a draft that was never issued or a
+		// contract an operator suspended or revoked has nothing to renew. Without this the
+		// entry never ages out: its valid_to stays in the past forever, so every closed
+		// contract sits on the screen as a high severity "renew or retire" item and buries
+		// the live contracts that are genuinely about to lapse. The entitlement loop below
+		// already skips non-active rows the same way.
+		if !contractScopeStatusActive(scope.Status) {
+			continue
+		}
 		if strings.TrimSpace(scope.ValidTo) == "" {
 			continue
 		}

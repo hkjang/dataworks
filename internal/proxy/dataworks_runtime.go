@@ -269,7 +269,7 @@ func (s *Server) usableEntitlement(ctx context.Context, product store.DataProduc
 // governance readers can ignore what such a scope promises; a scope whose window opens later
 // still has to hold up.
 func contractScopeCanServe(scope store.ContractScope, now time.Time) bool {
-	if strings.ToLower(strings.TrimSpace(scope.Status)) != "active" {
+	if !contractScopeStatusActive(scope.Status) {
 		return false
 	}
 	if raw := strings.TrimSpace(scope.ValidTo); raw != "" {
@@ -286,6 +286,13 @@ func contractScopeCanServe(scope store.ContractScope, now time.Time) bool {
 // contractScopeCanServe only serves "active", so every other value has to be a state an
 // operator picked on purpose rather than a typo that quietly closes the contract.
 var contractScopeStatuses = map[string]bool{"active": true, "draft": true, "suspended": true, "revoked": true}
+
+// contractScopeStatusActive reports whether a contract scope is in the one lifecycle state
+// the runtime serves queries from. Governance readers use it to tell a contract that still
+// binds the platform from one an operator has parked or closed on purpose.
+func contractScopeStatusActive(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), "active")
+}
 
 // contractScopeStatusKnown reports whether a contract scope status is one the platform
 // recognises. "" is stored as "active".
