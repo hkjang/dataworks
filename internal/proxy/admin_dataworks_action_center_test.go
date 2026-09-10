@@ -156,6 +156,58 @@ func TestDataWorksActionCenterSkipsInactiveContractScopes(t *testing.T) {
 	}
 }
 
+// The runtime serves any grant store.EntitlementActive accepts, and that rule ignores case and
+// surrounding space. Rows written before the admin path normalised the field still hold values
+// like "Active", so judging them with an exact match told the operator to revoke access that
+// was working — while a genuinely closed grant has to keep showing up.
+func TestDataWorksActionCenterMatchesRuntimeEntitlementStatus(t *testing.T) {
+	db, srv := newAccessWindowTestServer(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	if err := db.UpsertContractScope(ctx, store.ContractScope{
+		ContractKey: "ct_legacy", ProductKey: "dw_credit_score", CustomerKey: "cust_bank",
+		ValidTo: now.Add(200 * 24 * time.Hour).Format(time.RFC3339Nano), Status: "active",
+		AllowedFields: []string{"score"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		id        string
+		status    string
+		expiresAt string
+	}{
+		{"ent_upper", "Active", now.Add(200 * 24 * time.Hour).Format(time.RFC3339Nano)},
+		{"ent_padded", " active ", " " + now.Add(20*24*time.Hour).Format(time.RFC3339Nano) + " "},
+		{"ent_revoked", "revoked", now.Add(200 * 24 * time.Hour).Format(time.RFC3339Nano)},
+	} {
+		if err := db.UpsertAPIEntitlement(ctx, store.APIEntitlement{
+			ID: tc.id, APIKeyID: "key_" + tc.id, ProductKey: "dw_credit_score", ContractKey: "ct_legacy",
+			ExpiresAt: tc.expiresAt, Status: tc.status,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	payload := getActionCenter(t, srv.URL, "")
+	inactive := actionsOfType(payload, "entitlement_inactive")
+	if len(inactive) != 1 || inactive[0]["entitlement_id"] != "ent_revoked" {
+		t.Fatalf("entitlement_inactive actions = %+v", inactive)
+	}
+	if payload.Summary["inactive_access"] != 1 {
+		t.Fatalf("inactive_access = %d, want 1: %+v", payload.Summary["inactive_access"], payload.Actions)
+	}
+	// The padded row is live and lapses inside the default window, so it belongs in the
+	// lookahead instead of being written off as already gone.
+	expiring := actionsOfType(payload, "entitlement_expiring")
+	if len(expiring) != 1 || expiring[0]["entitlement_id"] != "ent_padded" {
+		t.Fatalf("entitlement_expiring actions = %+v", expiring)
+	}
+	if payload.Summary["expiring_access"] != 1 {
+		t.Fatalf("expiring_access = %d, want 1: %+v", payload.Summary["expiring_access"], payload.Actions)
+	}
+}
+
 // Falling back to the default window for a malformed value would answer for a different
 // horizon than the operator asked about, so the request is rejected instead.
 func TestDataWorksActionCenterRejectsInvalidExpiringWindow(t *testing.T) {
