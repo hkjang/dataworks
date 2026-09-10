@@ -1416,6 +1416,15 @@ func (s *Server) handleDataWorksAPIEntitlements(w http.ResponseWriter, r *http.R
 		if !dataWorksTimestampOK(w, "expires_at", ent.ExpiresAt) {
 			return
 		}
+		// Only "active" lets the runtime serve queries with this grant, so a typo such as
+		// "actve" or a synonym such as "enabled" issues an entitlement that answers every call
+		// with 403 inactive_entitlement while the admin views still list it as customer access.
+		ent.Status = strings.ToLower(strings.TrimSpace(ent.Status))
+		if !entitlementStatusKnown(ent.Status) {
+			writeOpenAIError(w, http.StatusBadRequest, "status must be one of active, draft, suspended, revoked", "invalid_request_error", "invalid_entitlement_status")
+			return
+		}
+		ent.Status = firstNonEmpty(ent.Status, "active")
 		if scope, ok, err := s.db.GetContractScope(r.Context(), ent.ContractKey); err != nil {
 			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "contract_scope_failed")
 			return

@@ -301,6 +301,19 @@ func contractScopeStatusKnown(status string) bool {
 	return status == "" || contractScopeStatuses[status]
 }
 
+// entitlementStatuses lists the lifecycle states an API entitlement may be stored with.
+// store.EntitlementActive only grants access to "active", and revoked grants are kept as rows
+// for audit, so every other value has to be a state an operator picked on purpose rather than
+// a typo that silently takes an API key's access away.
+var entitlementStatuses = map[string]bool{"active": true, "draft": true, "suspended": true, "revoked": true}
+
+// entitlementStatusKnown reports whether an entitlement status is one the platform
+// recognises. "" is stored as "active".
+func entitlementStatusKnown(status string) bool {
+	status = strings.ToLower(strings.TrimSpace(status))
+	return status == "" || entitlementStatuses[status]
+}
+
 func contractScopeActive(scope store.ContractScope, now time.Time) bool {
 	if !contractScopeCanServe(scope, now) {
 		return false

@@ -159,6 +159,11 @@ Entitlement 의 `scope` 는 쉼표·공백으로 구분한 권한 목록이며, 
 `data_product:*`, `query`, `*` 중 하나가 목록에 정확히 포함될 때만 허용됩니다(빈 값은 무제한).
 `data_product:export` 처럼 조회 권한이 없는 값만 있으면 `403 scope_denied` 가 반환됩니다.
 
+Entitlement 의 `status` 도 Contract Scope 와 같이 `active`(기본), `draft`, `suspended`, `revoked` 만 허용하며
+그 외 값은 `400 invalid_entitlement_status` 로 거부됩니다(대소문자·앞뒤 공백은 정규화). 런타임은 `active` 인
+Entitlement 만 인정하므로 `enabled` 같은 오타를 저장하면 고객 API 키가 곧바로 `403 inactive_entitlement` 를
+받지만 admin 목록에는 정상 발급된 접근권으로 보입니다.
+
 Entitlement 는 `id` 단위로 저장되므로 같은 API 키가 한 상품에 여러 행을 가질 수 있습니다(만료된 체험 계약 옆에
 발급한 갱신 계약, 감사용으로 남겨 둔 `revoked` 행 등). 런타임 게이트는 그중 `active` 이고 만료되지 않은 행을 먼저
 고르고, 그런 행이 여럿이면 가장 최근에 갱신된 것을 사용합니다. 활성 행이 하나도 없으면 가장 최근 행을 근거로
