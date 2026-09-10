@@ -279,7 +279,11 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		})
 	}
 	for _, ent := range entitlements {
-		if ent.Status != "active" || entitlementExpired(ent.ExpiresAt, now) {
+		// Judge access by the same rule the runtime gate applies, not by an exact match on
+		// "active". Rows written before the admin path normalised the field hold values such
+		// as "Active" or " active ", which store.EntitlementActive still serves; reporting
+		// those as inactive access tells the operator to revoke a grant that works.
+		if !entitlementActive(ent, now) {
 			summary["inactive_access"]++
 			actions = append(actions, map[string]any{
 				"type": "entitlement_inactive", "severity": "medium", "product_key": ent.ProductKey,
@@ -1708,16 +1712,6 @@ func (s *Server) dataWorksPublishGate(ctx context.Context, product store.DataPro
 	}
 
 	return dw.EvaluatePublishGateV2(product, readiness, approvals, packPtr, slaPtr, costPtr, qualityResults, hasRiskReview, maskingConfigured, now), nil
-}
-
-func entitlementExpired(raw string, now time.Time) bool {
-	if strings.TrimSpace(raw) == "" {
-		return false
-	}
-	expiresAt, err := time.Parse(time.RFC3339Nano, raw)
-	// entitlementActive rejects an unparseable expiry at runtime, so report it as expired
-	// here instead of showing the access rule as healthy.
-	return err != nil || expiresAt.Before(now)
 }
 
 // dataWorksTimestampOK rejects an optional access-window timestamp the runtime gate cannot parse.
