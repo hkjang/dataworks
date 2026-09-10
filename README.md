@@ -203,10 +203,10 @@ Kubernetes 수집, Pod 로그, RCA, Stack, ConfigMap, CRD Discovery 등 기존 �
 ## 문서
 
 - [Data Works 제품 소개](https://hkjang.github.io/dataworks/)
-- [사용자 가이드](docs/USER_GUIDE.md) · [웹 가이드](https://hkjang.github.io/dataworks/user-guide.html)
+- [사용자 가이드](docs/USER_GUIDE.md) · [PDF](docs/USER_GUIDE.pdf) · [웹 가이드](https://hkjang.github.io/dataworks/user-guide.html)
 - [디자인 기준](DESIGN.md)
 - [운영 가이드](docs/OPERATIONS.md)
-- [관리자 가이드](docs/ADMIN_GUIDE.md) · [웹 가이드](https://hkjang.github.io/dataworks/admin-guide.html)
+- [관리자 가이드](docs/ADMIN_GUIDE.md) · [PDF](docs/ADMIN_GUIDE.pdf) · [웹 가이드](https://hkjang.github.io/dataworks/admin-guide.html)
 - [안전 및 보안 거버넌스 가이드](docs/SAFETY_GUIDE.md)
 - [PostgreSQL 가이드](docs/POSTGRES_GUIDE.md)
 - [릴리즈 가이드](docs/RELEASE_GUIDE.md)
