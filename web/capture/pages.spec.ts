@@ -79,6 +79,10 @@ test('문서용 전체 화면을 가상 데이터로 캡처한다', async ({ pag
   await expect(page.getByRole('heading', { name: 'Keycloak OIDC 간편 연동' })).toBeVisible()
   await capture(page, path.join(outputDir, '13-admin-keycloak-sso.jpg'))
 
+  await page.getByRole('tab', { name: /역할 및 권한/ }).click()
+  await expect(page.getByRole('heading', { name: '역할 카탈로그' })).toBeVisible()
+  await capture(page, path.join(outputDir, '20-admin-roles.jpg'))
+
   await page.getByRole('tab', { name: /전체 설정/ }).click()
   await expect(page.getByPlaceholder('설정 키 또는 설명 검색')).toBeVisible()
   await capture(page, path.join(outputDir, '14-admin-runtime-settings.jpg'))

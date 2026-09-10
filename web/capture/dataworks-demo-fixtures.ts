@@ -176,6 +176,36 @@ const providers = {
   ],
 }
 
+// 역할 카탈로그는 서버의 기본 역할·스코프·설명을 그대로 옮긴 가상 배포본입니다.
+function role(name: string, scopes: string[], home: string, rank: number, description: string, users: number, custom = false) {
+  return { role: name, scopes, default_home: home, is_admin: scopes.includes('admin:read'), is_system: !custom, rank, description, user_count: users, active_user_count: users, can_assign: rank < 5 }
+}
+
+const adminScopes = ['chat:completion', 'embeddings:create', 'models:read', 'admin:read', 'admin:write', 'routing:read', 'routing:write', 'observability:read', 'costs:read', 'security:read', 'mcp:use', 'mcp:admin', 'team:read']
+
+const roleCatalog = {
+  roles: [
+    role('super_admin', adminScopes, '#/dataworks/home', 5, '최고 관리자 — 모든 권한', 1),
+    role('admin', adminScopes, '#/dataworks/home', 4, '관리자 — 전체 운영/설정', 2),
+    role('team_admin', ['chat:completion', 'embeddings:create', 'models:read', 'admin:read', 'routing:read', 'observability:read', 'costs:read', 'security:read', 'mcp:use', 'team:read'], '#/dataworks/home', 3, '팀 관리자 — 팀 단위 운영 조회 + 채팅', 3),
+    role('security_admin', ['admin:read', 'security:read'], '#/dataworks/risk', 3, '보안 관리자 — 보안 대시보드(정책위반·Secret·위험MCP·승인대기)', 1),
+    role('billing_admin', ['admin:read', 'costs:read', 'observability:read', 'models:read'], '#/dataworks/home', 3, '비용 관리자 — 비용 대시보드(비용센터·예산소진·모델전환)', 1),
+    role('developer', ['chat:completion', 'embeddings:create', 'models:read', 'routing:read', 'observability:read', 'costs:read', 'mcp:use'], '#/factory', 2, '개발자 — 채팅/임베딩/모델, 운영 화면 없음', 4),
+    role('viewer', ['models:read', 'admin:read', 'routing:read', 'observability:read', 'costs:read', 'security:read'], '#/dataworks/home', 1, '뷰어 — 운영 조회 전용', 2),
+    role('data_steward', ['admin:read', 'observability:read', 'costs:read', 'models:read'], '#/dataworks/home', 3, '데이터 스튜어드 — 자산 준비도와 증적 점검 전용', 2, true),
+  ],
+  all_scopes: adminScopes,
+}
+
+const adminUsers = {
+  auth_users: [
+    { id: 'usr-demo-admin', email: 'admin@dataworks.example', name: '데모 관리자', role: 'super_admin', status: 'active', team_id: 'demo-team', created_at: '2026-06-01T00:00:00Z' },
+    { id: 'usr-demo-steward', email: 'steward@dataworks.example', name: '데모 스튜어드', role: 'data_steward', status: 'active', team_id: 'demo-team', created_at: '2026-06-14T00:00:00Z' },
+    { id: 'usr-demo-legal', email: 'legal@dataworks.example', name: '데모 법무', role: 'viewer', status: 'active', team_id: 'demo-governance', created_at: '2026-07-02T00:00:00Z' },
+    { id: 'usr-demo-dev', email: 'dev@dataworks.example', name: '데모 개발자', role: 'developer', status: 'active', team_id: 'demo-platform', created_at: '2026-07-20T00:00:00Z' },
+  ],
+}
+
 const keycloak = {
   enabled: true, issuer_url: 'https://sso.example.invalid/realms/dataworks', client_id: 'dataworks-demo', client_secret_set: true,
   redirect_uri: 'https://dataworks.example.invalid/auth/keycloak/callback', scopes: ['openid', 'profile', 'email'], default_role: 'developer', role_claim: 'realm_access.roles', group_claim: 'groups', allow_local_login: true,
@@ -240,6 +270,8 @@ export async function installDemoRoutes(page: Page) {
     if (path === '/admin/providers' && method === 'GET') { await json(route, providers); return }
     if (path === '/admin/settings/effective' && method === 'GET') { await json(route, { settings }); return }
     if (path === '/admin/sso/keycloak/config' && method === 'GET') { await json(route, keycloak); return }
+    if (path === '/admin/roles' && method === 'GET') { await json(route, roleCatalog); return }
+    if (path === '/admin/users' && method === 'GET') { await json(route, adminUsers); return }
     if (path === '/v1/chat/completions' && method === 'POST') {
       await route.fulfill({
         status: 200,
