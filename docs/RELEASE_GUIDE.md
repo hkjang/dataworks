@@ -139,7 +139,7 @@ PostgreSQL 호스트는 폐쇄망 내에서 접근 가능해야 합니다. `ENCR
 
 ### Docker Compose로 실행
 
-저장소의 `docker-compose.yml`은 현재 오프라인 릴리즈 이미지 `dataworks:v0.9.52`에 고정되어 있습니다. `dataworks-v0.9.52.tar.gz`를 적재한 뒤 `.env`에는 다음 네 필수 항목만 설정합니다. `GATEWAY_VERSION` 같은 별도 이미지 태그 환경변수는 사용하지 않습니다.
+저장소의 `docker-compose.yml`은 현재 오프라인 릴리즈 이미지 `dataworks:v0.9.53`에 고정되어 있습니다. `dataworks-v0.9.53.tar.gz`를 적재한 뒤 `.env`에는 다음 네 필수 항목만 설정합니다. `GATEWAY_VERSION` 같은 별도 이미지 태그 환경변수는 사용하지 않습니다.
 
 ```dotenv
 POSTGRES_DSN=postgres://dataworks:change-me@postgres.internal:5432/dataworks?sslmode=require
@@ -152,7 +152,7 @@ ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 ```bash
 docker compose config --images
-# dataworks:v0.9.52
+# dataworks:v0.9.53
 docker compose up -d
 ```
 
