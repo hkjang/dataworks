@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"dataworks/internal/store"
 )
 
 // ── OIDC discovery + JWKS caches (process-wide; single issuer expected) ──────────
@@ -312,6 +314,8 @@ func oidcGetJSON(ctx context.Context, url string, out any) error {
 type oidcFlowState struct {
 	nonce    string
 	verifier string
+	silent   bool   // prompt=none attempt: a login_required answer is not a failure
+	returnTo string // in-app path to land on after login ("" = role default)
 	created  time.Time
 }
 
@@ -347,11 +351,13 @@ func takeFlowState(state string) (oidcFlowState, bool) {
 
 // saveOIDCFlow persists the login-flow state in the DB (durable across restarts and shared across
 // instances) and mirrors it in the in-memory map as a fallback for the single-instance/no-DB case.
-func (s *Server) saveOIDCFlow(ctx context.Context, state, nonce, verifier string) {
+func (s *Server) saveOIDCFlow(ctx context.Context, state string, fs oidcFlowState) {
 	now := time.Now()
-	storeFlowState(state, oidcFlowState{nonce: nonce, verifier: verifier, created: now})
+	fs.created = now
+	storeFlowState(state, fs)
 	if s.db != nil {
-		if err := s.db.SaveOIDCFlowState(ctx, state, nonce, verifier, now.UTC()); err != nil {
+		rec := store.OIDCFlowState{Nonce: fs.nonce, Verifier: fs.verifier, Silent: fs.silent, ReturnTo: fs.returnTo}
+		if err := s.db.SaveOIDCFlowState(ctx, state, rec, now.UTC()); err != nil {
 			slog.Warn("persist oidc flow state failed; relying on in-memory state", "error", err)
 		}
 	}
@@ -362,11 +368,11 @@ func (s *Server) saveOIDCFlow(ctx context.Context, state, nonce, verifier string
 // write had failed).
 func (s *Server) takeOIDCFlow(ctx context.Context, state string) (oidcFlowState, bool) {
 	if s.db != nil {
-		if nonce, verifier, found, err := s.db.TakeOIDCFlowState(ctx, state); err != nil {
+		if rec, found, err := s.db.TakeOIDCFlowState(ctx, state); err != nil {
 			slog.Warn("read oidc flow state failed; falling back to in-memory", "error", err)
 		} else if found {
 			_, _ = takeFlowState(state) // clear any mirrored in-memory copy
-			return oidcFlowState{nonce: nonce, verifier: verifier, created: time.Now()}, true
+			return oidcFlowState{nonce: rec.Nonce, verifier: rec.Verifier, silent: rec.Silent, returnTo: rec.ReturnTo, created: time.Now()}, true
 		}
 	}
 	return takeFlowState(state)

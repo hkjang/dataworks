@@ -268,6 +268,7 @@ func buildSettingRegistry() []settingDef {
 		{Key: "env.sso_keycloak_role_claim", Category: "env.sso", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Keycloak.RoleClaim }},
 		{Key: "env.sso_keycloak_group_claim", Category: "env.sso", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Keycloak.GroupClaim }},
 		{Key: "env.sso_keycloak_allow_local_login", Category: "env.sso", Type: stBool, ReadOnly: true, envValue: func(c config.Config) string { return strconv.FormatBool(c.Keycloak.AllowLocalLogin) }},
+		{Key: "env.sso_keycloak_auto_login", Category: "env.sso", Type: stBool, ReadOnly: true, envValue: func(c config.Config) string { return strconv.FormatBool(c.Keycloak.AutoLogin) }},
 	}
 }
 

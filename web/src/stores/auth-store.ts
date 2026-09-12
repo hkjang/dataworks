@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { authStorage } from '@/api/client'
+import { beginSilentSSO, clearSilentSSOState, markSignedOut, shouldAttemptSilentSSO, stripSSOMarker, type SilentSSOStatus } from '@/features/auth/silent-sso'
 
 export interface AuthUser {
   id?: string
@@ -93,15 +94,23 @@ async function getMe() {
   })
 }
 
-async function getPublicVersion() {
+type PublicSSOStatus = SilentSSOStatus & { version?: string }
+
+async function getPublicStatus(): Promise<PublicSSOStatus> {
   try {
     const response = await fetch('/auth/sso/status')
-    if (!response.ok) return ''
-    const status = (await response.json()) as { version?: string }
-    return status.version ?? ''
+    if (!response.ok) return {}
+    return (await response.json()) as PublicSSOStatus
   } catch {
-    return ''
+    return {}
   }
+}
+
+// A session now exists: forget the once-per-tab silent attempt and the signed-out
+// suppression, and drop the ?sso=none marker the callback may have left in the address.
+function sessionEstablished() {
+  clearSilentSSOState()
+  stripSSOMarker()
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -122,6 +131,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         if (!me.auth_enabled) authStorage.clearJWT()
         if (me.user) sessionStorage.setItem('authUser', JSON.stringify(me.user))
+        if (me.auth_enabled) sessionEstablished()
         set({
           mode: me.auth_enabled ? 'jwt' : 'legacy',
           user: me.auth_enabled ? (me.user ?? get().user) : null,
@@ -131,10 +141,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
       authStorage.clearJWT()
-      set({ mode: 'unauthenticated', user: null, version: await getPublicVersion(), ssoError })
     } catch {
-      set({ mode: 'unauthenticated', user: null, version: await getPublicVersion(), ssoError })
+      /* fall through: no session */
     }
+    const status = await getPublicStatus()
+    if (shouldAttemptSilentSSO(status, window.location, ssoError)) {
+      // Leave the "checking" loader up: the browser is about to navigate to the provider and
+      // drawing the login screen first would only flash it.
+      beginSilentSSO(status.login_url ?? '/auth/keycloak/login', window.location.pathname + window.location.search)
+      return
+    }
+    set({ mode: 'unauthenticated', user: null, version: status.version ?? '', ssoError })
   },
   login: async (email, password) => {
     const response = await fetch('/auth/login', {
@@ -156,6 +173,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       version = me.version ?? version
     }
     if (user) sessionStorage.setItem('authUser', JSON.stringify(user))
+    sessionEstablished()
     set({ mode: 'jwt', user, version, ssoError: '' })
   },
   logout: async () => {
@@ -171,6 +189,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         body: JSON.stringify({ refresh_token: refresh }),
       })
     } finally {
+      // A deliberate sign-out must not be undone by the next page load's silent attempt.
+      markSignedOut()
       authStorage.clearJWT()
       set({ mode: 'unauthenticated', user: null })
     }
