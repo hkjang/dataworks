@@ -97,6 +97,35 @@ export interface RuntimeSetting {
   can_write: boolean
 }
 
+export interface TrackingStatus {
+  enabled: boolean
+  provider: string
+  providers: string[]
+  placement: string
+  include_admin: boolean
+  active: boolean
+  active_admin: boolean
+  problem: string
+  momento_proxy: boolean
+  proxy_path: string
+  proxy_target: string
+  script_sources: string[]
+  connect_sources: string[]
+  image_sources: string[]
+  report_path: string
+  snippet: string
+}
+
+export interface TrackingViolation {
+  origin: string
+  directive: string
+  page: string
+  count: number
+  first_seen: string
+  last_seen: string
+  allowed: boolean
+}
+
 export interface ProviderConfig {
   name: string
   base_url: string
@@ -153,6 +182,11 @@ export const platformApi = {
   saveSetting: (key: string, value: string) =>
     apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value, reason: 'React 관리자 설정' }) }),
   revertSetting: (key: string) => apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'DELETE' }),
+  trackingStatus: () => apiRequest<TrackingStatus>('/admin/tracking/status'),
+  trackingViolations: () => apiRequest<{ items: TrackingViolation[] }>('/admin/tracking/violations'),
+  clearTrackingViolations: () => apiRequest<void>('/admin/tracking/violations', { method: 'DELETE' }),
+  allowTrackingOrigin: (origin: string) =>
+    apiRequest<{ key: string; value: string; items: TrackingViolation[] }>('/admin/tracking/violations/allow', { method: 'POST', body: JSON.stringify({ origin }) }),
   providers: () => apiRequest<{ providers: ProviderConfig[] }>('/admin/providers'),
   saveProvider: (payload: Record<string, unknown>) =>
     apiRequest<{ provider: ProviderConfig }>('/admin/providers', { method: 'POST', body: JSON.stringify(payload) }),

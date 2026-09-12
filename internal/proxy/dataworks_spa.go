@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	dataworksweb "dataworks/web"
 )
@@ -24,10 +25,20 @@ func dataWorksSPAAssets() fs.FS {
 type spaHandler struct {
 	files  fs.FS
 	prefix string
+	// page, when set, decorates every index.html response: it owns the page
+	// policy header and the tracking snippet. Static assets never go through it.
+	page func(w http.ResponseWriter, r *http.Request, page []byte) []byte
 }
 
-func newSPAHandler(files fs.FS, prefix string) http.Handler {
+func newSPAHandler(files fs.FS, prefix string) *spaHandler {
 	return &spaHandler{files: files, prefix: prefix}
+}
+
+// withPage installs the index.html decorator and returns the handler for
+// chaining at the registration site.
+func (h *spaHandler) withPage(page func(w http.ResponseWriter, r *http.Request, page []byte) []byte) *spaHandler {
+	h.page = page
+	return h
 }
 
 func (h *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +147,19 @@ func (h *spaHandler) serveFile(w http.ResponseWriter, r *http.Request, name stri
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if index {
 		w.Header().Set("Cache-Control", "no-cache")
+		if h.page != nil {
+			// The shell is tiny and served no-cache, so it is read and
+			// rewritten per request rather than cached a second time. The
+			// zero modification time disables conditional replies: a 304
+			// would pair the browser's cached body with a fresh nonce.
+			content, err := io.ReadAll(file)
+			if err != nil {
+				http.Error(w, "Data Works UI asset is unavailable", http.StatusInternalServerError)
+				return
+			}
+			http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(h.page(w, r, content)))
+			return
+		}
 	} else if strings.HasPrefix(name, "assets/") {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {
