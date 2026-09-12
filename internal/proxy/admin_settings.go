@@ -17,6 +17,7 @@ import (
 	"dataworks/internal/audit"
 	"dataworks/internal/config"
 	"dataworks/internal/store"
+	"dataworks/internal/tracking"
 )
 
 // openTransientSQLDB opens a short-lived DB connection (for connection tests), applying the
@@ -230,6 +231,21 @@ func buildSettingRegistry() []settingDef {
 		{Key: "logging.raw_bodies", Category: "logging", Type: stBool, envValue: func(c config.Config) string { return strconv.FormatBool(c.Logging.RawBodies) }},
 		{Key: "logging.response_max_bytes", Category: "logging", Type: stInt, validate: posInt, envValue: func(c config.Config) string { return strconv.Itoa(c.Logging.ResponseMaxBytes) }},
 
+		// ---- Tracking (visitor tracking snippet; stored only, no env var — off by default) ----
+		{Key: "tracking.enabled", Category: "tracking", Type: stBool, envValue: func(config.Config) string { return "false" }},
+		{Key: "tracking.provider", Category: "tracking", Type: stString, validate: trackingProvider, envValue: func(config.Config) string { return tracking.ProviderNone }},
+		{Key: "tracking.momento_url", Category: "tracking", Type: stString, validate: trackingHTTPURL, envValue: func(config.Config) string { return "" }},
+		{Key: "tracking.momento_site_id", Category: "tracking", Type: stString, envValue: func(config.Config) string { return "" }},
+		{Key: "tracking.momento_proxy", Category: "tracking", Type: stBool, envValue: func(config.Config) string { return "true" }},
+		{Key: "tracking.momento_environment", Category: "tracking", Type: stString, envValue: func(config.Config) string { return "prd" }},
+		{Key: "tracking.measurement_id", Category: "tracking", Type: stString, envValue: func(config.Config) string { return "" }},
+		{Key: "tracking.matomo_url", Category: "tracking", Type: stString, validate: trackingHTTPURL, envValue: func(config.Config) string { return "" }},
+		{Key: "tracking.matomo_site_id", Category: "tracking", Type: stString, envValue: func(config.Config) string { return "" }},
+		{Key: "tracking.custom_snippet", Category: "tracking", Type: stString, validate: trackingSnippet, envValue: func(config.Config) string { return "" }},
+		{Key: "tracking.allowed_hosts", Category: "tracking", Type: stCSV, validate: trackingAllowedHosts, envValue: func(config.Config) string { return "" }},
+		{Key: "tracking.include_admin", Category: "tracking", Type: stBool, envValue: func(config.Config) string { return "false" }},
+		{Key: "tracking.placement", Category: "tracking", Type: stString, validate: trackingPlacement, envValue: func(config.Config) string { return tracking.PlacementHead }},
+
 		// ---- Env (read-only view of startup environment variables) ----
 		{Key: "env.upstream_base_url", Category: "env", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Upstream.BaseURL }},
 		{Key: "env.upstream_provider", Category: "env", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Upstream.Provider }},
@@ -253,6 +269,56 @@ func buildSettingRegistry() []settingDef {
 		{Key: "env.sso_keycloak_group_claim", Category: "env.sso", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Keycloak.GroupClaim }},
 		{Key: "env.sso_keycloak_allow_local_login", Category: "env.sso", Type: stBool, ReadOnly: true, envValue: func(c config.Config) string { return strconv.FormatBool(c.Keycloak.AllowLocalLogin) }},
 	}
+}
+
+// trackingProvider validates tracking.provider against the supported providers.
+func trackingProvider(v string) error {
+	if !tracking.ValidProvider(v) {
+		return fmt.Errorf("must be one of %s", strings.Join(tracking.Providers, ", "))
+	}
+	return nil
+}
+
+// trackingHTTPURL validates a collector address: empty (unset) or an absolute http(s) URL.
+func trackingHTTPURL(v string) error {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return nil
+	}
+	parsed, err := url.Parse(v)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return fmt.Errorf("must be an absolute http(s) URL such as https://momento.internal")
+	}
+	return nil
+}
+
+// trackingSnippet bounds a pasted snippet; anything larger is not a tracker loader.
+func trackingSnippet(v string) error {
+	if len(v) > tracking.MaxSnippetBytes {
+		return fmt.Errorf("snippet must be at most %d bytes", tracking.MaxSnippetBytes)
+	}
+	return nil
+}
+
+// trackingAllowedHosts validates every entry as a policy source: an http(s) origin,
+// optionally with a *. wildcard host, and never anything a policy could misread.
+func trackingAllowedHosts(v string) error {
+	for _, host := range tracking.SplitHosts(v) {
+		lower := strings.ToLower(host)
+		if !(strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")) || strings.ContainsAny(host, ";'\"") {
+			return fmt.Errorf("%q must be an http(s) origin such as https://collector.internal", host)
+		}
+	}
+	return nil
+}
+
+// trackingPlacement validates tracking.placement.
+func trackingPlacement(v string) error {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case tracking.PlacementHead, tracking.PlacementBody:
+		return nil
+	}
+	return fmt.Errorf("must be head or body")
 }
 
 // skillEnforceMode validates the Skill enforcement mode setting.
@@ -363,6 +429,20 @@ var settingDescriptions = map[string]string{
 	"logging.raw_prompts":        "프롬프트 원문 캡처 여부(LOG_RAW_PROMPTS). true면 content_text(원문)도 별도 저장. false면 redacted_text(리덕션)만 보관.",
 	"logging.raw_bodies":         "요청·응답 원시 바디 캡처 여부(LOG_RAW_BODIES). true면 raw_request/raw_response 컬럼에 전체 바이트 저장. 디버그 목적. 저장 공간 주의.",
 	"logging.response_max_bytes": "응답 캡처 최대 바이트(LOG_RESPONSE_MAX_BYTES). 초과 분 잘림. 기본 1MB.",
+
+	"tracking.enabled":             "방문 추적 스크립트 삽입 여부. 기본 꺼짐. 켜면 화면(React 워크벤치, 레거시 콘솔)에 provider 스니펫이 요청마다 nonce 를 달고 들어갑니다.",
+	"tracking.provider":            "추적 도구: none · momento(사내 수집기, 권장) · ga4 · gtm · matomo · custom(스니펫 붙여넣기).",
+	"tracking.momento_url":         "Momento 수집기 주소(예: https://momento.internal). tracker.js 와 수집 엔드포인트의 기준 URL.",
+	"tracking.momento_site_id":     "Momento 사이트 id(data-site-id).",
+	"tracking.momento_proxy":       "같은 오리진 프록시 사용(기본 켜짐). /momento/* 를 수집기로 넘겨 CSP 에 외부 출처가 등장하지 않게 합니다.",
+	"tracking.momento_environment": "Momento data-environment 값(prd · stg · dev 등). 기본 prd.",
+	"tracking.measurement_id":      "GA4 측정 ID(G-…) 또는 GTM 컨테이너 ID(GTM-…).",
+	"tracking.matomo_url":          "Matomo 주소(예: https://matomo.internal).",
+	"tracking.matomo_site_id":      "Matomo 사이트 id.",
+	"tracking.custom_snippet":      "provider=custom 일 때 붙여넣는 스니펫(최대 8KB). 안의 http(s) 출처를 읽어 CSP 에 자동 추가합니다.",
+	"tracking.allowed_hosts":       "스니펫에서 자동으로 읽지 못한 출처를 더하는 자리(쉼표 구분, https://host 형태). '차단된 출처' 목록에서 한 번에 추가할 수 있습니다.",
+	"tracking.include_admin":       "관리 화면(/admin, /dataworks/settings)에서도 추적할지. 기본 아니오.",
+	"tracking.placement":           "스니펫 위치: head 또는 body.",
 	// Env (read-only)
 	"env.upstream_base_url": "업스트림 엔드포인트 URL(UPSTREAM_BASE_URL). 변경하려면 컨테이너 환경변수를 수정 후 재시작.",
 	"env.upstream_provider": "업스트림 프로바이더 이름(UPSTREAM_PROVIDER). 변경하려면 환경변수 수정 후 재시작.",
@@ -578,6 +658,8 @@ func (s *Server) reloadRuntimeConfig(ctx context.Context) {
 	s.aiRuntime.Store(&ai)
 	s.loggingRuntime.Store(&logging)
 	s.mcpRuntime.Store(&mcp)
+	trackingConfig := s.trackingConfigFrom(stored)
+	s.trackRuntime.Store(&trackingConfig)
 	audit.SetFallbackPriceModel(pricing.FallbackModel) // apply the runtime fallback model
 	// Apply retention changes to the running worker (day thresholds next run; interval recreates the ticker).
 	if s.retention != nil && prevRet != ret {

@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, CheckCircle2, DatabaseZap, KeyRound, LoaderCircle, LockKeyhole, RotateCcw, Save, ShieldCheck, TestTube2 } from 'lucide-react'
+import { Activity, Bot, CheckCircle2, DatabaseZap, KeyRound, LoaderCircle, LockKeyhole, RotateCcw, Save, ShieldCheck, TestTube2, Trash2 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 
-import { platformApi, type KeycloakConfig, type ProviderConfig, type RuntimeSetting } from '@/api/platform'
+import { platformApi, type KeycloakConfig, type ProviderConfig, type RuntimeSetting, type TrackingViolation } from '@/api/platform'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -12,14 +12,19 @@ import { formatDate } from '@/lib/utils'
 import { canManageDataWorksSettings, useAuthStore } from '@/stores/auth-store'
 import { RoleManagement } from './role-management'
 
-type SettingsTab = 'ai' | 'sso' | 'roles' | 'runtime'
+type SettingsTab = 'ai' | 'sso' | 'roles' | 'tracking' | 'runtime'
 
 const tabItems: Array<{ key: SettingsTab; label: string; description: string }> = [
   { key: 'ai', label: 'AI 및 MCP', description: '공급자·스트리밍·토큰' },
   { key: 'sso', label: 'Keycloak SSO', description: 'OIDC 로그인 연동' },
   { key: 'roles', label: '역할 및 권한', description: 'RBAC 설계·사용자 할당' },
+  { key: 'tracking', label: '방문 추적', description: '추적 스크립트·CSP' },
   { key: 'runtime', label: '전체 설정', description: '런타임 설정 관리' },
 ]
+
+// The order administrators fill the form in: turn it on last, after the
+// provider and its address are saved, so a half-filled setup never goes live.
+const trackingKeys = ['tracking.provider', 'tracking.momento_url', 'tracking.momento_site_id', 'tracking.momento_proxy', 'tracking.momento_environment', 'tracking.measurement_id', 'tracking.matomo_url', 'tracking.matomo_site_id', 'tracking.custom_snippet', 'tracking.allowed_hosts', 'tracking.placement', 'tracking.include_admin', 'tracking.enabled']
 
 export function SettingsPage() {
   const [tab, setTab] = useState<SettingsTab>('ai')
@@ -30,10 +35,10 @@ export function SettingsPage() {
   return (
     <div>
       <PageHeader eyebrow="서비스 관리 · 관리자" title="관리자 설정" description="AI, 인증, 역할, MCP와 운영 정책을 환경변수 추가 없이 안전하게 적용합니다." actions={<Badge tone="info">서비스 {version || '버전 확인 중'}</Badge>} />
-      <div className="mb-5 grid gap-2 md:grid-cols-4" role="tablist" aria-label="설정 영역">
+      <div className="mb-5 grid gap-2 md:grid-cols-5" role="tablist" aria-label="설정 영역">
         {tabItems.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={`settings-tab ${tab === item.key ? 'is-active' : ''}`} onClick={() => setTab(item.key)}><strong>{item.label}</strong><span>{item.description}</span></button>)}
       </div>
-      {tab === 'ai' ? <AISettings /> : tab === 'sso' ? <KeycloakSettings /> : tab === 'roles' ? <RoleManagement /> : <RuntimeSettings />}
+      {tab === 'ai' ? <AISettings /> : tab === 'sso' ? <KeycloakSettings /> : tab === 'roles' ? <RoleManagement /> : tab === 'tracking' ? <TrackingSettings /> : <RuntimeSettings />}
     </div>
   )
 }
@@ -147,6 +152,73 @@ function KeycloakSettingsEditor({ current }: { current: KeycloakConfig }) {
       <div className="space-y-5">
         <Card><CardContent><p className="text-xs font-bold text-[var(--muted)]">현재 상태</p><div className="mt-3 flex items-center justify-between"><StatusBadge status={current.enabled ? 'active' : 'inactive'} /><Badge>{current.source === 'db' ? '관리자 설정' : '초기 설정'}</Badge></div><dl className="mt-5 space-y-3 text-xs"><Info label="Client Secret" value={current.client_secret_set ? '암호화 저장됨' : '미설정'} /><Info label="역할 매핑" value={`${Object.keys(current.role_map ?? {}).length}개`} /><Info label="마지막 수정" value={current.updated_at ? formatDate(current.updated_at) : '없음'} /></dl></CardContent></Card>
         {testResult ? <Card className={testResult.ok ? 'border-[var(--success)]' : 'border-[var(--danger)]'}><CardContent><div className="flex items-center gap-2">{testResult.ok ? <CheckCircle2 className="size-5 text-[var(--success)]" /> : <ShieldCheck className="size-5 text-[var(--danger)]" />}<p className="font-bold text-[var(--ink)]">{testResult.ok ? 'OIDC 연결 정상' : '연결 점검 필요'}</p></div><p className="mt-3 break-words text-xs leading-5 text-[var(--muted)]">{testResult.ok ? `${testResult.issuer} · RSA 키 ${testResult.rsa_signing_keys ?? 0}개` : testResult.reason}</p></CardContent></Card> : null}
+      </div>
+    </div>
+  )
+}
+
+function TrackingSettings() {
+  const queryClient = useQueryClient()
+  const settings = useQuery({ queryKey: ['admin', 'settings'], queryFn: platformApi.settings, staleTime: 15_000 })
+  const status = useQuery({ queryKey: ['admin', 'tracking', 'status'], queryFn: platformApi.trackingStatus, staleTime: 5_000 })
+  const violations = useQuery({ queryKey: ['admin', 'tracking', 'violations'], queryFn: platformApi.trackingViolations, staleTime: 5_000, refetchInterval: 15_000 })
+  const refreshTracking = () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'tracking'] }); void queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] }) }
+  const allow = useMutation({ mutationFn: platformApi.allowTrackingOrigin, onSuccess: refreshTracking })
+  const clear = useMutation({ mutationFn: platformApi.clearTrackingViolations, onSuccess: refreshTracking })
+
+  if (settings.isPending || status.isPending) return <PageLoader label="방문 추적 설정을 불러오는 중" />
+  const error = settings.error || status.error
+  if (error) return <ErrorState error={error} retry={() => { void settings.refetch(); void status.refetch() }} />
+  const current = status.data
+  const provider = current.provider
+  const visible = (key: string) => {
+    if (key.startsWith('tracking.momento_')) return provider === 'momento'
+    if (key === 'tracking.measurement_id') return provider === 'ga4' || provider === 'gtm'
+    if (key.startsWith('tracking.matomo_')) return provider === 'matomo'
+    if (key === 'tracking.custom_snippet') return provider === 'custom'
+    return true
+  }
+  const rows = trackingKeys.map((key) => settings.data.settings.find((item) => item.key === key)).filter((item): item is RuntimeSetting => Boolean(item) && visible(item!.key))
+  const items: TrackingViolation[] = violations.data?.items ?? []
+  const sources = Array.from(new Set([...current.script_sources, ...current.connect_sources, ...current.image_sources]))
+  const state = !current.enabled ? '꺼짐' : current.problem ? '설정 미완료' : current.active ? '추적 중' : '비활성'
+  const tone = !current.enabled ? 'inactive' : current.problem ? 'pending' : 'active'
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,.8fr)]">
+      <Card>
+        <CardHeader><div><h2 className="text-base font-bold text-[var(--ink)]">추적 스크립트</h2><p className="mt-1 text-xs text-[var(--muted)]">provider 를 고르고 주소를 저장한 뒤 마지막에 켭니다. 스니펫은 요청마다 nonce 를 달고 들어가므로 CSP 를 느슨하게 풀지 않습니다.</p></div><Activity className="size-5 text-[var(--accent)]" /></CardHeader>
+        <CardContent className="space-y-3">
+          {rows.map((setting) => <QuickSetting key={`${setting.key}:${setting.source}:${setting.value}`} setting={setting} />)}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-5">
+        <Card>
+          <CardContent>
+            <p className="text-xs font-bold text-[var(--muted)]">현재 상태</p>
+            <div className="mt-3 flex items-center justify-between"><StatusBadge status={tone} /><Badge>{state}</Badge></div>
+            <dl className="mt-5 space-y-3 text-xs">
+              <Info label="provider" value={provider} />
+              <Info label="관리 화면 포함" value={current.include_admin ? '예' : '아니오'} />
+              <Info label="삽입 위치" value={current.placement} />
+              {provider === 'momento' ? <Info label="같은 오리진 프록시" value={current.momento_proxy ? `${current.proxy_path}/* → ${current.proxy_target}` : '사용 안 함'} /> : null}
+            </dl>
+            {current.problem ? <p className="field-error mt-4">{current.problem}</p> : null}
+            {sources.length ? <div className="mt-4"><p className="text-xs font-bold text-[var(--muted)]">CSP 에 더해지는 출처</p><ul className="mt-2 space-y-1 text-xs">{sources.map((source) => <li key={source}><code>{source}</code></li>)}</ul></div> : current.active ? <p className="mt-4 text-xs text-[var(--muted)]">외부 출처가 정책에 등장하지 않습니다.</p> : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><div><h2 className="text-base font-bold text-[var(--ink)]">차단된 출처</h2><p className="mt-1 text-xs text-[var(--muted)]">추적이 켜진 동안 브라우저가 정책 위반으로 신고한 주소입니다. 허용을 누르면 <code>tracking.allowed_hosts</code> 에 추가됩니다.</p></div><Button size="sm" variant="secondary" aria-label="차단 기록 지우기" disabled={clear.isPending || !items.length} onClick={() => clear.mutate()}><Trash2 className="size-3.5" /></Button></CardHeader>
+          <CardContent>
+            {!items.length ? <p className="text-sm text-[var(--muted)]">{current.active ? '차단된 출처가 없습니다.' : '추적이 켜지면 정책 위반 신고가 여기에 모입니다.'}</p> : null}
+            <ul className="divide-y divide-[var(--line)]">
+              {items.map((item) => <li key={`${item.directive}:${item.origin}`} className="flex items-center justify-between gap-3 py-2 text-xs"><div className="min-w-0"><code className="break-all">{item.origin}</code><p className="mt-1 text-[var(--muted)]">{item.directive} · {item.count}회 · {formatDate(item.last_seen)}</p></div>{item.allowed ? <Badge tone="success">허용됨</Badge> : <Button size="sm" variant="accent" disabled={allow.isPending} onClick={() => allow.mutate(item.origin)}>허용</Button>}</li>)}
+            </ul>
+            {allow.error || clear.error ? <p className="field-error mt-3">{(allow.error || clear.error)?.message}</p> : null}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

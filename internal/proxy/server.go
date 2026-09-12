@@ -28,6 +28,7 @@ import (
 	"dataworks/internal/config"
 	"dataworks/internal/secret"
 	"dataworks/internal/store"
+	"dataworks/internal/tracking"
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
@@ -82,8 +83,10 @@ type Server struct {
 	extSeen        sync.Map // external key id -> struct{}; dedupes lazy registration
 	mcpConns       sync.Map // upstream id -> *mcpUpstreamConn (MCP gateway session state)
 	mcpTools       atomic.Pointer[mcpToolsSnapshot]
-	lastReloadNano atomic.Int64           // unix nanos of this pod's last runtime-config reload (convergence observability)
-	lastReloadTok  atomic.Pointer[string] // admin_settings change token this pod last applied
+	lastReloadNano atomic.Int64                    // unix nanos of this pod's last runtime-config reload (convergence observability)
+	lastReloadTok  atomic.Pointer[string]          // admin_settings change token this pod last applied
+	trackRuntime   atomic.Pointer[tracking.Config] // admin-settings visitor tracking (tracking.*); nil = off
+	trackReports   *tracking.Recorder              // origins the page policy blocked while tracking was on
 }
 
 func (s *Server) AttachAlertWorker(worker *AlertWorker) {
@@ -125,6 +128,7 @@ func NewServer(cfg config.Config, db *store.SQLStore, logger *store.AsyncLogger,
 		sessions:  newSessionInferer(cfg.Session.IdleTimeout),
 		dwCache:   newDWQueryCache(0),
 	}
+	server.trackReports = tracking.NewRecorder()
 	server.secrets.Store(secrets)
 
 	// Build the runtime config snapshot (env defaults overlaid with admin settings)
@@ -207,7 +211,12 @@ func (s *Server) MetricsHandle() *Metrics { return s.metrics }
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(strings.TrimSuffix(dataWorksSPAPrefix, "/"), handleDataWorksSPARoot)
-	mux.Handle(dataWorksSPAPrefix, newSPAHandler(dataWorksSPAAssets(), dataWorksSPAPrefix))
+	mux.Handle(dataWorksSPAPrefix, newSPAHandler(dataWorksSPAAssets(), dataWorksSPAPrefix).withPage(s.decorateSPAPage))
+	mux.HandleFunc("/tracking/csp-report", s.handleTrackingReport) // == trackingReportPath (literal so api-surface-audit sees it)
+	mux.HandleFunc("/momento/", s.handleMomentoProxy)
+	mux.HandleFunc("/admin/tracking/status", s.handleTrackingStatus)
+	mux.HandleFunc("/admin/tracking/violations", s.handleTrackingViolations)
+	mux.HandleFunc("/admin/tracking/violations/allow", s.handleTrackingAllow)
 	mux.HandleFunc("/favicon.ico", s.handleFavicon)
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/healthz", s.handleHealth)
@@ -757,7 +766,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/v1", s.handleOpenAI)
 	mux.HandleFunc("/v1/skills", s.handlePublicSkills)
 	mux.HandleFunc("/v1/skills/", s.handlePublicSkills)
-	return withTrace(mux)
+	return withTrace(withAPIPolicy(mux))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -1990,7 +1999,14 @@ func (s *Server) handleAdminUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(strings.ReplaceAll(adminHTML, "__APP_VERSION__", AppVersion)))
+	page := []byte(strings.ReplaceAll(adminHTML, "__APP_VERSION__", AppVersion))
+	// The legacy console is built from inline handlers, so it cannot carry the
+	// nonce policy the SPA gets; the snippet is still only injected when the
+	// administrator opted admin screens in.
+	if config := s.trackingConf(); config.Active(true) {
+		page = tracking.Inject(page, config.Snippet(""), config.Placement)
+	}
+	_, _ = w.Write(page)
 }
 
 func (s *Server) auditRequest(endpoint string, body []byte, apiKeyID string, traceID string, r *http.Request) store.LogRecord {
