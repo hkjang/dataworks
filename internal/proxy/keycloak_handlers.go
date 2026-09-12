@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,13 +19,20 @@ func (s *Server) handleSSOStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"keycloak_enabled":  kc.Enabled,
 		"allow_local_login": !kc.Enabled || kc.AllowLocalLogin,
-		"login_url":         "/auth/keycloak/login",
-		"version":           AppVersion,
+		// auto_login tells the browser whether to try a silent (prompt=none) sign-in before
+		// drawing the login screen. Published only when SSO itself is on.
+		"auto_login": kc.Enabled && kc.AutoLogin,
+		"login_url":  "/auth/keycloak/login",
+		"version":    AppVersion,
 	})
 }
 
 // handleKeycloakLogin starts the Authorization Code + PKCE flow and redirects to Keycloak.
-// GET /auth/keycloak/login
+// GET /auth/keycloak/login[?prompt=none][&return_to=/dataworks/...]
+//
+// prompt=none turns the request into a silent attempt (see keycloak_silent.go). It is honoured
+// only while the administrator has enabled auto_login; otherwise the parameter is dropped and
+// an ordinary interactive login starts, so nobody can change the flow by editing the address.
 func (s *Server) handleKeycloakLogin(w http.ResponseWriter, r *http.Request) {
 	kc := s.keycloakConfig()
 	if !kc.Enabled {
@@ -36,10 +44,14 @@ func (s *Server) handleKeycloakLogin(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, http.StatusBadGateway, "OIDC discovery failed: "+err.Error(), "server_error", "discovery_failed")
 		return
 	}
+	silent := r.URL.Query().Get("prompt") == "none" && kc.AutoLogin
 	state := randomURLSafe(24)
 	nonce := randomURLSafe(24)
 	verifier := randomURLSafe(48)
-	s.saveOIDCFlow(r.Context(), state, nonce, verifier)
+	s.saveOIDCFlow(r.Context(), state, oidcFlowState{
+		nonce: nonce, verifier: verifier, silent: silent,
+		returnTo: normalizeReturnTo(r.URL.Query().Get("return_to")),
+	})
 
 	q := url.Values{}
 	q.Set("client_id", kc.ClientID)
@@ -50,6 +62,9 @@ func (s *Server) handleKeycloakLogin(w http.ResponseWriter, r *http.Request) {
 	q.Set("nonce", nonce)
 	q.Set("code_challenge", pkceChallenge(verifier))
 	q.Set("code_challenge_method", "S256")
+	if silent {
+		q.Set("prompt", "none")
+	}
 	http.Redirect(w, r, disc.AuthorizationEndpoint+"?"+q.Encode(), http.StatusFound)
 }
 
@@ -67,12 +82,30 @@ func (s *Server) handleKeycloakCallback(w http.ResponseWriter, r *http.Request) 
 		s.auditAuthEvent(r.Context(), "sso_login_failed", "", "", "", "keycloak: "+reason)
 		http.Redirect(w, r, "/dataworks/#kc_error="+url.QueryEscape(reason), http.StatusFound)
 	}
+	state := r.URL.Query().Get("state")
 	if e := r.URL.Query().Get("error"); e != "" {
+		// The provider reports a refusal as an error parameter rather than a code. For a
+		// prompt=none attempt, login_required simply means "no session" — send the visitor to
+		// the login screen with the stop marker so the browser does not try again (that retry
+		// is the loop this whole feature guards against). The state is consumed either way so
+		// it cannot be replayed.
+		silent, returnTo := false, ""
+		if state != "" {
+			if fs, ok := s.takeOIDCFlow(r.Context(), state); ok {
+				silent, returnTo = fs.silent, fs.returnTo
+			}
+		}
+		if silent {
+			if !silentRefusalError(e) {
+				slog.Warn("silent sso attempt returned a non-refusal error", "error", e, "description", r.URL.Query().Get("error_description"))
+			}
+			http.Redirect(w, r, silentRefusalLocation(returnTo), http.StatusFound)
+			return
+		}
 		fail(e + ": " + r.URL.Query().Get("error_description"))
 		return
 	}
 	code := r.URL.Query().Get("code")
-	state := r.URL.Query().Get("state")
 	if code == "" || state == "" {
 		fail("missing code or state")
 		return
@@ -117,7 +150,13 @@ func (s *Server) handleKeycloakCallback(w http.ResponseWriter, r *http.Request) 
 	frag := url.Values{}
 	frag.Set("kc_access", access)
 	frag.Set("kc_refresh", refresh)
-	landing := dataWorksSSOLandingPath(s.effectiveScopesForRole(r.Context(), user.Role))
+	// A deep link that started the flow wins over the role default so a silently signed-in
+	// visitor lands where they were heading. return_to was validated when stored, but the
+	// in-memory fallback is re-checked here in case a stale row predates that rule.
+	landing := normalizeReturnTo(fs.returnTo)
+	if landing == "" {
+		landing = dataWorksSSOLandingPath(s.effectiveScopesForRole(r.Context(), user.Role))
+	}
 	http.Redirect(w, r, landing+"#"+frag.Encode(), http.StatusFound)
 }
 
@@ -446,6 +485,7 @@ func (s *Server) handleKeycloakConfig(w http.ResponseWriter, r *http.Request) {
 		"role_claim":        kc.RoleClaim,
 		"group_claim":       kc.GroupClaim,
 		"allow_local_login": kc.AllowLocalLogin,
+		"auto_login":        kc.AutoLogin,
 		"role_map":          s.effectiveKeycloakRoleMap(),
 		"role_map_default":  keycloakRoleMap,
 		"role_map_custom":   len(kc.RoleMap) > 0,
@@ -481,7 +521,8 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 		RoleClaim       string            `json:"role_claim"`
 		GroupClaim      string            `json:"group_claim"`
 		AllowLocalLogin bool              `json:"allow_local_login"`
-		RoleMap         map[string]string `json:"role_map"` // nil/omitted = keep existing; {} = reset to defaults
+		AutoLogin       bool              `json:"auto_login"` // silent prompt=none sign-in; omitted = off
+		RoleMap         map[string]string `json:"role_map"`   // nil/omitted = keep existing; {} = reset to defaults
 	}
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 		writeOpenAIError(w, http.StatusBadRequest, "invalid JSON body", "invalid_request_error", "bad_request")
@@ -520,6 +561,7 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 		RoleClaim:       strings.TrimSpace(p.RoleClaim),
 		GroupClaim:      strings.TrimSpace(p.GroupClaim),
 		AllowLocalLogin: p.AllowLocalLogin,
+		AutoLogin:       p.AutoLogin,
 		ClientSecretEnc: prev.ClientSecretEnc, // default: keep the existing encrypted secret
 		RoleMap:         prev.RoleMap,         // default: keep existing custom map
 	}
@@ -587,7 +629,7 @@ func (s *Server) handleKeycloakConfigSave(w http.ResponseWriter, r *http.Request
 	}
 	s.reloadKeycloakConfig(r.Context())
 	// Never log the secret/code; record only the actor + enabled state.
-	s.auditAuthEvent(r.Context(), "sso_config_updated", rec.UpdatedBy, "", "", "keycloak enabled="+boolStr(rec.Enabled)+" issuer="+rec.IssuerURL)
+	s.auditAuthEvent(r.Context(), "sso_config_updated", rec.UpdatedBy, "", "", "keycloak enabled="+boolStr(rec.Enabled)+" auto_login="+boolStr(rec.AutoLogin)+" issuer="+rec.IssuerURL)
 	w.WriteHeader(http.StatusNoContent)
 }
 

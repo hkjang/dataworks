@@ -219,9 +219,10 @@ HTTP 내부망 시험 환경에서는 실제 서비스 origin의 HTTP URI를 사
 3. Redirect URI가 서비스 공개 주소와 일치하는지 확인합니다.
 4. `Keycloak SSO 활성화`를 켭니다.
 5. 비상 접근 정책에 따라 `로컬 로그인 허용`을 선택합니다.
-6. `SSO 설정 저장`을 누릅니다.
-7. `연결 진단`에서 Issuer와 RSA 서명 키 발견을 확인합니다.
-8. 로그아웃 후 로그인 화면의 `Keycloak SSO로 계속`을 시험합니다.
+6. 필요하면 `자동 로그인 (Silent SSO)`을 켭니다. 기본값은 꺼짐이며 동작은 아래 [자동 로그인](#자동-로그인-silent-sso)에 있습니다.
+7. `SSO 설정 저장`을 누릅니다.
+8. `연결 진단`에서 Issuer와 RSA 서명 키 발견을 확인합니다.
+9. 로그아웃 후 로그인 화면의 `Keycloak SSO로 계속`을 시험합니다.
 
 Client Secret은 암호화 저장됩니다. 수정 화면에서 Secret을 비우면 기존 값을 유지합니다.
 
@@ -244,6 +245,33 @@ GET/PUT /admin/sso/keycloak/config
 POST    /admin/sso/keycloak/test
 GET     /auth/sso/status
 ```
+
+#### 자동 로그인 (Silent SSO)
+
+Keycloak에 이미 로그인한 사람이 Data Works를 열면 로그인 화면 없이 바로 본 화면으로 들어가게 하는 설정입니다. OIDC `prompt=none`을 쓰는 silent authentication으로, **기본값은 꺼짐**입니다. `자동 로그인 (Silent SSO)` 토글(설정 필드 `auto_login`, 환경 변수 초기값 `SSO_KEYCLOAK_AUTO_LOGIN`)로 켜고 끕니다.
+
+동작:
+
+1. 워크벤치(`/dataworks/*`)가 열렸는데 세션이 없으면 브라우저가 `GET /auth/sso/status`의 `auto_login`을 확인하고, 켜져 있으면 로그인 화면을 그리지 않은 채 `/auth/keycloak/login?prompt=none&return_to=<현재 경로>`로 **최상위 이동**합니다. 숨은 iframe을 쓰지 않으므로 서드파티 쿠키가 막힌 브라우저에서도 동작하고 Keycloak의 프레임 허용 여부와 무관합니다.
+2. Keycloak 세션이 있으면 인가 코드가 곧바로 돌아와 평소 로그인과 같은 흐름으로 이어지고, `return_to`에 실린 깊은 링크(예: `/dataworks/products/orders?tab=contracts`)로 돌아갑니다. `return_to`는 `/`로 시작하고 `//`로 시작하지 않는 같은 출처의 경로만 받으며, 세션 토큰이 화면에 전달되는 `/dataworks/*`·`/admin` 경로로 한정됩니다.
+3. Keycloak 세션이 없으면 `error=login_required`로 돌아옵니다. 이것은 실패가 아니라 "세션 없음"이라는 평범한 대답이므로 콜백은 오류를 보고하지 않고 원래 경로에 `?sso=none` 표시를 붙여 로그인 화면으로 보냅니다(예: `/dataworks/products/orders?sso=none&tab=contracts`). 이 화면에서 `Keycloak SSO로 계속`을 누르면 평범한 대화형 로그인이 시작되고 같은 깊은 링크로 돌아갑니다.
+
+무한 이동을 막는 장치는 세 겹입니다. 브라우저가 제공자와 앱 사이를 끝없이 오가며 화면이 깜빡이는 것을 막는 것이 이 기능의 핵심입니다.
+
+| 장치 | 위치 | 동작 |
+| --- | --- | --- |
+| 한 탭 세션에 한 번 | 브라우저 `sessionStorage` (`dataworks.sso.silentAttempted`) | 시도 직전에 표시를 남기고, 표시가 있으면 다시 시도하지 않습니다. `localStorage`가 아니므로 새 탭에서는 다시 시도하고, 거절 뒤 새로고침하면 시도하지 않습니다. 저장소를 읽지 못하면(사생활 보호 모드 등) "이미 시도했다"로 칩니다. |
+| 스스로 로그아웃하면 억제 | 브라우저 `sessionStorage` (`dataworks.sso.signedOut`) | 로그아웃 직후 자동으로 다시 로그인되면 로그아웃이 고장 난 것처럼 보이므로 억제하고, 세션이 다시 생기면 지웁니다. |
+| 거절을 주소에 남김 | 서버 콜백 → `?sso=none` | 브라우저 저장소가 지워졌더라도 주소의 표시가 있으면 다시 시도하지 않습니다. 세션이 생기면 주소에서 표시를 지웁니다. |
+
+서버는 `auto_login`이 꺼져 있으면 `?prompt=none`이 붙은 요청이 와도 조용히 평범한 로그인으로 바꿉니다. 리다이렉트가 생기는 자리가 관리자 설정에 묶여야 하므로 누구도 주소에 `prompt=none`을 붙여 흐름을 바꿀 수 없습니다. 콜백·로그인 경로(`/auth/*`)와 API·MCP·헬스 경로에서는 시도하지 않고 브라우저 워크벤치 화면에서만 시도합니다. 레거시 콘솔(`/admin`)은 자동 로그인을 시작하지 않으며 `return_to`의 착지 경로로만 쓸 수 있습니다.
+
+점검:
+
+- Keycloak에 로그인한 상태로 `/dataworks/`를 열면 로그인 화면 없이 관제실이 뜹니다.
+- 로그인하지 않은 상태로 열면 로그인 화면이 한 번 뜨고 주소에 `?sso=none`이 붙으며, 새로고침을 반복해도 이동이 되풀이되지 않습니다.
+- 로그아웃한 뒤 다시 열어도 자동으로 로그인되지 않습니다.
+- `auto_login`이 꺼진 기본 설치에서는 아무것도 달라지지 않습니다.
 
 ### 4.4 전체 런타임 설정
 
@@ -374,6 +402,7 @@ POST   /tracking/csp-report                # 브라우저 신고 수신(무인�
 | `SSO_KEYCLOAK_ROLE_CLAIM` | `realm_access.roles` | | 역할이 담긴 claim 경로. |
 | `SSO_KEYCLOAK_GROUP_CLAIM` | `groups` | | 그룹이 담긴 claim 이름. |
 | `SSO_KEYCLOAK_ALLOW_LOCAL_LOGIN` | `true` | | 로컬 이메일·비밀번호 로그인을 함께 허용할지 여부. 비상 접근 경로입니다. |
+| `SSO_KEYCLOAK_AUTO_LOGIN` | `false` | | Keycloak 세션이 있으면 로그인 화면 없이 자동 로그인(OIDC `prompt=none`). [4.3 자동 로그인](#자동-로그인-silent-sso) 참고. |
 
 #### 기본 업스트림 AI
 

@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
+import { interactiveSSOLoginURL } from '@/features/auth/silent-sso'
 import { useAuthStore } from '@/stores/auth-store'
 import { useUIStore } from '@/stores/ui-store'
 
@@ -130,7 +131,7 @@ function LoginScreen() {
             로그인 <ArrowRight className="ml-auto size-4" />
           </Button>
           {sso?.enabled ? (
-            <Button className="mt-3 w-full" size="lg" variant="secondary" type="button" onClick={() => { window.location.href = sso.url }}>
+            <Button className="mt-3 w-full" size="lg" variant="secondary" type="button" onClick={() => { window.location.href = interactiveSSOLoginURL(sso.url) }}>
               Keycloak SSO로 계속
             </Button>
           ) : null}

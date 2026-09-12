@@ -2247,6 +2247,12 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			updated_by TEXT NOT NULL DEFAULT ''
 		)`,
 		`ALTER TABLE sso_provider_config ADD COLUMN role_map TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE sso_provider_config ADD COLUMN auto_login INTEGER NOT NULL DEFAULT 0`,
+		// Silent SSO (prompt=none) carries two extra facts through the login flow: whether the
+		// attempt was silent (so a login_required refusal is routed to the login screen with the
+		// stop marker instead of being reported as a failure) and where to land afterwards.
+		`ALTER TABLE oidc_flow_states ADD COLUMN silent INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE oidc_flow_states ADD COLUMN return_to TEXT NOT NULL DEFAULT ''`,
 		`CREATE TABLE IF NOT EXISTS k8s_clusters (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,

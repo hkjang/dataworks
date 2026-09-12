@@ -76,6 +76,7 @@ export interface KeycloakConfig {
   role_claim: string
   group_claim: string
   allow_local_login: boolean
+  auto_login: boolean
   role_map: Record<string, string>
   source: string
   updated_at: string

@@ -31,6 +31,7 @@ func (s *Server) reloadKeycloakConfig(ctx context.Context) {
 		eff.RoleClaim = rec.RoleClaim
 		eff.GroupClaim = rec.GroupClaim
 		eff.AllowLocalLogin = rec.AllowLocalLogin
+		eff.AutoLogin = rec.AutoLogin
 		if len(rec.Scopes) > 0 {
 			eff.Scopes = rec.Scopes
 		}

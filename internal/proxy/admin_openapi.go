@@ -387,8 +387,8 @@ var apiEndpoints = []apiEndpoint{
 	{"/v1/model-tags", []string{"get"}, "models", "Model usage tags (purpose labels) for the caller", false},
 	{"/v1", []string{"get", "post"}, "openai", "OpenAI-compatible passthrough root (proxies other /v1/* paths upstream)", false},
 	// ---- Keycloak SSO / auth ----
-	{"/auth/sso/status", []string{"get"}, "auth", "Whether SSO is enabled + the login URL", true},
-	{"/auth/keycloak/login", []string{"get"}, "auth", "Start the Keycloak Authorization Code + PKCE login", true},
+	{"/auth/sso/status", []string{"get"}, "auth", "Whether SSO is enabled + the login URL + auto_login (silent SSO)", true},
+	{"/auth/keycloak/login", []string{"get"}, "auth", "Start the Keycloak Authorization Code + PKCE login (?prompt=none for silent SSO when auto_login is on, &return_to=/dataworks/...)", true},
 	{"/auth/keycloak/callback", []string{"get"}, "auth", "Keycloak login callback (code exchange)", true},
 	{"/auth/keycloak/logout", []string{"post"}, "auth", "Log out and return the Keycloak end-session URL", false},
 	{"/auth/keycloak/backchannel-logout", []string{"post"}, "auth", "OIDC back-channel logout (logout_token)", true},

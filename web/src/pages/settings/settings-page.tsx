@@ -107,7 +107,7 @@ function KeycloakSettings() {
 
 function KeycloakSettingsEditor({ current }: { current: KeycloakConfig }) {
   const queryClient = useQueryClient()
-  const [form, setForm] = useState(() => ({ enabled: current.enabled, issuer_url: current.issuer_url, client_id: current.client_id, client_secret: '', redirect_uri: current.redirect_uri || `${window.location.origin}/auth/keycloak/callback`, scopes: (current.scopes ?? ['openid', 'profile', 'email']).join(' '), default_role: current.default_role || 'developer', role_claim: current.role_claim || 'realm_access.roles', group_claim: current.group_claim || 'groups', role_map_json: JSON.stringify(current.role_map ?? {}, null, 2), allow_local_login: current.allow_local_login }))
+  const [form, setForm] = useState(() => ({ enabled: current.enabled, issuer_url: current.issuer_url, client_id: current.client_id, client_secret: '', redirect_uri: current.redirect_uri || `${window.location.origin}/auth/keycloak/callback`, scopes: (current.scopes ?? ['openid', 'profile', 'email']).join(' '), default_role: current.default_role || 'developer', role_claim: current.role_claim || 'realm_access.roles', group_claim: current.group_claim || 'groups', role_map_json: JSON.stringify(current.role_map ?? {}, null, 2), allow_local_login: current.allow_local_login, auto_login: Boolean(current.auto_login) }))
   const [testResult, setTestResult] = useState<{ ok: boolean; reason?: string; issuer?: string; rsa_signing_keys?: number } | null>(null)
   const save = useMutation({ mutationFn: () => {
     let roleMap: unknown
@@ -133,6 +133,7 @@ function KeycloakSettingsEditor({ current }: { current: KeycloakConfig }) {
             <FormField label="Redirect URI" className="md:col-span-2"><input className="field-input" value={form.redirect_uri} onChange={(event) => setForm({ ...form, redirect_uri: event.target.value })} /></FormField>
             <label className="toggle-row"><span><strong>Keycloak SSO 활성화</strong><small>저장 후 로그인 화면에 SSO 버튼이 표시됩니다.</small></span><input type="checkbox" checked={form.enabled} onChange={(event) => setForm({ ...form, enabled: event.target.checked })} /></label>
             <label className="toggle-row"><span><strong>로컬 로그인 허용</strong><small>비상 접근을 위해 관리자 계정 로그인을 유지합니다.</small></span><input type="checkbox" checked={form.allow_local_login} onChange={(event) => setForm({ ...form, allow_local_login: event.target.checked })} /></label>
+            <label className="toggle-row md:col-span-2"><span><strong>자동 로그인 (Silent SSO)</strong><small>Keycloak에 이미 로그인한 사용자는 로그인 화면 없이 바로 들어옵니다(OIDC prompt=none). 세션이 없으면 로그인 화면이 한 번만 표시되고 반복 이동하지 않습니다.</small></span><input type="checkbox" checked={form.auto_login} disabled={!form.enabled} onChange={(event) => setForm({ ...form, auto_login: event.target.checked })} /></label>
           </div>
           <details className="mt-5 rounded-xl border border-[var(--line)] p-4">
             <summary className="cursor-pointer text-sm font-bold text-[var(--ink)]">고급 클레임 및 역할 설정</summary>
@@ -150,7 +151,7 @@ function KeycloakSettingsEditor({ current }: { current: KeycloakConfig }) {
       </Card>
 
       <div className="space-y-5">
-        <Card><CardContent><p className="text-xs font-bold text-[var(--muted)]">현재 상태</p><div className="mt-3 flex items-center justify-between"><StatusBadge status={current.enabled ? 'active' : 'inactive'} /><Badge>{current.source === 'db' ? '관리자 설정' : '초기 설정'}</Badge></div><dl className="mt-5 space-y-3 text-xs"><Info label="Client Secret" value={current.client_secret_set ? '암호화 저장됨' : '미설정'} /><Info label="역할 매핑" value={`${Object.keys(current.role_map ?? {}).length}개`} /><Info label="마지막 수정" value={current.updated_at ? formatDate(current.updated_at) : '없음'} /></dl></CardContent></Card>
+        <Card><CardContent><p className="text-xs font-bold text-[var(--muted)]">현재 상태</p><div className="mt-3 flex items-center justify-between"><StatusBadge status={current.enabled ? 'active' : 'inactive'} /><Badge>{current.source === 'db' ? '관리자 설정' : '초기 설정'}</Badge></div><dl className="mt-5 space-y-3 text-xs"><Info label="Client Secret" value={current.client_secret_set ? '암호화 저장됨' : '미설정'} /><Info label="자동 로그인" value={current.auto_login ? '켜짐' : '꺼짐'} /><Info label="역할 매핑" value={`${Object.keys(current.role_map ?? {}).length}개`} /><Info label="마지막 수정" value={current.updated_at ? formatDate(current.updated_at) : '없음'} /></dl></CardContent></Card>
         {testResult ? <Card className={testResult.ok ? 'border-[var(--success)]' : 'border-[var(--danger)]'}><CardContent><div className="flex items-center gap-2">{testResult.ok ? <CheckCircle2 className="size-5 text-[var(--success)]" /> : <ShieldCheck className="size-5 text-[var(--danger)]" />}<p className="font-bold text-[var(--ink)]">{testResult.ok ? 'OIDC 연결 정상' : '연결 점검 필요'}</p></div><p className="mt-3 break-words text-xs leading-5 text-[var(--muted)]">{testResult.ok ? `${testResult.issuer} · RSA 키 ${testResult.rsa_signing_keys ?? 0}개` : testResult.reason}</p></CardContent></Card> : null}
       </div>
     </div>
