@@ -10,12 +10,20 @@ import (
 	"syscall"
 	"time"
 
+	"dataworks/internal/buildinfo"
 	"dataworks/internal/config"
 	"dataworks/internal/proxy"
 	"dataworks/internal/store"
 )
 
 func main() {
+	// 첫 줄에 무엇이 돌기 시작했는지 남긴다. 장애를 쫓을 때 로그의 맨 앞이
+	// 어느 빌드인지 말해 주지 않으면 그때부터 추측이 된다.
+	slog.Info("Data Works starting",
+		"version", buildinfo.Version,
+		"commit", buildinfo.Commit,
+		"built_at", buildinfo.BuildTime)
+
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("invalid configuration", "error", err)
