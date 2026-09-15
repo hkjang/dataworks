@@ -26,6 +26,7 @@ import (
 
 	"dataworks/internal/audit"
 	"dataworks/internal/config"
+	"dataworks/internal/mail"
 	"dataworks/internal/secret"
 	"dataworks/internal/store"
 	"dataworks/internal/tracking"
@@ -87,12 +88,17 @@ type Server struct {
 	lastReloadTok  atomic.Pointer[string]          // admin_settings change token this pod last applied
 	trackRuntime   atomic.Pointer[tracking.Config] // admin-settings visitor tracking (tracking.*); nil = off
 	trackReports   *tracking.Recorder              // origins the page policy blocked while tracking was on
+	mailRuntime    atomic.Pointer[mail.Config]     // admin-settings SMTP notifications (mail.*); nil = off
+	mailer         *mail.Service                   // background event mail; never blocks a request
+	mailDigestDay  atomic.Pointer[string]          // UTC day the expiry digest was last checked on this pod
 }
 
 func (s *Server) AttachAlertWorker(worker *AlertWorker) {
 	if s == nil || worker == nil {
 		return
 	}
+	worker.onFire = s.notifyAlertFired
+	worker.onTick = s.runMailDigest
 	s.alertWorker.Store(worker)
 }
 
@@ -129,6 +135,7 @@ func NewServer(cfg config.Config, db *store.SQLStore, logger *store.AsyncLogger,
 		dwCache:   newDWQueryCache(0),
 	}
 	server.trackReports = tracking.NewRecorder()
+	server.mailer = mail.NewService(server.mailConf, db, db, slog.Default())
 	server.secrets.Store(secrets)
 
 	// Build the runtime config snapshot (env defaults overlaid with admin settings)
@@ -217,6 +224,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/tracking/status", s.handleTrackingStatus)
 	mux.HandleFunc("/admin/tracking/violations", s.handleTrackingViolations)
 	mux.HandleFunc("/admin/tracking/violations/allow", s.handleTrackingAllow)
+	mux.HandleFunc("/admin/mail/status", s.handleMailStatus)
+	mux.HandleFunc("/admin/mail/deliveries", s.handleMailDeliveries)
+	mux.HandleFunc("/admin/mail/test", s.handleMailTest)
 	mux.HandleFunc("/favicon.ico", s.handleFavicon)
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/healthz", s.handleHealth)

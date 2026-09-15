@@ -127,6 +127,42 @@ export interface TrackingViolation {
   allowed: boolean
 }
 
+export interface MailStatus {
+  enabled: boolean
+  ready: boolean
+  problem: string
+  smtp_host: string
+  smtp_port: number
+  security: string
+  skip_tls_verify: boolean
+  auth: boolean
+  password_set: boolean
+  from: string
+  base_url: string
+  timeout_seconds: number
+  events: Record<string, boolean>
+}
+
+export interface MailDelivery {
+  id: string
+  event: string
+  recipient: string
+  subject: string
+  ref?: string
+  actor_id?: string
+  status: string
+  attempts: number
+  error_message?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface MailDeliveryPage {
+  items: MailDelivery[]
+  total: number
+  summary: Record<string, number>
+}
+
 export interface ProviderConfig {
   name: string
   base_url: string
@@ -183,6 +219,9 @@ export const platformApi = {
   saveSetting: (key: string, value: string) =>
     apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value, reason: 'React 관리자 설정' }) }),
   revertSetting: (key: string) => apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'DELETE' }),
+  mailStatus: () => apiRequest<MailStatus>('/admin/mail/status'),
+  mailDeliveries: () => apiRequest<MailDeliveryPage>('/admin/mail/deliveries?limit=50'),
+  sendTestMail: (recipient: string) => apiRequest<{ sent: boolean; recipient: string }>('/admin/mail/test', { method: 'POST', body: JSON.stringify({ recipient }) }),
   trackingStatus: () => apiRequest<TrackingStatus>('/admin/tracking/status'),
   trackingViolations: () => apiRequest<{ items: TrackingViolation[] }>('/admin/tracking/violations'),
   clearTrackingViolations: () => apiRequest<void>('/admin/tracking/violations', { method: 'DELETE' }),

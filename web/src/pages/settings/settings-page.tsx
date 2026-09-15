@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, Bot, CheckCircle2, DatabaseZap, KeyRound, LoaderCircle, LockKeyhole, RotateCcw, Save, ShieldCheck, TestTube2, Trash2 } from 'lucide-react'
+import { Activity, Bot, CheckCircle2, DatabaseZap, KeyRound, LoaderCircle, LockKeyhole, Mail, RotateCcw, Save, ShieldCheck, TestTube2, Trash2 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 
-import { platformApi, type KeycloakConfig, type ProviderConfig, type RuntimeSetting, type TrackingViolation } from '@/api/platform'
+import { platformApi, type KeycloakConfig, type MailDelivery, type ProviderConfig, type RuntimeSetting, type TrackingViolation } from '@/api/platform'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -12,18 +12,23 @@ import { formatDate } from '@/lib/utils'
 import { canManageDataWorksSettings, useAuthStore } from '@/stores/auth-store'
 import { RoleManagement } from './role-management'
 
-type SettingsTab = 'ai' | 'sso' | 'roles' | 'tracking' | 'runtime'
+type SettingsTab = 'ai' | 'sso' | 'roles' | 'tracking' | 'mail' | 'runtime'
 
 const tabItems: Array<{ key: SettingsTab; label: string; description: string }> = [
   { key: 'ai', label: 'AI 및 MCP', description: '공급자·스트리밍·토큰' },
   { key: 'sso', label: 'Keycloak SSO', description: 'OIDC 로그인 연동' },
   { key: 'roles', label: '역할 및 권한', description: 'RBAC 설계·사용자 할당' },
   { key: 'tracking', label: '방문 추적', description: '추적 스크립트·CSP' },
+  { key: 'mail', label: '메일 알림', description: 'SMTP 릴레이·시험 발송' },
   { key: 'runtime', label: '전체 설정', description: '런타임 설정 관리' },
 ]
 
 // The order administrators fill the form in: turn it on last, after the
 // provider and its address are saved, so a half-filled setup never goes live.
+// Relay first, sender second, switches last; mail.enabled is at the end for the same reason.
+const mailKeys = ['mail.smtp_host', 'mail.smtp_port', 'mail.security', 'mail.skip_tls_verify', 'mail.username', 'mail.password', 'mail.from_address', 'mail.from_name', 'mail.base_url', 'mail.timeout_seconds', 'mail.notify_approval', 'mail.notify_change_set', 'mail.notify_alert', 'mail.notify_expiring', 'mail.enabled']
+const mailEventLabels: Record<string, string> = { 'approval.requested': '승인 요청 → 관리자', 'approval.decided': '승인 결과 → 요청자', 'change_set.submitted': '변경 세트 검토 요청 → 관리자', 'alert.fired': '알림 규칙 임계치 → 관리자', 'access.expiring': '만료 임박 일일 요약 → 관리자', test: '시험 발송' }
+
 const trackingKeys = ['tracking.provider', 'tracking.momento_url', 'tracking.momento_site_id', 'tracking.momento_proxy', 'tracking.momento_environment', 'tracking.measurement_id', 'tracking.matomo_url', 'tracking.matomo_site_id', 'tracking.custom_snippet', 'tracking.allowed_hosts', 'tracking.placement', 'tracking.include_admin', 'tracking.enabled']
 
 export function SettingsPage() {
@@ -35,10 +40,10 @@ export function SettingsPage() {
   return (
     <div>
       <PageHeader eyebrow="서비스 관리 · 관리자" title="관리자 설정" description="AI, 인증, 역할, MCP와 운영 정책을 환경변수 추가 없이 안전하게 적용합니다." actions={<Badge tone="info">서비스 {version || '버전 확인 중'}</Badge>} />
-      <div className="mb-5 grid gap-2 md:grid-cols-5" role="tablist" aria-label="설정 영역">
+      <div className="mb-5 grid gap-2 md:grid-cols-3 xl:grid-cols-6" role="tablist" aria-label="설정 영역">
         {tabItems.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={`settings-tab ${tab === item.key ? 'is-active' : ''}`} onClick={() => setTab(item.key)}><strong>{item.label}</strong><span>{item.description}</span></button>)}
       </div>
-      {tab === 'ai' ? <AISettings /> : tab === 'sso' ? <KeycloakSettings /> : tab === 'roles' ? <RoleManagement /> : tab === 'tracking' ? <TrackingSettings /> : <RuntimeSettings />}
+      {tab === 'ai' ? <AISettings /> : tab === 'sso' ? <KeycloakSettings /> : tab === 'roles' ? <RoleManagement /> : tab === 'tracking' ? <TrackingSettings /> : tab === 'mail' ? <MailSettings /> : <RuntimeSettings />}
     </div>
   )
 }
@@ -218,6 +223,70 @@ function TrackingSettings() {
               {items.map((item) => <li key={`${item.directive}:${item.origin}`} className="flex items-center justify-between gap-3 py-2 text-xs"><div className="min-w-0"><code className="break-all">{item.origin}</code><p className="mt-1 text-[var(--muted)]">{item.directive} · {item.count}회 · {formatDate(item.last_seen)}</p></div>{item.allowed ? <Badge tone="success">허용됨</Badge> : <Button size="sm" variant="accent" disabled={allow.isPending} onClick={() => allow.mutate(item.origin)}>허용</Button>}</li>)}
             </ul>
             {allow.error || clear.error ? <p className="field-error mt-3">{(allow.error || clear.error)?.message}</p> : null}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function MailSettings() {
+  const queryClient = useQueryClient()
+  const settings = useQuery({ queryKey: ['admin', 'settings'], queryFn: platformApi.settings, staleTime: 15_000 })
+  const status = useQuery({ queryKey: ['admin', 'mail', 'status'], queryFn: platformApi.mailStatus, staleTime: 5_000 })
+  const deliveries = useQuery({ queryKey: ['admin', 'mail', 'deliveries'], queryFn: platformApi.mailDeliveries, staleTime: 5_000, refetchInterval: 15_000 })
+  const [recipient, setRecipient] = useState('')
+  const test = useMutation({ mutationFn: () => platformApi.sendTestMail(recipient), onSettled: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'mail'] }) } })
+
+  if (settings.isPending || status.isPending) return <PageLoader label="메일 설정을 불러오는 중" />
+  const error = settings.error || status.error
+  if (error) return <ErrorState error={error} retry={() => { void settings.refetch(); void status.refetch() }} />
+  const current = status.data
+  const rows = mailKeys.map((key) => settings.data.settings.find((item) => item.key === key)).filter((item): item is RuntimeSetting => Boolean(item))
+  const items: MailDelivery[] = deliveries.data?.items ?? []
+  const summary = deliveries.data?.summary ?? {}
+  const state = !current.enabled ? '꺼짐' : current.problem ? '설정 미완료' : '발송 중'
+  const tone = !current.enabled ? 'inactive' : current.problem ? 'pending' : 'active'
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,.8fr)]">
+      <Card>
+        <CardHeader><div><h2 className="text-base font-bold text-[var(--ink)]">SMTP 릴레이</h2><p className="mt-1 text-xs text-[var(--muted)]">사내 릴레이는 대개 포트 25·인증 없음·TLS 없음입니다. 주소와 보내는 사람을 저장하고 시험 발송이 도착한 뒤 마지막에 켭니다. 비밀번호는 저장 후 되읽히지 않습니다.</p></div><Mail className="size-5 text-[var(--accent)]" /></CardHeader>
+        <CardContent className="space-y-3">
+          {rows.map((setting) => <QuickSetting key={`${setting.key}:${setting.source}:${setting.value}`} setting={setting} />)}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-5">
+        <Card>
+          <CardContent>
+            <p className="text-xs font-bold text-[var(--muted)]">현재 상태</p>
+            <div className="mt-3 flex items-center justify-between"><StatusBadge status={tone} /><Badge>{state}</Badge></div>
+            <dl className="mt-5 space-y-3 text-xs">
+              <Info label="릴레이" value={current.smtp_host ? `${current.smtp_host}:${current.smtp_port} (${current.security})` : '미설정'} />
+              <Info label="인증" value={current.auth ? (current.password_set ? '사용자 이름 + 비밀번호 설정됨' : '사용자 이름만 설정됨') : '없음'} />
+              <Info label="보내는 사람" value={current.from || '미설정'} />
+              <Info label="링크 기준 주소" value={current.base_url || '없음(링크 생략)'} />
+            </dl>
+            {current.problem ? <p className="field-error mt-4">{current.problem}</p> : null}
+            <div className="mt-4"><p className="text-xs font-bold text-[var(--muted)]">이벤트 스위치</p><ul className="mt-2 space-y-1 text-xs">{Object.entries(current.events).sort().map(([event, on]) => <li key={event} className="flex items-center justify-between gap-3"><span>{mailEventLabels[event] ?? event}</span><Badge tone={on ? 'success' : 'warning'}>{on ? '켜짐' : '꺼짐'}</Badge></li>)}</ul></div>
+            <form className="mt-5 flex flex-col gap-2" onSubmit={(event) => { event.preventDefault(); test.mutate() }}>
+              <FormField label="시험 발송 받을 주소"><input className="field-input" type="email" required value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="me@example.com" /></FormField>
+              <Button type="submit" variant="accent" disabled={!current.enabled || test.isPending || !recipient.trim()}>{test.isPending ? <LoaderCircle className="size-3.5 animate-spin" /> : <TestTube2 className="size-3.5" />} 저장된 설정으로 시험 발송</Button>
+              {test.isSuccess ? <p className="text-xs text-[var(--success)]"><CheckCircle2 className="mr-1 inline size-3.5" />{test.data.recipient} 로 보냈습니다. 받은 편지함을 확인하세요.</p> : null}
+              {test.error ? <p className="field-error">{test.error.message}</p> : null}
+              {!current.enabled ? <p className="text-xs text-[var(--muted)]">mail.enabled 를 켜야 시험 발송할 수 있습니다.</p> : null}
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><div><h2 className="text-base font-bold text-[var(--ink)]">발송 기록</h2><p className="mt-1 text-xs text-[var(--muted)]">시도마다 남습니다 — 언제, 어떤 이벤트로, 누구에게, 되었는지. 본문은 저장하지 않습니다. {Object.entries(summary).map(([key, count]) => `${key} ${count}`).join(' · ') || '기록 없음'}</p></div></CardHeader>
+          <CardContent>
+            {!items.length ? <p className="text-sm text-[var(--muted)]">아직 보낸 메일이 없습니다.</p> : null}
+            <ul className="divide-y divide-[var(--line)]">
+              {items.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-xs"><div className="min-w-0"><p className="truncate font-bold text-[var(--ink)]">{item.subject}</p><p className="mt-1 text-[var(--muted)]">{mailEventLabels[item.event] ?? item.event} · {item.recipient} · {formatDate(item.created_at)}{item.attempts > 1 ? ` · ${item.attempts}회 시도` : ''}</p>{item.error_message ? <p className="mt-1 break-all text-[var(--danger)]">{item.error_message}</p> : null}</div><Badge tone={item.status === 'sent' ? 'success' : item.status === 'failed' ? 'danger' : 'info'}>{item.status}</Badge></li>)}
+            </ul>
           </CardContent>
         </Card>
       </div>

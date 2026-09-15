@@ -27,6 +27,8 @@ type AlertWorker struct {
 	lastError   atomic.Value // string
 	errorCount  atomic.Uint64
 	firedCount  atomic.Uint64
+	onFire      func(context.Context, store.AlertRule, float64) // extra channel (mail) per firing; may be nil
+	onTick      func(context.Context)                           // per-evaluation hook (daily mail digest); may be nil
 }
 
 type AlertWorkerStatus struct {
@@ -129,6 +131,9 @@ func (w *AlertWorker) evaluate() {
 	}
 	w.lastSuccess.Store(time.Now().UTC().Format(time.RFC3339Nano))
 	w.lastError.Store("")
+	if w.onTick != nil {
+		w.onTick(ctx)
+	}
 }
 
 func metricValue(metric string, snapshot store.AlertMetricSnapshot) float64 {
@@ -195,6 +200,9 @@ func (w *AlertWorker) fire(ctx context.Context, rule store.AlertRule, value floa
 			event.Delivered = true
 			w.metrics.IncAlertDelivered()
 		}
+	}
+	if w.onFire != nil {
+		w.onFire(ctx, rule, value)
 	}
 	if err := w.db.InsertAlertEvent(ctx, event); err != nil {
 		slog.Warn("alert worker: insert event failed", "rule", rule.Name, "error", err)

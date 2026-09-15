@@ -193,6 +193,9 @@ func (s *Server) changeSetTransition(w http.ResponseWriter, r *http.Request, cs 
 		return
 	}
 	s.auditAdmin(r, "change_set."+to, cs.ID, "")
+	if to == "pending" {
+		s.notifyChangeSetSubmitted(r.Context(), cs, s.mailActor(r))
+	}
 	writeJSON(w, http.StatusOK, cs)
 }
 
