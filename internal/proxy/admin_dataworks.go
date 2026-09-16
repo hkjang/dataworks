@@ -1384,6 +1384,18 @@ func (s *Server) handleDataWorksContractScopes(w http.ResponseWriter, r *http.Re
 		}
 		scope.Status = firstNonEmpty(scope.Status, "active")
 		scope.ContractKey = firstNonEmpty(strings.TrimSpace(scope.ContractKey), newID("scope"))
+		// contract_key is chosen by the operator and is unique across the platform, not per
+		// product, and the upsert rewrites product_key on conflict. Reusing a key that another
+		// product already holds would therefore move that contract here, and every entitlement
+		// the other product issued against it would answer 403 contract_scope_missing from the
+		// next call while still listing as customer access. Refuse instead of re-parenting.
+		if existing, ok, err := s.db.GetContractScope(r.Context(), scope.ContractKey); err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "contract_scope_failed")
+			return
+		} else if ok && existing.ProductKey != product.ProductKey {
+			writeOpenAIError(w, http.StatusConflict, "contract_key already belongs to product "+existing.ProductKey, "invalid_request_error", "contract_key_taken")
+			return
+		}
 		scope.ProductKey = product.ProductKey
 		scope.CreatedBy = adminID(r)
 		if err := s.db.UpsertContractScope(r.Context(), scope); err != nil {
@@ -1437,6 +1449,16 @@ func (s *Server) handleDataWorksAPIEntitlements(w http.ResponseWriter, r *http.R
 			return
 		}
 		ent.ID = firstNonEmpty(strings.TrimSpace(ent.ID), newID("ent"))
+		// Same rule as contract_key above: ids are unique across products and the upsert
+		// rewrites product_key, so a caller-supplied id another product holds would silently
+		// move that grant here and take its key's access to the other product away.
+		if existing, ok, err := s.db.GetAPIEntitlement(r.Context(), ent.ID); err != nil {
+			writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "entitlement_lookup_failed")
+			return
+		} else if ok && existing.ProductKey != product.ProductKey {
+			writeOpenAIError(w, http.StatusConflict, "entitlement id already belongs to product "+existing.ProductKey, "invalid_request_error", "entitlement_id_taken")
+			return
+		}
 		ent.ProductKey = product.ProductKey
 		ent.CreatedBy = adminID(r)
 		if err := s.db.UpsertAPIEntitlement(r.Context(), ent); err != nil {

@@ -155,6 +155,12 @@ admin 목록에는 고객 계약으로 그대로 보입니다.
 `valid_from` 이 `valid_to` 보다 뒤인 창은 `400 invalid_access_window` 로 거부됩니다. 런타임 게이트는 현재
 시각이 창 안에 있을 때만 조회를 허용하므로, 뒤집힌 창은 계약이 존재하는 내내 모든 조회를 막습니다.
 
+`contract_key` 는 상품별이 아니라 플랫폼 전체에서 유일합니다. 다른 상품이 이미 쓰고 있는 키로 등록하면
+`409 contract_key_taken` 으로 거부됩니다 — 같은 상품에 다시 보내는 것은 갱신이지만, 다른 상품으로 보내면 저장 시
+`product_key` 가 덮여 계약이 그 상품으로 옮겨 가고, 원래 상품이 그 계약으로 발급한 Entitlement 는 다음 호출부터
+`403 contract_scope_missing` 을 받으면서 admin 목록에는 그대로 남기 때문입니다. Entitlement 도 `id` 가 플랫폼
+전체에서 유일하므로, 다른 상품의 행이 쓰는 `id` 를 직접 지정해 보내면 `409 entitlement_id_taken` 으로 거부됩니다.
+
 Entitlement 의 `scope` 는 쉼표·공백으로 구분한 권한 목록이며, 런타임 조회는 `data_product:query`,
 `data_product:*`, `query`, `*` 중 하나가 목록에 정확히 포함될 때만 허용됩니다(빈 값은 무제한).
 `data_product:export` 처럼 조회 권한이 없는 값만 있으면 `403 scope_denied` 가 반환됩니다.
