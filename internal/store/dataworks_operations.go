@@ -450,6 +450,24 @@ func (s *SQLStore) ListAPIEntitlements(ctx context.Context, productKey string, a
 	return out, rows.Err()
 }
 
+// GetAPIEntitlement returns the entitlement row stored under an id, whichever product it
+// belongs to. Entitlements are keyed by id alone, so the admin write path uses it to tell an
+// update of a product's own grant from a request that would move another product's grant.
+func (s *SQLStore) GetAPIEntitlement(ctx context.Context, id string) (APIEntitlement, bool, error) {
+	var ent APIEntitlement
+	err := s.db.QueryRowContext(ctx, s.bind(`SELECT id, api_key_id, api_key_hash, customer_key, product_key, contract_key, scope, expires_at, status, created_by, created_at, updated_at
+		FROM dw_api_entitlements WHERE id = ?`), strings.TrimSpace(id)).
+		Scan(&ent.ID, &ent.APIKeyID, &ent.APIKeyHash, &ent.CustomerKey, &ent.ProductKey, &ent.ContractKey,
+			&ent.Scope, &ent.ExpiresAt, &ent.Status, &ent.CreatedBy, &ent.CreatedAt, &ent.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return APIEntitlement{}, false, nil
+	}
+	if err != nil {
+		return APIEntitlement{}, false, err
+	}
+	return ent, true, nil
+}
+
 // ListAPIEntitlementCandidates returns every entitlement row an API key holds for one product,
 // ordered the way the runtime access gate should consider them. Entitlements are keyed by id
 // alone, so one key can hold several rows for the same product: a renewal issued next to the
