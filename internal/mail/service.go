@@ -103,7 +103,7 @@ func (s *Service) Notify(ctx context.Context, notification Notification, actorID
 		select {
 		case s.inflight <- struct{}{}:
 		default:
-			s.complete(ctx, delivery, 0, ErrBusy)
+			s.complete(delivery, 0, ErrBusy)
 			continue
 		}
 		s.wg.Add(1)
@@ -126,17 +126,28 @@ func (s *Service) SendNow(ctx context.Context, notification Notification, actorI
 		return err
 	}
 	delivery := s.record(ctx, notification, actorID, recipient)
-	sendContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.Timeout+5*time.Second)
+	// One attempt at its worst (connect + session) plus a little slack, so the
+	// context only fires when the transport itself failed to keep its deadline.
+	sendContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.AttemptBudget()+time.Second)
 	defer cancel()
 	err := s.send(sendContext, config, Message{To: recipient, Subject: notification.Subject, Body: notification.Render(config)})
-	s.complete(sendContext, delivery, 1, err)
+	s.complete(delivery, 1, err)
 	return err
 }
+
+// retryWait separates the two delivery attempts.
+const retryWait = 2 * time.Second
+
+// recordTimeout bounds the ledger write that follows a delivery. It is its own
+// budget, deliberately separate from the sending one: an outcome must be
+// recorded even when sending used up every second it was given.
+const recordTimeout = 5 * time.Second
 
 // deliver retries once, because a relay that briefly refuses a connection is
 // common and losing the notification is worse than a short wait.
 func (s *Service) deliver(delivery Delivery, config Config, message Message) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*config.Timeout+15*time.Second)
+	// Two attempts at their worst, the wait between them, and a little slack.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*config.AttemptBudget()+retryWait+time.Second)
 	defer cancel()
 	var err error
 	attempts := 0
@@ -148,11 +159,11 @@ func (s *Service) deliver(delivery Delivery, config Config, message Message) {
 		if attempts == 1 {
 			select {
 			case <-ctx.Done():
-			case <-time.After(2 * time.Second):
+			case <-time.After(retryWait):
 			}
 		}
 	}
-	s.complete(ctx, delivery, attempts, err)
+	s.complete(delivery, attempts, err)
 }
 
 func (s *Service) record(ctx context.Context, notification Notification, actorID, address string) Delivery {
@@ -168,7 +179,9 @@ func (s *Service) record(ctx context.Context, notification Notification, actorID
 	return delivery
 }
 
-func (s *Service) complete(ctx context.Context, delivery Delivery, attempts int, cause error) {
+// complete records the outcome under its own short context rather than the
+// sending one, which may already be spent by the time the transport returns.
+func (s *Service) complete(delivery Delivery, attempts int, cause error) {
 	status, message := "sent", ""
 	if cause != nil {
 		status, message = "failed", trim(cause.Error(), 1000)
@@ -179,6 +192,8 @@ func (s *Service) complete(ctx context.Context, delivery Delivery, attempts int,
 	if s.ledger == nil {
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), recordTimeout)
+	defer cancel()
 	if err := s.ledger.CompleteMailDelivery(ctx, delivery.ID, status, attempts, message, s.now()); err != nil {
 		s.logger.Warn("mail delivery status was not recorded", "error", err)
 	}

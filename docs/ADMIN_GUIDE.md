@@ -354,12 +354,12 @@ POST   /tracking/csp-report                # 브라우저 신고 수신(무인�
 | `mail.enabled` | 발송 여부. 나머지를 저장하고 시험 발송이 도착한 뒤 **마지막에** 켭니다 | `false` |
 | `mail.smtp_host` | 사내 릴레이 주소 | 없음 |
 | `mail.smtp_port` | 릴레이 포트. `465` 면 자동으로 `tls` | `25` |
-| `mail.security` | `auto` · `none` · `starttls` · `tls`. `auto` 는 서버가 STARTTLS 를 알리면 쓰고 아니면 평문 | `auto` |
+| `mail.security` | `auto` · `none` · `starttls` · `tls`. `auto` 는 서버가 STARTTLS 를 알리면 쓰고 아니면 평문. **평문 연결에서는 자격증명을 보내지 않습니다**(아래 인증 행 참고) | `auto` |
 | `mail.skip_tls_verify` | 릴레이 인증서 검증 생략. 사내 사설 인증서일 때만 | `false` |
-| `mail.username` · `mail.password` | SMTP 인증. **선택 사항** — 인증 없는 릴레이가 흔하므로 비우면 인증하지 않습니다 | 없음 |
+| `mail.username` · `mail.password` | SMTP 인증. **선택 사항** — 인증 없는 릴레이가 흔하므로 비우면 인증하지 않습니다. 사용자 이름을 채우면 **TLS 가 맺어진 연결에서만**(`tls`, 또는 `starttls`/`auto` 로 STARTTLS 가 성립한 뒤) PLAIN·LOGIN 으로 인증합니다. TLS 없는 연결(`none`, 또는 `auto` 인데 서버가 STARTTLS 를 알리지 않음)에서는 비밀번호가 평문으로 나가는 PLAIN·LOGIN 을 쓰지 않고 `TLS 없이는 인증하지 않습니다. mail.security 를 starttls 또는 tls 로 바꾸거나 사용자 이름을 비우세요` 로 실패합니다. 예외는 비밀번호를 선으로 보내지 않는 CRAM-MD5 뿐이며, 서버가 이를 알리면 평문 연결에서도 씁니다 | 없음 |
 | `mail.from_address` · `mail.from_name` | 보내는 사람. 주소를 비우면 `dataworks@<smtp_host>` | 없음 · `Data Works` |
 | `mail.base_url` | 메일 속 링크가 가리킬 이 서비스 주소(예: `https://dataworks.internal`). 비우면 링크를 넣지 않습니다 | 없음 |
-| `mail.timeout_seconds` | 릴레이 연결·전송 제한 시간 | `10` |
+| `mail.timeout_seconds` | 릴레이 연결 제한 시간이자 연결 뒤 세션(EHLO~QUIT) 전체의 제한 시간. 한 번의 시도는 길어야 이 값의 두 배가 걸립니다 | `10` |
 | `mail.notify_approval` | 승인 대기(→ 관리자)와 승인 결과(→ 요청자) | `true` |
 | `mail.notify_change_set` | 설정 변경 세트 검토 요청(→ 신청자를 뺀 관리자) | `true` |
 | `mail.notify_alert` | 알림 규칙 임계치 도달(→ 관리자) | `true` |
@@ -369,7 +369,7 @@ POST   /tracking/csp-report                # 브라우저 신고 수신(무인�
 
 1. `mail.smtp_host` 와 `mail.from_address` 를 저장합니다. 사내 릴레이는 대개 포트 25·인증 없음·TLS 없음이라 나머지는 기본값 그대로 둡니다.
 2. `mail.enabled` = `true` 로 켭니다. 오른쪽 "현재 상태"가 `발송 중`이면 릴레이 설정이 완전한 것이고, `설정 미완료`면 빠진 값이 그 아래에 적혀 있습니다.
-3. "시험 발송 받을 주소"에 본인 주소를 넣고 **저장된 설정으로 시험 발송**을 누릅니다. 실제 한 통이 나가고 결과가 그 자리에 뜹니다 — 릴레이 설정은 한 번에 맞는 일이 드무니 실패 문구(연결 거부, STARTTLS 미지원, 인증 거부 등)를 보고 고칩니다.
+3. "시험 발송 받을 주소"에 본인 주소를 넣고 **저장된 설정으로 시험 발송**을 누릅니다. 실제 한 통이 나가고 결과가 그 자리에 뜹니다 — 릴레이 설정은 한 번에 맞는 일이 드무니 실패 문구(연결 거부, STARTTLS 미지원, 인증 거부, `TLS 없이는 인증하지 않습니다` 등)를 보고 고칩니다. 시험 발송은 길어야 `mail.timeout_seconds` 의 두 배(연결 + 세션) 뒤에는 결과를 돌려줍니다.
 4. 편지함에 `[Data Works] 메일 설정 시험`이 도착하면 끝입니다.
 
 #### 어떤 일을 알리는가
