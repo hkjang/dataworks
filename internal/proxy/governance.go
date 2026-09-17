@@ -572,6 +572,7 @@ func (s *Server) governanceApprovalGate(r *http.Request, g governanceContext, re
 		CreatedAt:   now,
 	}
 	_ = s.db.InsertApproval(r.Context(), approval)
+	s.notifyApprovalRequested(r.Context(), approval)
 	return false, approval.ID, "approval required: " + reason
 }
 

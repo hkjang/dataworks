@@ -2904,6 +2904,21 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_k8s_debug_sessions_target ON k8s_debug_sessions(cluster_id, namespace, pod, created_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_k8s_debug_sessions_status ON k8s_debug_sessions(status, created_at)`,
+		`CREATE TABLE IF NOT EXISTS mail_deliveries (
+			id TEXT PRIMARY KEY,
+			event TEXT NOT NULL,
+			recipient TEXT NOT NULL,
+			subject TEXT NOT NULL DEFAULT '',
+			ref TEXT NOT NULL DEFAULT '',
+			actor_id TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'queued',
+			attempts INTEGER NOT NULL DEFAULT 0,
+			error_message TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_mail_deliveries_created ON mail_deliveries(created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_mail_deliveries_event ON mail_deliveries(event, created_at)`,
 	}
 
 	for _, statement := range statements {

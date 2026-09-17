@@ -16,6 +16,7 @@ import (
 
 	"dataworks/internal/audit"
 	"dataworks/internal/config"
+	"dataworks/internal/mail"
 	"dataworks/internal/store"
 	"dataworks/internal/tracking"
 )
@@ -246,6 +247,23 @@ func buildSettingRegistry() []settingDef {
 		{Key: "tracking.include_admin", Category: "tracking", Type: stBool, envValue: func(config.Config) string { return "false" }},
 		{Key: "tracking.placement", Category: "tracking", Type: stString, validate: trackingPlacement, envValue: func(config.Config) string { return tracking.PlacementHead }},
 
+		// ---- Mail (event notifications through the company SMTP relay; stored only — off by default) ----
+		{Key: "mail.enabled", Category: "mail", Type: stBool, envValue: func(config.Config) string { return "false" }},
+		{Key: "mail.smtp_host", Category: "mail", Type: stString, envValue: func(config.Config) string { return "" }},
+		{Key: "mail.smtp_port", Category: "mail", Type: stInt, validate: mailPort, envValue: func(config.Config) string { return strconv.Itoa(mail.DefaultPort) }},
+		{Key: "mail.security", Category: "mail", Type: stString, validate: mailSecurity, envValue: func(config.Config) string { return mail.DefaultSecurity }},
+		{Key: "mail.skip_tls_verify", Category: "mail", Type: stBool, envValue: func(config.Config) string { return "false" }},
+		{Key: "mail.username", Category: "mail", Type: stString, envValue: func(config.Config) string { return "" }},
+		{Key: "mail.password", Category: "mail", Type: stString, Secret: true, envValue: func(config.Config) string { return "" }},
+		{Key: "mail.from_address", Category: "mail", Type: stString, validate: mailAddress, envValue: func(config.Config) string { return "" }},
+		{Key: "mail.from_name", Category: "mail", Type: stString, envValue: func(config.Config) string { return mail.DefaultFromName }},
+		{Key: "mail.base_url", Category: "mail", Type: stString, validate: trackingHTTPURL, envValue: func(config.Config) string { return "" }},
+		{Key: "mail.timeout_seconds", Category: "mail", Type: stInt, validate: posInt, envValue: func(config.Config) string { return strconv.Itoa(mail.DefaultTimeout) }},
+		{Key: "mail.notify_approval", Category: "mail", Type: stBool, envValue: func(config.Config) string { return "true" }},
+		{Key: "mail.notify_change_set", Category: "mail", Type: stBool, envValue: func(config.Config) string { return "true" }},
+		{Key: "mail.notify_alert", Category: "mail", Type: stBool, envValue: func(config.Config) string { return "true" }},
+		{Key: "mail.notify_expiring", Category: "mail", Type: stBool, envValue: func(config.Config) string { return "true" }},
+
 		// ---- Env (read-only view of startup environment variables) ----
 		{Key: "env.upstream_base_url", Category: "env", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Upstream.BaseURL }},
 		{Key: "env.upstream_provider", Category: "env", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Upstream.Provider }},
@@ -320,6 +338,32 @@ func trackingPlacement(v string) error {
 		return nil
 	}
 	return fmt.Errorf("must be head or body")
+}
+
+// mailPort validates mail.smtp_port as a TCP port.
+func mailPort(v string) error {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 1 || n > 65535 {
+		return fmt.Errorf("must be a port between 1 and 65535")
+	}
+	return nil
+}
+
+// mailSecurity validates mail.security.
+func mailSecurity(v string) error {
+	if !mail.ValidSecurity(v) {
+		return fmt.Errorf("must be auto, none, starttls, or tls")
+	}
+	return nil
+}
+
+// mailAddress validates a sender address: empty (derived from the host) or something with an @.
+func mailAddress(v string) error {
+	v = strings.TrimSpace(v)
+	if v == "" || (strings.Contains(v, "@") && !strings.ContainsAny(v, " <>,\n\r")) {
+		return nil
+	}
+	return fmt.Errorf("must be an email address such as dataworks@example.com")
 }
 
 // skillEnforceMode validates the Skill enforcement mode setting.
@@ -444,6 +488,22 @@ var settingDescriptions = map[string]string{
 	"tracking.allowed_hosts":       "스니펫에서 자동으로 읽지 못한 출처를 더하는 자리(쉼표 구분, https://host 형태). '차단된 출처' 목록에서 한 번에 추가할 수 있습니다.",
 	"tracking.include_admin":       "관리 화면(/admin, /dataworks/settings)에서도 추적할지. 기본 아니오.",
 	"tracking.placement":           "스니펫 위치: head 또는 body.",
+
+	"mail.enabled":           "이벤트 알림 메일 발송 여부. 기본 꺼짐. 릴레이 주소와 보내는 주소를 저장하고 시험 발송이 도착한 뒤 켭니다.",
+	"mail.smtp_host":         "사내 SMTP 릴레이 주소(예: smtp.internal 또는 postra 주소).",
+	"mail.smtp_port":         "릴레이 포트. 사내 릴레이는 대개 25. 465 면 자동으로 tls 로 연결합니다.",
+	"mail.security":          "전송 보안: auto(서버가 알리면 STARTTLS) · none · starttls(필수) · tls(암시적 TLS). 기본 auto.",
+	"mail.skip_tls_verify":   "릴레이 인증서 검증 생략. 사내 사설 인증서일 때만 켭니다.",
+	"mail.username":          "SMTP 인증 사용자. 인증 없는 릴레이가 흔하므로 선택 사항 — 비우면 인증하지 않습니다.",
+	"mail.password":          "SMTP 인증 비밀번호. 저장 후에는 '설정됨'만 보이고 되읽히지 않습니다.",
+	"mail.from_address":      "보내는 사람 주소. 비우면 dataworks@<smtp_host> 를 씁니다.",
+	"mail.from_name":         "보내는 사람 표시 이름. 기본 Data Works.",
+	"mail.base_url":          "메일 속 링크가 가리킬 이 앱의 주소(예: https://dataworks.internal). 비우면 링크를 넣지 않습니다.",
+	"mail.timeout_seconds":   "릴레이 연결·전송 제한 시간(초). 기본 10.",
+	"mail.notify_approval":   "승인 대기(approval.requested → 관리자)와 승인 결과(approval.decided → 요청자) 메일. 기본 켜짐.",
+	"mail.notify_change_set": "설정 변경 세트 검토 요청(change_set.submitted → 신청자를 뺀 관리자) 메일. 기본 켜짐.",
+	"mail.notify_alert":      "알림 규칙 임계치 도달(alert.fired → 관리자) 메일. 기본 켜짐.",
+	"mail.notify_expiring":   "계약·접근권 만료 임박 일일 요약(access.expiring → 관리자, 하루 한 통) 메일. 기본 켜짐.",
 	// Env (read-only)
 	"env.upstream_base_url": "업스트림 엔드포인트 URL(UPSTREAM_BASE_URL). 변경하려면 컨테이너 환경변수를 수정 후 재시작.",
 	"env.upstream_provider": "업스트림 프로바이더 이름(UPSTREAM_PROVIDER). 변경하려면 환경변수 수정 후 재시작.",
@@ -661,6 +721,8 @@ func (s *Server) reloadRuntimeConfig(ctx context.Context) {
 	s.mcpRuntime.Store(&mcp)
 	trackingConfig := s.trackingConfigFrom(stored)
 	s.trackRuntime.Store(&trackingConfig)
+	mailConfig := s.mailConfigFrom(stored)
+	s.mailRuntime.Store(&mailConfig)
 	audit.SetFallbackPriceModel(pricing.FallbackModel) // apply the runtime fallback model
 	// Apply retention changes to the running worker (day thresholds next run; interval recreates the ticker).
 	if s.retention != nil && prevRet != ret {
