@@ -22,6 +22,7 @@ import (
 var (
 	ErrDisabled = errors.New("mail is disabled")
 	ErrInvalid  = errors.New("invalid mail configuration")
+	ErrBusy     = errors.New("too many mail deliveries in flight")
 )
 
 // Event names. Each one maps to a mail.notify_* switch in eventSettings; the

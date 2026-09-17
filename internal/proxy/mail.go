@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"dataworks/internal/mail"
@@ -73,9 +74,62 @@ func (s *Server) notifyMail(ctx context.Context, notification mail.Notification,
 
 // ---- events -------------------------------------------------------------------
 
-// notifyApprovalRequested tells the administrators a request is parked.
+// Where each mail sends people. The admin UI routes on "#/<tab>" (parseHash in
+// admin_ui.go): the approval queue and alert rules live on the safety tab,
+// change sets on their own tab.
+const (
+	mailPathApprovals  = "/admin#/safety"
+	mailPathAlerts     = "/admin#/safety"
+	mailPathChangeSets = "/admin#/changesets"
+)
+
+// approvalMailWindow is how long one requester's approval mail stands in for
+// the ones that follow. The gate parks every request that arrives without
+// X-Governance-Approval-ID as a new approval, so a client retry loop or an
+// agent calling in a loop would otherwise mail every administrator once per
+// attempt; the queue the mail links to lists all of them anyway.
+const approvalMailWindow = 10 * time.Minute
+
+// mailThrottle remembers when a key last produced mail. It is per pod, which
+// bounds a burst to one mail per pod per window rather than one per request.
+type mailThrottle struct {
+	mu   sync.Mutex
+	seen map[string]time.Time
+}
+
+// allow reports whether key may send now and, if so, starts its window.
+func (t *mailThrottle) allow(key string, now time.Time, window time.Duration) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.seen == nil {
+		t.seen = map[string]time.Time{}
+	}
+	for k, at := range t.seen {
+		if now.Sub(at) >= window {
+			delete(t.seen, k)
+		}
+	}
+	if at, ok := t.seen[key]; ok && now.Sub(at) < window {
+		return false
+	}
+	t.seen[key] = now
+	return true
+}
+
+// approvalRequester is the identity an approval mail is throttled on: the
+// account when there is one, else the API key.
+func approvalRequester(approval store.Approval) string {
+	return firstNonEmpty(strings.TrimSpace(approval.UserID), strings.TrimSpace(approval.APIKeyID), "anonymous")
+}
+
+// notifyApprovalRequested tells the administrators a request is parked. One
+// mail per requester per approvalMailWindow: the rest of that requester's
+// approvals still land in the queue, just without another mail each.
 func (s *Server) notifyApprovalRequested(ctx context.Context, approval store.Approval) {
 	if s.mailer == nil || !s.mailConf().Enabled {
+		return
+	}
+	if !s.mailApprovals.allow(approvalRequester(approval), time.Now().UTC(), approvalMailWindow) {
 		return
 	}
 	lines := []string{
@@ -84,9 +138,10 @@ func (s *Server) notifyApprovalRequested(ctx context.Context, approval store.App
 		"요청자: " + firstNonEmpty(strings.TrimSpace(approval.UserID), strings.TrimSpace(approval.APIKeyID), "-"),
 		fmt.Sprintf("위험 점수: %d · 예상 비용: %.0f KRW", approval.RiskScore, approval.CostKRW),
 		"만료: " + approval.ExpiresAt.UTC().Format(time.RFC3339) + " (그때까지 결정하지 않으면 요청은 만료됩니다)",
+		fmt.Sprintf("같은 요청자의 추가 승인 요청은 %d분 동안 별도 메일 없이 대기열에만 쌓입니다.", int(approvalMailWindow/time.Minute)),
 	}
 	s.notifyMail(ctx, mail.Notification{Event: mail.EventApprovalRequested, Subject: "[Data Works] 승인 요청: " + shortReason(approval.Reason),
-		Lines: lines, Path: "/admin#approvals", Ref: approval.ID}, approval.UserID, s.mailAdmins(ctx))
+		Lines: lines, Path: mailPathApprovals, Ref: approval.ID}, approval.UserID, s.mailAdmins(ctx))
 }
 
 // notifyApprovalDecided tells the requester the outcome so they stop polling.
@@ -104,10 +159,14 @@ func (s *Server) notifyApprovalDecided(ctx context.Context, approval store.Appro
 		"승인 id: " + approval.ID,
 	}
 	if approval.Status == "approved" {
-		lines = append(lines, "같은 요청을 다시 보내면 이 승인으로 처리됩니다.")
+		// The gate only honours the approval when the id travels in the header;
+		// a bare resend is parked again as a new approval.
+		lines = append(lines,
+			"같은 요청을 X-Governance-Approval-ID: "+approval.ID+" 헤더와 함께 다시 보내면 이 승인으로 처리됩니다.",
+			"헤더 없이 다시 보내면 새 승인 요청으로 다시 대기하게 됩니다.")
 	}
 	s.notifyMail(ctx, mail.Notification{Event: mail.EventApprovalDecided, Subject: "[Data Works] 요청이 " + verdict,
-		Lines: lines, Path: "/admin#approvals", Ref: approval.ID}, actorID, []string{approval.UserID})
+		Lines: lines, Path: mailPathApprovals, Ref: approval.ID}, actorID, []string{approval.UserID})
 }
 
 // notifyChangeSetSubmitted asks the other administrators for a review.
@@ -124,7 +183,7 @@ func (s *Server) notifyChangeSetSubmitted(ctx context.Context, cs store.ChangeSe
 		lines = append(lines, "설명: "+note)
 	}
 	s.notifyMail(ctx, mail.Notification{Event: mail.EventChangeSetSubmit, Subject: "[Data Works] 변경 세트 검토 요청: " + firstNonEmpty(strings.TrimSpace(cs.Title), cs.ID),
-		Lines: lines, Path: "/admin#change-sets", Ref: cs.ID}, actorID, s.mailAdmins(ctx))
+		Lines: lines, Path: mailPathChangeSets, Ref: cs.ID}, actorID, s.mailAdmins(ctx))
 }
 
 // notifyAlertFired is the AlertWorker hook: one mail per firing, which the
@@ -142,7 +201,7 @@ func (s *Server) notifyAlertFired(ctx context.Context, rule store.AlertRule, val
 		lines = append(lines, "메모: "+note)
 	}
 	s.notifyMail(ctx, mail.Notification{Event: mail.EventAlertFired, Subject: "[Data Works] 알림: " + rule.Name,
-		Lines: lines, Path: "/admin#alerts", Ref: rule.ID}, "", s.mailAdmins(ctx))
+		Lines: lines, Path: mailPathAlerts, Ref: rule.ID}, "", s.mailAdmins(ctx))
 }
 
 // mailDigestHour is the UTC hour after which the day's expiry digest goes out

@@ -217,7 +217,8 @@ func TestChangeSetSubmitMailsTheOtherAdminsAndNeverBlocks(t *testing.T) {
 	if got := captured.recipients(); len(got) != 1 || got[0] != "admin2@example.test" {
 		t.Fatalf("recipients = %v (the submitter must not be told about their own action)", got)
 	}
-	if !strings.Contains(captured.sent[0].Body, "https://dw.example.test/admin#change-sets") || strings.Contains(captured.sent[0].Subject, "\n") {
+	// The link must be a route the admin UI actually serves ("#/<tab>", see parseHash).
+	if !strings.Contains(captured.sent[0].Body, "https://dw.example.test/admin#/changesets\r\n") || strings.Contains(captured.sent[0].Subject, "\n") {
 		t.Fatalf("mail = %+v", captured.sent[0])
 	}
 
@@ -228,6 +229,9 @@ func TestChangeSetSubmitMailsTheOtherAdminsAndNeverBlocks(t *testing.T) {
 	server.mailer.Wait()
 	if got := captured.recipients(); len(got) != 3 {
 		t.Fatalf("after muting change sets, only the alert (2 admins) should be added: %v", got)
+	}
+	if !strings.Contains(captured.sent[1].Body, "https://dw.example.test/admin#/safety\r\n") {
+		t.Fatalf("alert mail must link to the safety tab: %+v", captured.sent[1])
 	}
 	_, status := req(t, http.MethodGet, ts.URL+"/admin/mail/status", "")
 	events := status["events"].(map[string]any)
@@ -241,6 +245,7 @@ func TestApprovalDecisionMailsTheRequesterOnly(t *testing.T) {
 	seedMailUsers(t, server.db)
 	putTrackingSetting(t, ts.URL, "mail.smtp_host", "relay.internal")
 	putTrackingSetting(t, ts.URL, "mail.from_address", "dataworks@example.test")
+	putTrackingSetting(t, ts.URL, "mail.base_url", "https://dw.example.test")
 	putTrackingSetting(t, ts.URL, "mail.enabled", "true")
 	captured := &capturedMail{}
 	server.mailer.SetSender(captured.send)
@@ -250,6 +255,9 @@ func TestApprovalDecisionMailsTheRequesterOnly(t *testing.T) {
 	server.mailer.Wait()
 	if got := captured.recipients(); len(got) != 2 || got[0] != "admin1@example.test" {
 		t.Fatalf("request goes to the admins: %v", got)
+	}
+	if !strings.Contains(captured.sent[0].Body, "/admin#/safety\r\n") {
+		t.Fatalf("approval mail must link to the safety tab: %+v", captured.sent[0])
 	}
 	approval.Status = "approved"
 	server.notifyApprovalDecided(context.Background(), approval, "u_admin1")
@@ -261,11 +269,97 @@ func TestApprovalDecisionMailsTheRequesterOnly(t *testing.T) {
 	if !strings.Contains(captured.sent[2].Subject, "승인되었습니다") {
 		t.Fatalf("subject = %q", captured.sent[2].Subject)
 	}
+	// The gate only applies an approval sent back in the header, so the mail has to say so.
+	if body := captured.sent[2].Body; !strings.Contains(body, "X-Governance-Approval-ID: appr_1") || strings.Contains(body, "같은 요청을 다시 보내면 이 승인으로") {
+		t.Fatalf("decision body must tell the requester to resend with the header:\n%s", body)
+	}
 	// A requester who is not an account (bare API key) cannot be reached and is skipped quietly.
 	server.notifyApprovalDecided(context.Background(), store.Approval{ID: "appr_2", UserID: "", Status: "rejected"}, "u_admin1")
 	server.mailer.Wait()
 	if len(captured.recipients()) != 3 {
 		t.Fatal("no address, no mail")
+	}
+}
+
+func TestMailThrottleAllowsOncePerWindowPerKey(t *testing.T) {
+	var throttle mailThrottle
+	start := time.Date(2026, 9, 17, 9, 0, 0, 0, time.UTC)
+	if !throttle.allow("key_a", start, time.Minute) || throttle.allow("key_a", start.Add(30*time.Second), time.Minute) {
+		t.Fatal("the second call inside the window must be held")
+	}
+	if !throttle.allow("key_b", start, time.Minute) {
+		t.Fatal("another requester is independent")
+	}
+	if !throttle.allow("key_a", start.Add(time.Minute), time.Minute) {
+		t.Fatal("a new window opens once the old one has elapsed")
+	}
+	if _, kept := throttle.seen["key_b"]; kept {
+		t.Fatal("expired entries are pruned so the map does not grow with every requester ever seen")
+	}
+}
+
+func TestApprovalRequestsFromOneRequesterMailTheAdminsOncePerWindow(t *testing.T) {
+	server, ts := trackingServer(t)
+	seedMailUsers(t, server.db)
+	putTrackingSetting(t, ts.URL, "mail.smtp_host", "relay.internal")
+	putTrackingSetting(t, ts.URL, "mail.from_address", "dataworks@example.test")
+	putTrackingSetting(t, ts.URL, "mail.enabled", "true")
+	captured := &capturedMail{}
+	server.mailer.SetSender(captured.send)
+
+	resp := postJSON(t, ts.URL+"/admin/policies", "", map[string]any{
+		"name":  "approval for gpt-4.1",
+		"rules": []any{map[string]any{"name": "model approval", "model": "gpt-4.1", "require_approval": true}},
+	})
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("policy create = %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	// Two registered keys, so the gate sees two distinct requesters.
+	for _, key := range []string{"key-a", "key-b"} {
+		resp := postJSON(t, ts.URL+"/admin/api-keys", "", map[string]any{"name": key, "key": key})
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("api key %s = %d", key, resp.StatusCode)
+		}
+	}
+
+	// A client retrying without X-Governance-Approval-ID parks a new approval
+	// every time, but the administrators hear about the requester once.
+	chat := map[string]any{"model": "gpt-4.1", "messages": []any{map[string]any{"role": "user", "content": "hello"}}}
+	ids := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		resp := postJSON(t, ts.URL+"/v1/chat/completions", "key-a", chat)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusLocked || resp.Header.Get("X-Governance-Approval-ID") == "" {
+			t.Fatalf("attempt %d = %d", i, resp.StatusCode)
+		}
+		ids[resp.Header.Get("X-Governance-Approval-ID")] = true
+	}
+	server.mailer.Wait()
+	if len(ids) != 3 {
+		t.Fatalf("each bare retry still gets its own approval: %v", ids)
+	}
+	if got := captured.recipients(); len(got) != 2 || got[0] != "admin1@example.test" || got[1] != "admin2@example.test" {
+		t.Fatalf("three retries must produce one mail per admin, got %v", got)
+	}
+	if !strings.Contains(captured.sent[0].Body, "추가 승인 요청은") {
+		t.Fatalf("the mail must say later requests from this requester are held:\n%s", captured.sent[0].Body)
+	}
+	_, items := mailDeliveries(t, ts.URL, "?event="+mail.EventApprovalRequested)
+	if len(items) != 2 {
+		t.Fatalf("ledger = %v", items)
+	}
+
+	// Another requester opens its own window.
+	resp = postJSON(t, ts.URL+"/v1/chat/completions", "key-b", chat)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusLocked {
+		t.Fatalf("key-b = %d", resp.StatusCode)
+	}
+	server.mailer.Wait()
+	if got := captured.recipients(); len(got) != 4 {
+		t.Fatalf("a different requester is mailed on its own: %v", got)
 	}
 }
 

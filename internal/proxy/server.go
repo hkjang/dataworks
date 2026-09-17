@@ -91,6 +91,7 @@ type Server struct {
 	mailRuntime    atomic.Pointer[mail.Config]     // admin-settings SMTP notifications (mail.*); nil = off
 	mailer         *mail.Service                   // background event mail; never blocks a request
 	mailDigestDay  atomic.Pointer[string]          // UTC day the expiry digest was last checked on this pod
+	mailApprovals  mailThrottle                    // one approval.requested mail per requester per window
 }
 
 func (s *Server) AttachAlertWorker(worker *AlertWorker) {

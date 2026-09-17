@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -317,6 +318,46 @@ func TestNotifyDoesNothingWhenOffIncompleteOrSwitchedOff(t *testing.T) {
 	off, _ := newTestService(Config{}, &memLedger{}, directory)
 	if err := off.SendNow(context.Background(), TestMessage(), "", "bob@example.test"); !errors.Is(err, ErrDisabled) {
 		t.Fatalf("SendNow while disabled = %v", err)
+	}
+}
+
+func TestNotifyCapsDeliveriesInFlightAndRecordsTheOverflow(t *testing.T) {
+	directory := memDirectory{}
+	recipients := make([]string, 0, MaxInFlight+3)
+	for i := 0; i < MaxInFlight+3; i++ {
+		recipients = append(recipients, "user"+strconv.Itoa(i)+"@example.test")
+	}
+	config := Config{Enabled: true, Host: "h", Port: 25, Security: "auto", FromAddress: "a@b.test", Timeout: time.Second}
+	ledger := &memLedger{}
+	service, log := newTestService(config, ledger, directory)
+	// Every send hangs like a relay that accepted the connection and went quiet,
+	// until the test lets go.
+	release := make(chan struct{})
+	log.fail = func(Message) error { <-release; return nil }
+	started := time.Now()
+	service.Notify(context.Background(), Notification{Event: EventAlertFired, Subject: "alert"}, "", recipients)
+	if time.Since(started) > 500*time.Millisecond {
+		t.Fatal("Notify blocked the caller")
+	}
+	rows := ledger.byStatus()
+	if len(rows["queued"]) != MaxInFlight || len(rows["failed"]) != 3 {
+		t.Fatalf("ledger = queued %d, failed %d (want %d in flight and the rest refused)", len(rows["queued"]), len(rows["failed"]), MaxInFlight)
+	}
+	for _, row := range rows["failed"] {
+		if row.Attempts != 0 || !strings.Contains(row.ErrorMessage, ErrBusy.Error()) {
+			t.Fatalf("overflow row = %+v", row)
+		}
+	}
+	close(release)
+	service.Wait()
+	if rows := ledger.byStatus(); len(rows["sent"]) != MaxInFlight || len(rows["queued"]) != 0 {
+		t.Fatalf("after release ledger = %+v", rows)
+	}
+	// Slots are handed back: the next message goes out normally.
+	service.Notify(context.Background(), Notification{Event: EventAlertFired, Subject: "again"}, "", []string{"late@example.test"})
+	service.Wait()
+	if got := log.recipients(); got[len(got)-1] != "late@example.test" {
+		t.Fatalf("recipients = %v", got)
 	}
 }
 

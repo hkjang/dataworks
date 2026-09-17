@@ -37,6 +37,12 @@ type Delivery struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// MaxInFlight caps the background deliveries a service runs at once. A dead
+// relay holds each one for two attempts plus the timeout, so without a cap a
+// burst of events would pile up goroutines for minutes; beyond the cap a
+// delivery is recorded as failed with ErrBusy instead of being started.
+const MaxInFlight = 64
+
 // Service sends notifications without ever blocking a request.
 type Service struct {
 	config    func() Config
@@ -46,6 +52,7 @@ type Service struct {
 	now       func() time.Time
 	send      func(context.Context, Config, Message) error
 	wg        sync.WaitGroup
+	inflight  chan struct{} // one slot per running delivery goroutine
 }
 
 // NewService wires the service to a config snapshot getter, the delivery
@@ -58,7 +65,8 @@ func NewService(config func() Config, ledger Ledger, directory Directory, logger
 		config = func() Config { return Config{} }
 	}
 	return &Service{config: config, ledger: ledger, directory: directory, logger: logger,
-		now: func() time.Time { return time.Now().UTC() }, send: Deliver}
+		now: func() time.Time { return time.Now().UTC() }, send: Deliver,
+		inflight: make(chan struct{}, MaxInFlight)}
 }
 
 // SetSender replaces the transport, which lets tests drive the service without
@@ -74,7 +82,9 @@ func (s *Service) Wait() { s.wg.Wait() }
 // Notify resolves the recipients and sends in the background so no request
 // waits on a mail server. The actor never receives mail about their own
 // action, and recipients without an address are skipped quietly. Every
-// recipient of one call gets exactly one message.
+// recipient of one call gets exactly one message. When MaxInFlight deliveries
+// are already running the message is recorded as failed rather than queued
+// without bound.
 func (s *Service) Notify(ctx context.Context, notification Notification, actorID string, recipients []string) {
 	if s == nil {
 		return
@@ -90,9 +100,16 @@ func (s *Service) Notify(ctx context.Context, notification Notification, actorID
 	body := notification.Render(config)
 	for _, address := range addresses {
 		delivery := s.record(ctx, notification, actorID, address)
+		select {
+		case s.inflight <- struct{}{}:
+		default:
+			s.complete(ctx, delivery, 0, ErrBusy)
+			continue
+		}
 		s.wg.Add(1)
 		go func(delivery Delivery, address string) {
 			defer s.wg.Done()
+			defer func() { <-s.inflight }()
 			s.deliver(delivery, config, Message{To: address, Subject: notification.Subject, Body: body})
 		}(delivery, address)
 	}
