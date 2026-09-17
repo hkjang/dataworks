@@ -87,6 +87,7 @@ type Server struct {
 	lastReloadTok  atomic.Pointer[string]          // admin_settings change token this pod last applied
 	trackRuntime   atomic.Pointer[tracking.Config] // admin-settings visitor tracking (tracking.*); nil = off
 	trackReports   *tracking.Recorder              // origins the page policy blocked while tracking was on
+	oauthRuntime   atomic.Pointer[mcpOAuthConfig]  // admin-settings MCP OAuth (mcp.oauth.*); nil = off
 }
 
 func (s *Server) AttachAlertWorker(worker *AlertWorker) {
@@ -701,6 +702,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/admin/mcp/upstreams/", s.handleMCPUpstreamByID)
 	mux.HandleFunc("/mcp", s.handleMCPGateway)
 	mux.HandleFunc("/mcp/gateway", s.handleGatewayMCP)
+	mux.HandleFunc("/.well-known/oauth-protected-resource", s.handleMCPOAuthMetadata)
+	mux.HandleFunc("/.well-known/oauth-protected-resource/", s.handleMCPOAuthMetadata)
+	mux.HandleFunc("/admin/mcp/oauth/status", s.handleMCPOAuthStatus)
 	mux.HandleFunc("/admin/gateway-mcp/info", s.handleGatewayMCPInfo)
 	mux.HandleFunc("/admin/mcp/gateway/test", s.handleGatewayMCPTest)
 	mux.HandleFunc("/admin/mcp/contracts", s.handleAdminMCPContracts)
@@ -1425,62 +1429,81 @@ func (s *Server) authenticateProxy(r *http.Request) (string, bool) {
 }
 
 func (s *Server) authenticateProxyContext(r *http.Request) (string, *store.AuthContext, bool) {
+	id, authCtx, ok, _ := s.authenticateProxyContextReason(r)
+	return id, authCtx, ok
+}
+
+// authenticateProxyContextReason is authenticateProxyContext that also returns why an
+// SSO access token was refused, so the MCP endpoints can say so (a refused key stays
+// the generic "invalid proxy API key"; the reason is nil then).
+func (s *Server) authenticateProxyContextReason(r *http.Request) (string, *store.AuthContext, bool, error) {
 	token := bearerToken(r.Header.Get("Authorization"))
 	if token == "" {
 		hasKeys, err := s.db.HasActiveAPIKeys(r.Context())
 		if err != nil {
 			slog.Warn("check active proxy keys failed", "error", err)
-			return "", nil, false
+			return "", nil, false, nil
 		}
 		if !hasKeys && !s.cfg.Auth.Enabled {
-			return "anonymous", nil, true
+			return "anonymous", nil, true, nil
 		}
 		_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_denied", IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "missing bearer token", CreatedAt: time.Now().UTC()})
-		return "", nil, false
+		return "", nil, false, nil
 	}
 	keyHash := hashProxyKey(token)
 	key, found, err := s.db.FindActiveAPIKeyByHash(r.Context(), keyHash)
 	if err != nil {
 		slog.Warn("lookup proxy api key failed", "error", err)
-		return "", nil, false
+		return "", nil, false, nil
 	}
 	if found {
 		authCtx := authContextFromAPIKey(key)
 		s.enrichAuthContextTeam(r.Context(), &authCtx)
 		if !key.RevokedAt.IsZero() || key.Status != "active" {
 			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_denied", APIKeyID: key.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "revoked_or_inactive", CreatedAt: time.Now().UTC()})
-			return "", nil, false
+			return "", nil, false, nil
 		}
 		if !key.ExpiresAt.IsZero() && key.ExpiresAt.Before(time.Now().UTC()) {
 			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_denied", APIKeyID: key.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "expired", CreatedAt: time.Now().UTC()})
-			return "", nil, false
+			return "", nil, false, nil
 		}
 		if !ipAllowed(clientIP(r), key.AllowedIPs) {
 			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "ip_denied", APIKeyID: key.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: strings.Join(key.AllowedIPs, ","), CreatedAt: time.Now().UTC()})
-			return "", nil, false
+			return "", nil, false, nil
 		}
 		scope := apiScopeForRequest(r)
 		if s.cfg.Auth.Enabled && scope != "" && !hasScope(key.Scopes, scope) {
 			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "scope_denied", APIKeyID: key.ID, TeamID: key.Team, IP: clientIP(r), UserAgent: r.UserAgent(), Detail: scope, CreatedAt: time.Now().UTC()})
-			return "", nil, false
+			return "", nil, false, nil
 		}
-		return key.ID, &authCtx, true
+		return key.ID, &authCtx, true, nil
+	}
+	// Not a key. On the MCP endpoints, a JWT-shaped bearer is an SSO access token while
+	// the administrator has MCP OAuth on; it is verified and either opens the account it
+	// names or is refused with the reason (never falls through to the passthrough below).
+	if mcpOAuthEndpoint(r.URL.Path) && looksLikeJWT(token) && s.mcpOAuth().Active() {
+		id, authCtx, err := s.mcpOAuthAuthenticate(r, token)
+		if err != nil {
+			_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "mcp_oauth_denied", IP: clientIP(r), UserAgent: r.UserAgent(), Detail: err.Error(), CreatedAt: time.Now().UTC()})
+			return "", nil, false, err
+		}
+		return id, authCtx, true, nil
 	}
 	// 토큰이 proxy key(pcg_ 접두사)가 아니면 upstream API key passthrough 로 허용
 	// 이를 통해 Roo Code / Cursor 등이 upstream key 를 직접 보내도 프록시가 작동함
 	if !s.cfg.Auth.Enabled && !strings.HasPrefix(token, "pcg_") {
-		return s.attributeExternalKey(r, keyHash), nil, true
+		return s.attributeExternalKey(r, keyHash), nil, true, nil
 	}
 	hasKeys, err := s.db.HasActiveAPIKeys(r.Context())
 	if err != nil {
 		slog.Warn("check active proxy keys failed", "error", err)
-		return "", nil, false
+		return "", nil, false, nil
 	}
 	if !hasKeys && !s.cfg.Auth.Enabled {
-		return "anonymous", nil, true
+		return "anonymous", nil, true, nil
 	}
 	_ = s.db.InsertAuditEvent(r.Context(), store.AuthEvent{ID: newID("ae"), EventType: "api_key_denied", IP: clientIP(r), UserAgent: r.UserAgent(), Detail: "unknown key", CreatedAt: time.Now().UTC()})
-	return "", nil, false
+	return "", nil, false, nil
 }
 
 // attributeExternalKey maps an unregistered (non-proxy) bearer key to a stable

@@ -273,6 +273,70 @@ Keycloak에 이미 로그인한 사람이 Data Works를 열면 로그인 화면 
 - 로그아웃한 뒤 다시 열어도 자동으로 로그인되지 않습니다.
 - `auto_login`이 꺼진 기본 설치에서는 아무것도 달라지지 않습니다.
 
+#### MCP SSO (OAuth 2.1) — 키 없이 Keycloak 토큰으로 MCP 연결
+
+`/mcp`·`/mcp/gateway`는 기본적으로 개인 API 키로만 들어갑니다. 이 절의 설정을 켜면 **키 체계는 그대로 둔 채** Keycloak 이 발급한 액세스 토큰으로도 들어올 수 있습니다. MCP 인가 규격(2025-06-18 이후)은 OAuth 2.1 이라, Claude·Cursor 같은 클라이언트에 MCP URL 하나만 주면 클라이언트가 401 응답의 `resource_metadata` 를 따라 Keycloak 으로 가서 스스로 로그인하고 토큰을 받아 옵니다. 이미 Keycloak 에 로그인한 사람이면 화면조차 거의 보지 않습니다.
+
+Data Works 는 **리소스 서버**입니다. 로그인·토큰 발급·클라이언트 등록은 Keycloak 이 하고, 이 서버는 (1) 보호 리소스 메타데이터(RFC 9728)를 내고, (2) MCP 경로의 401 에 길을 가리키는 헤더를 붙이고, (3) 토큰의 서명·발급자·만료·대상을 검사해 **이미 등록된 활성 계정**에 연결하는 일만 합니다. `/authorize`·`/token`·동적 클라이언트 등록 엔드포인트는 만들지 않습니다.
+
+설정은 `관리자 설정 → Keycloak SSO` 탭 아래 `MCP SSO (OAuth 2.1) 연결` 카드에 있습니다(`전체 설정` 에서는 카테고리 `mcp.oauth`, 쓰기 권한 그룹은 `security`). Keycloak SSO 의 Issuer URL 을 그대로 재사용하므로 4.3 절의 SSO 설정이 먼저 저장돼 있어야 합니다.
+
+| 설정 키 | 기본값 | 뜻 |
+| --- | --- | --- |
+| `mcp.oauth.enabled` | `false` | **꺼짐이 기본.** 켜면 메타데이터가 열리고 MCP 경로에서 토큰을 받습니다. Issuer URL 이 비어 있으면 켜 두어도 꺼진 것처럼 동작하며 로그와 상태 카드에 이유가 남습니다. |
+| `mcp.oauth.resource` | 빈 값 | 리소스 식별자(RFC 8707) = 클라이언트가 실제로 접속하는 **공개 주소 + `/mcp`**(예: `https://dataworks.example.com/mcp`). 비우면 Keycloak Redirect URI 의 오리진에서 만들고, 그것도 없으면 요청 `Host` 로 만듭니다(마지막 수단 — 누구나 헤더를 바꿀 수 있으므로 운영에서는 적어 두세요). `/mcp/gateway` 의 식별자는 여기에 `/gateway` 를 붙인 값입니다. |
+| `mcp.oauth.audience` | 빈 값 | 공백 구분 허용 대상. 토큰의 `aud` **또는** `azp` 가 여기 있으면 통과합니다. 실제 Keycloak 26 은 `aud` 에 `account` 만 싣고 클라이언트 ID 는 `azp` 에 담으므로, MCP 클라이언트 ID(예: `claude-mcp`)를 적으면 Audience 매퍼 없이 동작합니다. |
+| `mcp.oauth.scopes` | `mcp:use` | 공백 구분. SSO 토큰 주체에게 주는 범위. 계정 역할의 범위와 **교집합**만 적용되고, 토큰에 이 앱의 범위 어휘(`scope` 클레임)가 실려 오면 그것과도 교집합입니다. `mcp:use` 가 남지 않는 계정(예: `viewer`)은 거부됩니다. |
+| (재사용) Issuer URL · Client ID · Redirect URI | Keycloak SSO 설정 | 새로 만들지 않습니다. |
+
+순서: 리소스 식별자(필요하면) → 허용 대상 → 범위 → 마지막에 `mcp.oauth.enabled`. 저장 즉시 반영되며 다른 파드는 `SETTINGS_RELOAD_INTERVAL` 안에 따라옵니다.
+
+**Keycloak 쪽 할 일**
+
+1. MCP 클라이언트용 **공개(public) 클라이언트**를 만듭니다(예: `claude-mcp`). Standard Flow 켬, PKCE `S256`, Direct Access Grants·Implicit·Service accounts 끔. 웹 로그인 클라이언트(4.3 절의 confidential client)와 **다른** 클라이언트입니다.
+2. Valid Redirect URIs 에 쓰는 MCP 클라이언트의 콜백을 정확히 적습니다. Claude 는 `https://claude.ai/api/mcp/auth_callback`, 로컬 클라이언트는 `http://127.0.0.1:*/callback` 류입니다. `*` 하나로 다 여는 것은 금지입니다.
+3. 대상 바인딩은 둘 중 하나입니다.
+   - **정식 경로 (Audience 매퍼)**: 그 클라이언트(또는 전용 client scope)의 Mappers → Add mapper → By configuration → **Audience**. Included Custom Audience = 리소스 식별자(상태 카드의 `리소스 식별자` 값, 예 `https://dataworks.example.com/mcp`), Add to access token 켬, Add to ID token 끔. `/mcp` 하나만 넣으면 `/mcp/gateway` 도 통과합니다.
+   - **호환 경로 (매퍼 없이)**: 이 서버의 `mcp.oauth.audience` 에 클라이언트 ID(`claude-mcp`)를 적습니다.
+4. 액세스 토큰 수명은 짧게(5분 안팎) 둡니다. 이 서버는 introspection 을 하지 않으므로 Keycloak 에서 로그아웃하거나 세션을 끊어도 **이미 발급된 토큰은 만료까지 유효**합니다.
+
+**계정 연결 규칙** — 토큰으로 계정을 만들지 않습니다. 토큰의 `sub` 로 연결된 계정(웹 SSO 로그인이 남긴 링크)을 찾고, 없으면 `email` 클레임과 같은 이메일의 계정을 찾습니다. 둘 다 없거나 계정이 활성이 아니면 "먼저 웹으로 한 번 로그인하세요" 로 거부합니다. 토큰의 역할 클레임은 읽지 않으며 권한은 계정에 저장된 역할과 `mcp.oauth.scopes` 의 교집합입니다. OAuth 토큰은 **MCP 경로에서만** 받습니다 — `/v1/*`·관리 API·웹은 지금처럼 키와 세션만 받습니다.
+
+**curl 로 확인**
+
+```bash
+# 1) 메타데이터 — 인증 없이 맨 JSON, 꺼져 있으면 404
+curl -s https://dataworks.example.com/.well-known/oauth-protected-resource/mcp
+# {"resource":"https://dataworks.example.com/mcp","authorization_servers":["https://keycloak.internal/realms/dataworks"],
+#  "bearer_methods_supported":["header"],"scopes_supported":["mcp:use"],"resource_name":"Data Works MCP"}
+
+# 2) 401 이 길을 가리킨다 — MCP 경로에서만
+curl -si -X POST https://dataworks.example.com/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -i www-authenticate
+# WWW-Authenticate: Bearer realm="Data Works", resource_metadata="https://dataworks.example.com/.well-known/oauth-protected-resource/mcp"
+
+# 3) 토큰으로 열기 (토큰은 MCP 클라이언트가 받아 오지만, 손으로 확인할 때는 Keycloak 에서 발급받은 액세스 토큰을 넣는다)
+curl -s -X POST https://dataworks.example.com/mcp/gateway -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+**거부 메시지별 조치** — 거부는 401 이며 본문 `error.code` 와 한국어 `error.message` 로 이유를 말합니다. 감사 로그에는 `mcp_oauth_denied` 이벤트로 남습니다.
+
+| `error.code` | 뜻 | 조치 |
+| --- | --- | --- |
+| `invalid_api_key` (헤더 없음) | 꺼져 있거나 Issuer 가 비어 있음. 토큰을 키 전용 때와 똑같이 거부 | `mcp.oauth.enabled` 와 Keycloak Issuer URL 을 확인 |
+| `invalid_audience` | 토큰이 이 서버용이 아님. 메시지에 본 `aud`·`azp` 와 고칠 값이 들어 있음(예: `aud=[account], azp="claude-mcp"`) | 메시지의 `azp` 값을 `mcp.oauth.audience` 에 더하거나, Keycloak 클라이언트에 Audience 매퍼로 메시지의 리소스 식별자를 추가 |
+| `invalid_token` | 서명·발급자·만료(`exp`)·아직 유효하지 않음(`nbf`)·`typ=ID`(ID 토큰)·`cnf`(소지자 증명 토큰)·`HS256`/`none` 알고리즘·모르는 `kid`·`sub` 없음 중 하나. 괄호 안에 원인이 있음 | 클라이언트에서 다시 로그인. 발급자가 다르면 Issuer URL 과 realm 확인. `kid` 를 모르면 30초 뒤 재시도(키 회전 시 JWKS 재조회는 30초에 한 번) |
+| `account_not_registered` | `sub` 링크도 이메일 일치도 없거나 계정이 활성이 아님 | 그 사람이 웹으로 SSO 로그인을 한 번 하게 하거나(등록), 계정 상태를 확인 |
+| `insufficient_scope` | `mcp.oauth.scopes` ∩ 역할 범위(∩ 토큰 `scope`)에 `mcp:use` 가 없음 | 계정 역할(`viewer` 는 `mcp:use` 가 없음)과 `mcp.oauth.scopes` 확인 |
+| `mcp_oauth_unavailable` | Keycloak discovery 를 읽지 못함 | Keycloak 접근성·Issuer URL 확인 후 재시도 |
+
+관리 API:
+
+```http
+GET /.well-known/oauth-protected-resource            # 공개, RFC 9728 (…/mcp, …/mcp/gateway 도 같음)
+GET /admin/mcp/oauth/status                          # 상태·리소스 식별자·메타데이터 주소·허용 대상·범위
+```
+
 ### 4.4 전체 런타임 설정
 
 `관리자 설정 → 전체 설정`에서 설정 키와 설명을 검색하고 카테고리로 필터링합니다.
@@ -640,7 +704,7 @@ Data Works에는 서로 다른 두 MCP 엔드포인트가 있습니다.
 
 React `AI 및 MCP` 설정에서는 Agentic MCP 모델과 토큰·턴·도구 수 정책을 관리합니다. 외부 MCP 업스트림 등록, Bearer 인증, allowlist·차단 정책, 도구별 역할 Scope, Route Explain, 연결 시험과 호출 관측은 기존 `/admin` 콘솔의 MCP 메뉴에서 관리합니다.
 
-MCP 업스트림 인증 토큰은 암호화 저장됩니다. 개인 키에는 `mcp:use` Scope가 필요하고, MCP 관리에는 `mcp:admin` 등 관리자 권한이 필요합니다.
+MCP 업스트림 인증 토큰은 암호화 저장됩니다. 개인 키에는 `mcp:use` Scope가 필요하고, MCP 관리에는 `mcp:admin` 등 관리자 권한이 필요합니다. 개인 키 대신 Keycloak 액세스 토큰으로 들어오게 하려면 [4.3 MCP SSO (OAuth 2.1)](#mcp-sso-oauth-21--키-없이-keycloak-토큰으로-mcp-연결) 을 켭니다(기본 꺼짐).
 
 주요 API:
 

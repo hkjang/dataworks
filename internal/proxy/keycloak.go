@@ -3,6 +3,8 @@ package proxy
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -40,11 +42,17 @@ var (
 	discFetch time.Time
 
 	jwksMu    sync.Mutex
-	jwksKeys  map[string]*rsa.PublicKey
+	jwksKeys  map[string]crypto.PublicKey // *rsa.PublicKey or *ecdsa.PublicKey, by kid
 	jwksFetch time.Time
+	jwksMiss  time.Time // last refetch triggered by an unknown kid (throttled)
 )
 
 const oidcCacheTTL = 10 * time.Minute
+
+// jwksMissInterval bounds how often an unknown kid may trigger a JWKS refetch. Key
+// rotation needs one refetch; a stream of tokens signed with keys the realm never had
+// (or forged headers) must not turn every MCP request into a round trip to Keycloak.
+const jwksMissInterval = 30 * time.Second
 
 // keycloakDiscover fetches (and caches) the issuer's OIDC discovery document.
 func keycloakDiscover(ctx context.Context, issuer string) (oidcDiscovery, error) {
@@ -65,38 +73,67 @@ func keycloakDiscover(ctx context.Context, issuer string) (oidcDiscovery, error)
 	return d, nil
 }
 
-// jwkSet is the subset of a JWKS document we need (RSA signing keys).
+// jwkSet is the subset of a JWKS document we need (RSA and EC signing keys).
 type jwkSet struct {
 	Keys []struct {
 		Kty string `json:"kty"`
 		Kid string `json:"kid"`
 		N   string `json:"n"`
 		E   string `json:"e"`
+		Crv string `json:"crv"`
+		X   string `json:"x"`
+		Y   string `json:"y"`
 		Use string `json:"use"`
 	} `json:"keys"`
 }
 
 // keycloakJWKSKey returns the RSA public key for a kid, refreshing the JWKS on a miss
-// (handles key rotation) and on TTL expiry.
+// (handles key rotation) and on TTL expiry. Web login only signs with RS256, so a
+// non-RSA key under that kid is reported as missing.
 func keycloakJWKSKey(ctx context.Context, jwksURI, kid string) (*rsa.PublicKey, error) {
+	pub, err := keycloakJWKSPublicKey(ctx, jwksURI, kid)
+	if err != nil {
+		return nil, err
+	}
+	rsaKey, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return nil, errors.New("JWKS key for kid " + kid + " is not RSA")
+	}
+	return rsaKey, nil
+}
+
+// keycloakJWKSPublicKey returns the signing key (RSA or EC) for a kid. A miss refetches
+// the document at most once per jwksMissInterval; a TTL expiry always refetches.
+func keycloakJWKSPublicKey(ctx context.Context, jwksURI, kid string) (crypto.PublicKey, error) {
 	jwksMu.Lock()
 	defer jwksMu.Unlock()
-	if jwksKeys != nil && time.Since(jwksFetch) < oidcCacheTTL {
+	fresh := jwksKeys != nil && time.Since(jwksFetch) < oidcCacheTTL
+	if fresh {
 		if k, ok := jwksKeys[kid]; ok {
 			return k, nil
 		}
+		if time.Since(jwksMiss) < jwksMissInterval {
+			return nil, errors.New("no JWKS key for kid " + kid)
+		}
+		jwksMiss = time.Now()
 	}
 	// Cache miss or expired → (re)fetch.
 	var set jwkSet
 	if err := oidcGetJSON(ctx, jwksURI, &set); err != nil {
 		return nil, err
 	}
-	keys := map[string]*rsa.PublicKey{}
+	keys := map[string]crypto.PublicKey{}
 	for _, k := range set.Keys {
-		if k.Kty != "RSA" {
+		var pub crypto.PublicKey
+		var err error
+		switch k.Kty {
+		case "RSA":
+			pub, err = jwkToRSA(k.N, k.E)
+		case "EC":
+			pub, err = jwkToECDSA(k.Crv, k.X, k.Y)
+		default:
 			continue
 		}
-		pub, err := jwkToRSA(k.N, k.E)
 		if err != nil {
 			continue
 		}
@@ -107,6 +144,33 @@ func keycloakJWKSKey(ctx context.Context, jwksURI, kid string) (*rsa.PublicKey, 
 		return k, nil
 	}
 	return nil, errors.New("no JWKS key for kid " + kid)
+}
+
+func jwkToECDSA(crv, xB64, yB64 string) (*ecdsa.PublicKey, error) {
+	var curve elliptic.Curve
+	switch crv {
+	case "P-256":
+		curve = elliptic.P256()
+	case "P-384":
+		curve = elliptic.P384()
+	case "P-521":
+		curve = elliptic.P521()
+	default:
+		return nil, errors.New("unsupported EC curve " + crv)
+	}
+	xb, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(xB64, "="))
+	if err != nil {
+		return nil, err
+	}
+	yb, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(yB64, "="))
+	if err != nil {
+		return nil, err
+	}
+	pub := &ecdsa.PublicKey{Curve: curve, X: new(big.Int).SetBytes(xb), Y: new(big.Int).SetBytes(yb)}
+	if !curve.IsOnCurve(pub.X, pub.Y) {
+		return nil, errors.New("EC point not on curve")
+	}
+	return pub, nil
 }
 
 func jwkToRSA(nB64, eB64 string) (*rsa.PublicKey, error) {

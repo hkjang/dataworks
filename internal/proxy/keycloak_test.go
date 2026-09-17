@@ -262,7 +262,7 @@ func TestVerifyKeycloakIDToken(t *testing.T) {
 	}
 	// Seed the JWKS cache so verification doesn't hit the network.
 	jwksMu.Lock()
-	jwksKeys = map[string]*rsa.PublicKey{"test-kid": &key.PublicKey}
+	jwksKeys = map[string]crypto.PublicKey{"test-kid": &key.PublicKey}
 	jwksFetch = time.Now()
 	jwksMu.Unlock()
 
@@ -313,7 +313,7 @@ func TestVerifyKeycloakAccessToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	jwksMu.Lock()
-	jwksKeys = map[string]*rsa.PublicKey{"at-kid": &key.PublicKey}
+	jwksKeys = map[string]crypto.PublicKey{"at-kid": &key.PublicKey}
 	jwksFetch = time.Now()
 	jwksMu.Unlock()
 	// Seed the discovery cache so verifyKeycloakAccessToken doesn't hit the network.

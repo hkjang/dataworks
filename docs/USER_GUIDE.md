@@ -346,6 +346,26 @@ POST /me/connection-doctor
 
 키에는 `mcp:use` Scope가 있어야 하며 모델, 공급자, IP, 예산과 MCP 도구 정책이 함께 적용됩니다.
 
+### 키 없이 SSO 로 연결하기
+
+관리자가 `MCP SSO (OAuth 2.1)` 를 켠 설치에서는 개인 키를 만들지 않아도 됩니다. MCP 클라이언트에 **URL 하나만** 주면 클라이언트가 스스로 사내 Keycloak 로그인 화면을 띄우고 토큰을 받아 옵니다. 이미 Keycloak 에 로그인돼 있으면 화면은 거의 보이지 않습니다.
+
+```json
+{
+  "mcpServers": {
+    "dataworks": {
+      "url": "https://<service-host>/mcp/gateway"
+    }
+  }
+}
+```
+
+- Claude(웹·데스크톱)는 커넥터 추가 화면에 URL 을 넣고, Cursor·로컬 클라이언트는 위와 같이 `headers` 없이 등록합니다. 클라이언트가 OAuth 를 지원하지 않으면(폐쇄망 스크립트 등) 종전대로 개인 키를 씁니다.
+- SSO 로 들어와도 권한은 **내 계정으로 키를 만들었을 때와 같습니다.** 관리자가 정한 범위(`mcp.oauth.scopes`, 기본 `mcp:use`)와 내 역할의 교집합만 적용되며, 도구 정책·예산도 같은 규칙을 탑니다.
+- 처음 연결할 때 "등록되지 않았거나 비활성" 이라고 거부되면 **먼저 웹으로 한 번 SSO 로그인**하세요. 웹 로그인이 계정을 등록하는 순간이고, 토큰은 계정을 만들지 않습니다.
+- Keycloak 에서 로그아웃해도 이미 발급된 토큰은 만료(보통 몇 분)까지 유효합니다.
+- 관리자가 이 기능을 켜지 않은 설치에서는 `/.well-known/oauth-protected-resource` 가 404 이고 개인 키만 받습니다.
+
 ## 16. OpenAPI와 상품 API
 
 - 전체 서비스 OpenAPI: `/openapi.json`

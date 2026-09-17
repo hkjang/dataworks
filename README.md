@@ -34,6 +34,7 @@
 | `GET` | `/admin/dataworks/action-center` | 운영 액션 센터: 출시 차단, 승인 대기, 만료 임박 계약·권한(`?expiring_within=13w`), 비활성 권한 |
 | `GET/POST/DELETE` | `/admin/roles` | 역할 카탈로그·사용 현황 조회, 사용자 정의 역할 저장과 안전 삭제 |
 | `GET/DELETE/POST` | `/admin/tracking/status`, `/admin/tracking/violations[/allow]` | 방문 추적(`tracking.*` 설정) 유효 상태, CSP 가 차단한 출처 목록·비우기·허용 목록 추가 |
+| `GET` | `/.well-known/oauth-protected-resource[/mcp[/gateway]]`, `/admin/mcp/oauth/status` | MCP SSO(OAuth 2.1, `mcp.oauth.*` 설정): RFC 9728 보호 리소스 메타데이터(공개, 꺼져 있으면 404)와 관리자용 상태·리소스 식별자·허용 대상 |
 | `GET/PATCH` | `/admin/users[/{id}]` | 로그인 계정 조회, 역할·활성 상태 변경과 세션 즉시 반영 |
 | `GET/POST` | `/admin/dataworks/customer-segments` | 고객 세그먼트 등록 및 조회 |
 | `GET/POST` | `/admin/dataworks/assets` | 데이터 자산 목록 조회 및 업서트 |

@@ -23,9 +23,9 @@ func (s *Server) handleGatewayMCP(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 		return
 	}
-	apiKeyID, authCtx, ok := s.authenticateProxyContext(r)
+	apiKeyID, authCtx, ok, refusal := s.authenticateProxyContextReason(r)
 	if !ok {
-		writeOpenAIError(w, http.StatusUnauthorized, "invalid proxy API key", "invalid_request_error", "invalid_api_key")
+		s.writeMCPUnauthorized(w, r, refusal)
 		return
 	}
 	var raw json.RawMessage
