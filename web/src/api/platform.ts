@@ -117,6 +117,27 @@ export interface TrackingStatus {
   snippet: string
 }
 
+export interface MCPOAuthEndpoint {
+  path: string
+  url: string
+  resource: string
+  metadata_url: string
+}
+
+export interface MCPOAuthStatus {
+  enabled: boolean
+  active: boolean
+  problem: string
+  issuer: string
+  web_client_id: string
+  resource: string
+  resource_source: 'setting' | 'redirect_uri' | 'request' | ''
+  metadata_url: string
+  endpoints: MCPOAuthEndpoint[]
+  audiences: string[]
+  scopes: string[]
+}
+
 export interface TrackingViolation {
   origin: string
   directive: string
@@ -183,6 +204,7 @@ export const platformApi = {
   saveSetting: (key: string, value: string) =>
     apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value, reason: 'React 관리자 설정' }) }),
   revertSetting: (key: string) => apiRequest(`/admin/settings/by-key/${encodeURIComponent(key)}`, { method: 'DELETE' }),
+  mcpOAuthStatus: () => apiRequest<MCPOAuthStatus>('/admin/mcp/oauth/status'),
   trackingStatus: () => apiRequest<TrackingStatus>('/admin/tracking/status'),
   trackingViolations: () => apiRequest<{ items: TrackingViolation[] }>('/admin/tracking/violations'),
   clearTrackingViolations: () => apiRequest<void>('/admin/tracking/violations', { method: 'DELETE' }),

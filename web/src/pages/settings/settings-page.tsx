@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, Bot, CheckCircle2, DatabaseZap, KeyRound, LoaderCircle, LockKeyhole, RotateCcw, Save, ShieldCheck, TestTube2, Trash2 } from 'lucide-react'
+import { Activity, Bot, Check, CheckCircle2, Copy, DatabaseZap, KeyRound, LoaderCircle, LockKeyhole, RotateCcw, Save, ShieldCheck, TestTube2, Trash2 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 
 import { platformApi, type KeycloakConfig, type ProviderConfig, type RuntimeSetting, type TrackingViolation } from '@/api/platform'
@@ -24,6 +24,9 @@ const tabItems: Array<{ key: SettingsTab; label: string; description: string }> 
 
 // The order administrators fill the form in: turn it on last, after the
 // provider and its address are saved, so a half-filled setup never goes live.
+// MCP SSO(OAuth): the identifier and audiences first, the switch last.
+const mcpOAuthKeys = ['mcp.oauth.resource', 'mcp.oauth.audience', 'mcp.oauth.scopes', 'mcp.oauth.enabled']
+
 const trackingKeys = ['tracking.provider', 'tracking.momento_url', 'tracking.momento_site_id', 'tracking.momento_proxy', 'tracking.momento_environment', 'tracking.measurement_id', 'tracking.matomo_url', 'tracking.matomo_site_id', 'tracking.custom_snippet', 'tracking.allowed_hosts', 'tracking.placement', 'tracking.include_admin', 'tracking.enabled']
 
 export function SettingsPage() {
@@ -102,7 +105,58 @@ function KeycloakSettings() {
   if (query.isPending) return <PageLoader label="Keycloak 설정을 불러오는 중" />
   if (query.error) return <ErrorState error={query.error} retry={() => void query.refetch()} />
   const current = query.data as KeycloakConfig
-  return <KeycloakSettingsEditor key={`${current.source}:${current.updated_at}:${current.enabled}:${current.client_id}`} current={current} />
+  return (
+    <div className="space-y-5">
+      <KeycloakSettingsEditor key={`${current.source}:${current.updated_at}:${current.enabled}:${current.client_id}`} current={current} />
+      <MCPOAuthSettings />
+    </div>
+  )
+}
+
+function MCPOAuthSettings() {
+  const settings = useQuery({ queryKey: ['admin', 'settings'], queryFn: platformApi.settings, staleTime: 15_000 })
+  const status = useQuery({ queryKey: ['admin', 'mcp-oauth', 'status'], queryFn: platformApi.mcpOAuthStatus, staleTime: 5_000 })
+  if (settings.isPending || status.isPending) return <PageLoader label="MCP SSO 설정을 불러오는 중" />
+  const error = settings.error || status.error
+  if (error) return <ErrorState error={error} retry={() => { void settings.refetch(); void status.refetch() }} />
+  const current = status.data
+  const rows = mcpOAuthKeys.map((key) => settings.data.settings.find((item) => item.key === key)).filter((item): item is RuntimeSetting => Boolean(item))
+  const state = !current.enabled ? '꺼짐' : current.problem ? '설정 미완료' : '토큰 받는 중'
+  const tone = !current.enabled ? 'inactive' : current.problem ? 'pending' : 'active'
+  const sourceLabel = current.resource_source === 'setting' ? 'mcp.oauth.resource' : current.resource_source === 'redirect_uri' ? 'Keycloak Redirect URI 의 오리진' : '요청 Host(임시 · 공개 주소를 적어 두세요)'
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <Card>
+        <CardHeader><div><h2 className="text-base font-bold text-[var(--ink)]">MCP SSO (OAuth 2.1) 연결</h2><p className="mt-1 text-xs text-[var(--muted)]">개인 API 키 없이 Keycloak 액세스 토큰으로 <code>/mcp</code>·<code>/mcp/gateway</code> 에 들어오게 합니다. 이 서버는 리소스 서버입니다 — 로그인은 위 Keycloak 이 하고, 여기서는 토큰의 서명·발급자·대상만 검사합니다. 허용 대상과 범위를 저장한 뒤 마지막에 켭니다.</p></div><KeyRound className="size-5 text-[var(--accent)]" /></CardHeader>
+        <CardContent className="space-y-3">
+          {rows.map((setting) => <QuickSetting key={`${setting.key}:${setting.source}:${setting.value}`} setting={setting} />)}
+        </CardContent>
+      </Card>
+      <div className="space-y-5">
+        <Card>
+          <CardContent>
+            <p className="text-xs font-bold text-[var(--muted)]">현재 상태</p>
+            <div className="mt-3 flex items-center justify-between"><StatusBadge status={tone} /><Badge>{state}</Badge></div>
+            <dl className="mt-5 space-y-3 text-xs">
+              <Info label="발급자(Issuer)" value={current.issuer || '미설정'} />
+              <Info label="리소스 식별자 출처" value={sourceLabel} />
+              <Info label="허용 대상" value={current.audiences.length ? current.audiences.join(', ') : '(aud 매퍼만)'} />
+              <Info label="범위" value={current.scopes.join(' ')} />
+            </dl>
+            {current.problem ? <p className="field-error mt-4">{current.problem}</p> : null}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><div><h2 className="text-base font-bold text-[var(--ink)]">클라이언트에 줄 값</h2><p className="mt-1 text-xs text-[var(--muted)]">MCP 클라이언트(Claude·Cursor 등)에는 URL 하나만 주면 됩니다. 401 의 <code>resource_metadata</code> 를 따라 스스로 로그인합니다.</p></div></CardHeader>
+          <CardContent className="space-y-3">
+            {current.endpoints.map((endpoint) => <CopyField key={endpoint.path} label={`MCP URL (${endpoint.path})`} value={endpoint.url} />)}
+            <CopyField label="리소스 식별자 (Audience 매퍼에 넣는 값)" value={current.resource} />
+            <CopyField label="메타데이터 주소" value={current.metadata_url} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
 
 function KeycloakSettingsEditor({ current }: { current: KeycloakConfig }) {
@@ -248,5 +302,10 @@ function RuntimeSettingRow({ setting, compact = false }: { setting: RuntimeSetti
   return <div className={`runtime-setting-row ${compact ? 'is-compact' : ''}`}><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><code>{setting.key}</code><Badge>{setting.category}</Badge>{setting.restart_required ? <Badge tone="warning">재시작 필요</Badge> : null}{setting.is_secret ? <Badge tone="violet">암호화</Badge> : null}</div><p>{setting.description || '관리자 런타임 설정'}</p></div><div className="runtime-setting-control">{control}<div className="flex gap-2"><Button size="sm" variant="secondary" aria-label={`${setting.key} 기본값 복원`} disabled={setting.read_only || setting.source !== 'admin' || revert.isPending} onClick={() => revert.mutate()}><RotateCcw className="size-3.5" /></Button><Button size="sm" variant="accent" disabled={!setting.can_write || setting.read_only || save.isPending || (setting.is_secret && !value)} onClick={() => save.mutate()}>{save.isPending ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />} 저장</Button></div></div>{save.error || revert.error ? <p className="field-error col-span-full">{(save.error || revert.error)?.message}</p> : null}</div>
 }
 
+function CopyField({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => { await navigator.clipboard.writeText(value); setCopied(true); window.setTimeout(() => setCopied(false), 1500) }
+  return <div><p className="field-label">{label}</p><div className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate rounded-lg border border-[var(--line)] bg-[var(--surface-raised)] px-3 py-2 text-xs" title={value}>{value || '—'}</code><Button size="sm" variant="secondary" aria-label={`${label} 복사`} disabled={!value} onClick={() => void copy()}>{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}</Button></div></div>
+}
 function FormField({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) { return <label className={className}><span className="field-label">{label}</span>{children}</label> }
 function Info({ label, value }: { label: string; value: string }) { return <div className="flex items-center justify-between gap-3"><dt className="text-[var(--muted)]">{label}</dt><dd className="m-0 text-right font-bold text-[var(--ink)]">{value}</dd></div> }

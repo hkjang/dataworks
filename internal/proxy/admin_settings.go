@@ -246,6 +246,12 @@ func buildSettingRegistry() []settingDef {
 		{Key: "tracking.include_admin", Category: "tracking", Type: stBool, envValue: func(config.Config) string { return "false" }},
 		{Key: "tracking.placement", Category: "tracking", Type: stString, validate: trackingPlacement, envValue: func(config.Config) string { return tracking.PlacementHead }},
 
+		// ---- MCP OAuth (Keycloak access tokens on /mcp; stored only, no env var — off by default) ----
+		{Key: "mcp.oauth.enabled", Category: "mcp.oauth", Type: stBool, envValue: func(config.Config) string { return "false" }},
+		{Key: "mcp.oauth.resource", Category: "mcp.oauth", Type: stString, validate: mcpOAuthResource, envValue: func(config.Config) string { return "" }},
+		{Key: "mcp.oauth.audience", Category: "mcp.oauth", Type: stString, validate: mcpOAuthAudience, envValue: func(config.Config) string { return "" }},
+		{Key: "mcp.oauth.scopes", Category: "mcp.oauth", Type: stString, validate: mcpOAuthScopes, envValue: func(config.Config) string { return mcpOAuthDefaultScopes }},
+
 		// ---- Env (read-only view of startup environment variables) ----
 		{Key: "env.upstream_base_url", Category: "env", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Upstream.BaseURL }},
 		{Key: "env.upstream_provider", Category: "env", Type: stString, ReadOnly: true, envValue: func(c config.Config) string { return c.Upstream.Provider }},
@@ -444,6 +450,11 @@ var settingDescriptions = map[string]string{
 	"tracking.allowed_hosts":       "스니펫에서 자동으로 읽지 못한 출처를 더하는 자리(쉼표 구분, https://host 형태). '차단된 출처' 목록에서 한 번에 추가할 수 있습니다.",
 	"tracking.include_admin":       "관리 화면(/admin, /dataworks/settings)에서도 추적할지. 기본 아니오.",
 	"tracking.placement":           "스니펫 위치: head 또는 body.",
+
+	"mcp.oauth.enabled":  "MCP(/mcp, /mcp/gateway)에 Keycloak 액세스 토큰(OAuth 2.1)으로도 들어오게 할지. 기본 꺼짐. API 키는 그대로 동작하며, Keycloak SSO 의 Issuer URL 이 있어야 실제로 켜집니다.",
+	"mcp.oauth.resource": "리소스 식별자(RFC 8707) = 클라이언트가 실제로 접속하는 공개 주소 + /mcp (예: https://dataworks.example.com/mcp). 비우면 Keycloak Redirect URI 의 오리진에서 만들고, 그것도 없으면 요청 Host 로 만듭니다.",
+	"mcp.oauth.audience": "허용 대상(공백 구분). 토큰의 aud 또는 azp 가 여기 있으면 통과합니다. Keycloak 26 은 클라이언트 ID 를 azp 에 담으므로 MCP 클라이언트 ID(예: claude-mcp)를 적으면 Audience 매퍼 없이 동작합니다.",
+	"mcp.oauth.scopes":   "SSO 토큰 주체에게 주는 범위(공백 구분, 기본 mcp:use). 사용자의 역할 범위와 교집합만 적용되어 키보다 넓어지지 않습니다.",
 	// Env (read-only)
 	"env.upstream_base_url": "업스트림 엔드포인트 URL(UPSTREAM_BASE_URL). 변경하려면 컨테이너 환경변수를 수정 후 재시작.",
 	"env.upstream_provider": "업스트림 프로바이더 이름(UPSTREAM_PROVIDER). 변경하려면 환경변수 수정 후 재시작.",
@@ -661,6 +672,11 @@ func (s *Server) reloadRuntimeConfig(ctx context.Context) {
 	s.mcpRuntime.Store(&mcp)
 	trackingConfig := s.trackingConfigFrom(stored)
 	s.trackRuntime.Store(&trackingConfig)
+	oauthConfig := s.mcpOAuthConfigFrom(stored)
+	s.oauthRuntime.Store(&oauthConfig)
+	if st := s.mcpOAuth(); st.Enabled && st.Problem != "" {
+		slog.Warn("mcp oauth is enabled but inactive", "reason", st.Problem)
+	}
 	audit.SetFallbackPriceModel(pricing.FallbackModel) // apply the runtime fallback model
 	// Apply retention changes to the running worker (day thresholds next run; interval recreates the ticker).
 	if s.retention != nil && prevRet != ret {
@@ -898,6 +914,9 @@ func settingPermissionGroup(d settingDef) string {
 	}
 	if strings.HasPrefix(d.Category, "skills") {
 		return "security" // Skill policy enforcement is a governance gate
+	}
+	if strings.HasPrefix(d.Category, "mcp.oauth") {
+		return "security" // opens a second credential door into /mcp
 	}
 	switch {
 	case strings.HasPrefix(d.Category, "clickhouse"), strings.HasPrefix(d.Category, "retention"), strings.HasPrefix(d.Category, "cache"), strings.HasPrefix(d.Category, "limits"):

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
@@ -210,7 +211,7 @@ func TestKeycloakSilentLoginReturnsToDeepLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	jwksMu.Lock()
-	jwksKeys = map[string]*rsa.PublicKey{"silent-kid": &key.PublicKey}
+	jwksKeys = map[string]crypto.PublicKey{"silent-kid": &key.PublicKey}
 	jwksFetch = time.Now()
 	jwksMu.Unlock()
 

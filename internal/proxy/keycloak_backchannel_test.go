@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"net/http"
@@ -35,7 +36,7 @@ func TestKeycloakBackchannelLogoutRevokesSessions(t *testing.T) {
 	}
 	const issuer = "https://kc.example.com/realms/vibe"
 	jwksMu.Lock()
-	jwksKeys = map[string]*rsa.PublicKey{"bc-kid": &key.PublicKey}
+	jwksKeys = map[string]crypto.PublicKey{"bc-kid": &key.PublicKey}
 	jwksFetch = time.Now()
 	jwksMu.Unlock()
 	discMu.Lock()

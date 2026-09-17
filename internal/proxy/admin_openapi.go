@@ -39,6 +39,9 @@ var apiEndpoints = []apiEndpoint{
 	// ---- MCP / VCS ----
 	{"/mcp", []string{"post"}, "mcp", "MCP gateway (JSON-RPC passthrough)", false},
 	{"/mcp/gateway", []string{"post"}, "mcp", "Clustara MCP Server — Clustara's own features as MCP tools/resources/prompts", false},
+	{"/.well-known/oauth-protected-resource", []string{"get"}, "mcp", "OAuth protected resource metadata (RFC 9728) for the MCP endpoints; 404 while mcp.oauth.enabled is off", true},
+	{"/.well-known/oauth-protected-resource/{path}", []string{"get"}, "mcp", "OAuth protected resource metadata for one MCP endpoint (/mcp, /mcp/gateway)", true},
+	{"/admin/mcp/oauth/status", []string{"get"}, "mcp", "MCP OAuth (Keycloak SSO tokens on /mcp): effective state, resource identifier, metadata URL, accepted audiences and scopes", false},
 	{"/admin/gateway-mcp/info", []string{"get"}, "mcp", "Clustara MCP catalog (tools/resources/prompts) for the admin UI", false},
 	{"/admin/mcp/gateway/test", []string{"post"}, "mcp", "Admin: invoke a Clustara MCP tool by name to verify it", false},
 	{"/admin/mcp/contracts", []string{"get", "post", "delete"}, "mcp", "MCP Tool Contract Registry: list/upsert/delete tool contracts", false},
