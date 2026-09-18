@@ -30,7 +30,7 @@ npm run build
 
 Vite 결과는 `web/dist`에 생성됩니다. `web/embed.go`가 이를 embed하고 Go 서버가 `/dataworks/`에서 정적 자산과 BrowserRouter fallback을 제공합니다. `/admin`의 기존 Console과 `/admin/dataworks/*` API는 그대로 유지됩니다.
 
-소스 checkout에는 Go 컴파일을 위한 `dist/.gitkeep`만 둡니다. 로컬 binary에 React UI를 포함하려면 반드시 `npm run build` 후 `go build` 또는 `go run`을 실행해야 합니다. Dockerfile은 이 순서를 자동화합니다.
+소스 checkout에는 Go 컴파일을 위한 `dist/.gitkeep`만 둡니다. 로컬 binary에 React UI를 포함하려면 반드시 `npm run build` 후 `go build` 또는 `go run`을 실행해야 합니다. Dockerfile은 이 순서를 자동화합니다. `vite build`는 `dist`를 비운 뒤 산출물을 쓰지만 `vite.config.ts`의 `keepDistPlaceholder` 플러그인이 `.gitkeep`을 원본 내용 그대로 다시 만들므로 빌드 뒤 작업 트리가 더러워지지 않습니다.
 
 ## Current migration slice
 
