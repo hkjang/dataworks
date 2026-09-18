@@ -156,7 +156,7 @@ npm run test:e2e
 npm run build
 ```
 
-> `npm run build`는 `web/dist`를 비우므로 빌드 후 `git checkout -- web/dist/.gitkeep`으로 placeholder를 복구하세요.
+> `npm run build`는 `web/dist`를 비운 뒤 산출물을 쓰고, `web/vite.config.ts`의 `keepDistPlaceholder` 플러그인이 추적 파일 `web/dist/.gitkeep`을 원본 그대로 다시 만듭니다. 빌드 뒤 `git status`에 `web/dist`가 나타나지 않아야 정상입니다.
 
 백엔드 검증:
 

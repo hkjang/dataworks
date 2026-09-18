@@ -9,7 +9,10 @@ import (
 
 // distFiles always has at least dist/.gitkeep in a source checkout. The Vite
 // build replaces the directory contents with the production application before
-// the Go binary is built in Docker.
+// the Go binary is built in Docker; the keepDistPlaceholder plugin in
+// web/vite.config.ts recreates dist/.gitkeep after every build so the tracked
+// placeholder survives and the SPA handler (which rejects dotfile paths) is
+// unaffected by it.
 //
 //go:embed all:dist
 var distFiles embed.FS
