@@ -255,3 +255,85 @@ func TestParseExpiryHorizon(t *testing.T) {
 		}
 	}
 }
+
+// Legacy rows preserve surrounding whitespace even though admin writes now trim it.
+// The same persisted scope must serve queries and produce the right renewal warning.
+func TestDataWorksActionCenterMatchesRuntimeContractExpiry(t *testing.T) {
+	now := time.Now().UTC()
+	paddedDate := func(days int) string {
+		return " \t" + now.Add(time.Duration(days)*24*time.Hour).Format(time.RFC3339Nano) + "\r\n "
+	}
+	for _, tc := range []struct {
+		name, validTo, status string
+		serves                bool
+		counts                [3]int
+		severity              string
+	}{
+		{"twenty_days", paddedDate(20), "active", true, [3]int{1, 0, 1}, "medium"},
+		{"sixty_days", paddedDate(60), "active", true, [3]int{0, 0, 1}, "medium"},
+		{"empty", "", "active", true, [3]int{}, ""},
+		{"whitespace", " \t\r\n ", "active", true, [3]int{}, ""},
+		{"expired", paddedDate(-20), "active", false, [3]int{1, 1, 1}, "high"},
+		{"invalid", " not-a-date ", "active", false, [3]int{1, 1, 1}, "high"},
+		{"draft", paddedDate(-20), "draft", false, [3]int{}, ""},
+		{"suspended", paddedDate(-20), "suspended", false, [3]int{}, ""},
+		{"revoked", paddedDate(-20), "revoked", false, [3]int{}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, srv := newAccessWindowTestServer(t)
+			ctx := context.Background()
+			if err := db.UpsertContractScope(ctx, store.ContractScope{
+				ContractKey: "ct_legacy", ProductKey: "dw_credit_score", CustomerKey: "cust_bank",
+				ValidTo: tc.validTo, Status: tc.status, AllowedFields: []string{"score"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.UpsertAPIKey(ctx, store.APIKeyRecord{
+				ID: "key_bank", Name: "Bank API", KeyHash: hashProxyKey("bank-secret"), Status: "active",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.UpsertAPIEntitlement(ctx, store.APIEntitlement{
+				ID: "ent_bank", APIKeyID: "key_bank", ProductKey: "dw_credit_score", ContractKey: "ct_legacy",
+				Scope: "data_product:query", Status: "active",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			resp := postJSON(t, srv.URL+"/v1/data-products/dw_credit_score/query", "bank-secret", map[string]any{"fields": []string{"score"}})
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantStatus := http.StatusForbidden
+			if tc.serves {
+				wantStatus = http.StatusOK
+			}
+			if resp.StatusCode != wantStatus {
+				t.Fatalf("runtime query status = %d, want %d: %s", resp.StatusCode, wantStatus, body)
+			}
+			for i, query := range []string{"", "?expiring_within=7d", "?expiring_within=13w"} {
+				payload := getActionCenter(t, srv.URL, query)
+				expiring := actionsOfType(payload, "contract_expiring")
+				if count, ok := payload.Summary["expiring_contracts"]; !ok || count != tc.counts[i] {
+					t.Errorf("window %q expiring_contracts = %d (present=%t), want %d", query, count, ok, tc.counts[i])
+				}
+				if len(expiring) != tc.counts[i] {
+					t.Errorf("window %q contract_expiring actions = %+v, want %d", query, expiring, tc.counts[i])
+					continue
+				}
+				if len(expiring) == 1 {
+					action := expiring[0]
+					if action["severity"] != tc.severity || action["contract_key"] != "ct_legacy" ||
+						action["product_key"] != "dw_credit_score" || action["customer_key"] != "cust_bank" || action["valid_to"] != tc.validTo {
+						t.Errorf("window %q contract_expiring = %+v, want severity %q and original contract fields", query, action, tc.severity)
+					}
+				}
+			}
+			saved, found, err := db.GetContractScope(ctx, "ct_legacy")
+			if err != nil || !found || saved.ValidTo != tc.validTo {
+				t.Fatalf("stored valid_to changed: %+v, found=%t err=%v", saved, found, err)
+			}
+		})
+	}
+}
