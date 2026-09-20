@@ -32,7 +32,7 @@ import (
 )
 
 // AppVersion is the gateway build version, surfaced in /auth/me and the admin UI.
-const AppVersion = "v0.9.57"
+const AppVersion = "v0.9.58"
 
 type Server struct {
 	cfg            config.Config
