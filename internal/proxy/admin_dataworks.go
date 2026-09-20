@@ -258,10 +258,11 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		if !contractScopeStatusActive(scope.Status) {
 			continue
 		}
-		if strings.TrimSpace(scope.ValidTo) == "" {
+		validTo := strings.TrimSpace(scope.ValidTo)
+		if validTo == "" {
 			continue
 		}
-		expiresAt, err := time.Parse(time.RFC3339Nano, scope.ValidTo)
+		expiresAt, err := time.Parse(time.RFC3339Nano, validTo)
 		if err == nil && !expiresAt.Before(deadline) {
 			continue
 		}
