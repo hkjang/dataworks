@@ -181,7 +181,7 @@ func EvaluatePublishGateV2(
 		res.RiskReviewed = true
 		res.APIContractConfigured = p.APISpec != ""
 		res.SLAConfigured = sla != nil
-		res.PricingModelConfigured = p.PricingModel != "" || (cost != nil && cost.QueryCost > 0)
+		res.PricingModelConfigured = pricingModelConfigured(p, cost)
 		res.MaskingConfigured = true
 		return res
 	}
@@ -218,7 +218,7 @@ func EvaluatePublishGateV2(
 		res.MissingEvidence = append(res.MissingEvidence, "product_sla")
 	}
 
-	res.PricingModelConfigured = p.PricingModel != "" || (cost != nil && (cost.QueryCost > 0 || cost.OpsCost > 0 || cost.DataProcessingCost > 0))
+	res.PricingModelConfigured = pricingModelConfigured(p, cost)
 	if !res.PricingModelConfigured {
 		res.Warnings = append(res.Warnings, "pricing model or operational cost parameters are not configured")
 		res.MissingEvidence = append(res.MissingEvidence, "pricing_model")
@@ -237,6 +237,15 @@ func EvaluatePublishGateV2(
 
 	res.Allowed = len(res.BlockedReasons) == 0
 	return res
+}
+
+// pricingModelConfigured is the single pricing predicate for both gate branches, so the
+// workbench gate card and completion row read the same value for standard and strict products.
+func pricingModelConfigured(p store.DataProduct, cost *store.ProductCost) bool {
+	if p.PricingModel != "" {
+		return true
+	}
+	return cost != nil && (cost.QueryCost > 0 || cost.OpsCost > 0 || cost.DataProcessingCost > 0)
 }
 
 func DefaultProductCanvas(p store.DataProduct) store.ProductCanvasV2 {
@@ -421,7 +430,9 @@ func EvaluateRetirementCandidate(p store.DataProduct, cost *store.ProductCost, w
 	activeUsage := 0
 	lastUsedAt := ""
 	for _, ent := range entitlements {
-		if strings.EqualFold(strings.TrimSpace(ent.Status), "active") && !expiredAt(ent.ExpiresAt, now) {
+		// Same predicate as the runtime access gate and the action center, so a row the
+		// customer key is actually served by is never reported as missing usage here.
+		if store.EntitlementActive(ent, now) {
 			activeUsage++
 		}
 		if ent.UpdatedAt > lastUsedAt {
@@ -786,16 +797,6 @@ func openAPIFieldType(field string) string {
 	default:
 		return "string"
 	}
-}
-
-func expiredAt(raw string, now time.Time) bool {
-	if strings.TrimSpace(raw) == "" {
-		return false
-	}
-	t, err := time.Parse(time.RFC3339Nano, raw)
-	// An unparseable expiry is rejected by the runtime access gate, so it must not count as
-	// live access here either.
-	return err != nil || t.Before(now)
 }
 
 func splitLoose(value string) []string {
