@@ -204,7 +204,8 @@ Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(
 권한의 활성 판정은 런타임 조회 게이트와 같은 규칙(`status` 는 대소문자·앞뒤 공백 무시, `expires_at` 은 앞뒤 공백을
 무시하고 해석 불가하면 만료 취급)을 씁니다. 쓰기 경로가 `status` 를 정규화하기 전에 저장된 `"Active"` 같은 행은
 런타임이 정상적으로 서빙하므로, 운영 화면이 이를 `inactive_access` 로 보고해 멀쩡한 접근권을 회수하게 만들지
-않습니다.
+않습니다. Retirement 후보 평가(`POST /admin/dataworks/products/{key}/retirement`)의 "no active API entitlements"
+판정도 같은 규칙을 쓰므로, 런타임이 서빙 중인 접근권이 있는 상품에 이 사유로 위험 점수가 +20 되지 않습니다.
 
 만료 예고는 `active` 인 Contract Scope 에만 붙습니다. `draft`·`suspended`·`revoked` 계약은 런타임이 서빙하지
 않으므로 갱신할 것이 없고, `valid_to` 는 시간이 갈수록 과거로 멀어지기만 해서 한 번 종료한 계약이 영구히
