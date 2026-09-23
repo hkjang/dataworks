@@ -216,7 +216,8 @@ Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(
 분기 단위 갱신 주기처럼 더 긴 예고가 필요하면 `expiring_within` 으로 조회 창을 지정합니다. `13w`, `45d` 같은
 주·일 표기와 `72h` 같은 Go duration 표기를 받으며, 응답의 `expiring_within` 필드로 실제 적용된 창을 확인할 수
 있습니다. 양수가 아니거나 해석할 수 없는 값은 기본값으로 되돌리지 않고 `400 invalid_expiring_within` 으로
-거부합니다.
+거부합니다. 표현할 수 있는 범위(`106751d`, `15250w`)를 넘는 값도 같은 오류로 거부합니다 — 그대로 계산하면
+값이 감겨 요청한 것과 다른(때로는 음수인) 창으로 조용히 답하게 됩니다.
 
 ```bash
 curl -s "$BASE/admin/dataworks/action-center?expiring_within=13w" \

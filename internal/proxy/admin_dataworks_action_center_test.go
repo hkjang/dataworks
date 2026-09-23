@@ -229,6 +229,44 @@ func TestDataWorksActionCenterRejectsInvalidExpiringWindow(t *testing.T) {
 	}
 }
 
+// A day or week count big enough to overflow int64 nanoseconds wraps into some other window:
+// 106751992d lands on about 20 hours and 200000000d lands on a negative duration, so the screen
+// silently answers for a window the operator never asked about — the exact failure the rejection
+// above exists to prevent — and reports the wrapped value back as the applied window.
+func TestDataWorksActionCenterRejectsOverflowingExpiringWindow(t *testing.T) {
+	_, srv := newAccessWindowTestServer(t)
+
+	for _, raw := range []string{"106751992d", "200000000d", "30000000w", "9223372036854775807d", "2562048h"} {
+		resp, err := http.Get(srv.URL + "/admin/dataworks/action-center?expiring_within=" + raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("expiring_within=%s status = %d: %s", raw, resp.StatusCode, body)
+		}
+		if code := errorCodeOf(t, body); code != "invalid_expiring_within" {
+			t.Fatalf("expiring_within=%s error code = %q: %s", raw, code, body)
+		}
+	}
+
+	// The largest windows that still fit keep working, so the guard only removes the wrapped
+	// answers and not the long lookaheads a multi-year contract review uses.
+	for _, tc := range []struct {
+		raw  string
+		want time.Duration
+	}{
+		{"106751d", 106751 * 24 * time.Hour},
+		{"15250w", 15250 * 7 * 24 * time.Hour},
+	} {
+		payload := getActionCenter(t, srv.URL, "?expiring_within="+tc.raw)
+		if payload.ExpiringWithin != tc.want.String() {
+			t.Fatalf("expiring_within=%s applied window = %q, want %q", tc.raw, payload.ExpiringWithin, tc.want.String())
+		}
+	}
+}
+
 func TestParseExpiryHorizon(t *testing.T) {
 	cases := []struct {
 		raw  string
@@ -247,6 +285,14 @@ func TestParseExpiryHorizon(t *testing.T) {
 		{"-24h", 0, false},
 		{"90", 0, false},
 		{"quarter", 0, false},
+		// Boundaries of the int64 nanosecond range: one more day or week wraps.
+		{"106751d", 106751 * 24 * time.Hour, true},
+		{"106752d", 0, false},
+		{"15250w", 15250 * 7 * 24 * time.Hour, true},
+		{"15251w", 0, false},
+		{"106751992d", 0, false},
+		{"200000000d", 0, false},
+		{"9223372036854775808d", 0, false},
 	}
 	for _, tc := range cases {
 		got, ok := parseExpiryHorizon(tc.raw)
