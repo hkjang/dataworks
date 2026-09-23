@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -366,6 +367,13 @@ func parseExpiryHorizon(raw string) (time.Duration, bool) {
 	if unit > 0 {
 		count, err := strconv.Atoi(strings.TrimSpace(raw[:len(raw)-1]))
 		if err != nil || count <= 0 {
+			return 0, false
+		}
+		// A day or week count past the int64 nanosecond range wraps into an unrelated window
+		// (106751992d lands on about 20 hours, 200000000d on a negative duration), which would
+		// pass the positive check above and be reported back as the applied window. Reject it
+		// the same way time.ParseDuration rejects an out-of-range hour count.
+		if int64(count) > int64(math.MaxInt64)/int64(unit) {
 			return 0, false
 		}
 		return time.Duration(count) * unit, true
