@@ -318,8 +318,11 @@ func contractScopeActive(scope store.ContractScope, now time.Time) bool {
 	if !contractScopeCanServe(scope, now) {
 		return false
 	}
-	if strings.TrimSpace(scope.ValidFrom) != "" {
-		validFrom, err := time.Parse(time.RFC3339Nano, scope.ValidFrom)
+	// Trim once for both the empty check and the parse, the same rule the runtime uses for
+	// valid_to above and the action center and store.EntitlementActive use for their own
+	// windows: legacy rows keep surrounding whitespace that admin writes now trim away.
+	if raw := strings.TrimSpace(scope.ValidFrom); raw != "" {
+		validFrom, err := time.Parse(time.RFC3339Nano, raw)
 		if err != nil || validFrom.After(now) {
 			return false
 		}
