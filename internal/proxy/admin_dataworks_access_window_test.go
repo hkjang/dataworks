@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"dataworks/internal/store"
 )
@@ -131,6 +132,104 @@ func TestDataWorksActionCenterFlagsUnparseableAccessWindow(t *testing.T) {
 			t.Fatalf("contract with unparseable valid_to severity = %v, want high", action["severity"])
 		}
 	}
+}
+
+// valid_from decides the same runtime gate as valid_to, so both halves of a contract window have
+// to be read the same way. Admin writes trim both, but legacy rows and direct store writes keep
+// the surrounding whitespace, and a window that already opened must not be read as unparseable.
+func TestRuntimeContractGateReadsValidFromLikeValidTo(t *testing.T) {
+	now := time.Now().UTC()
+	paddedDate := func(days int) string {
+		return " \t" + now.Add(time.Duration(days)*24*time.Hour).Format(time.RFC3339Nano) + "\r\n "
+	}
+	plainDate := func(days int) string {
+		return now.Add(time.Duration(days) * 24 * time.Hour).Format(time.RFC3339Nano)
+	}
+	for _, tc := range []struct {
+		name, validFrom string
+		serves          bool
+	}{
+		{"padded_past", paddedDate(-20), true},
+		{"plain_past", plainDate(-20), true},
+		{"empty", "", true},
+		{"whitespace_only", " \t\r\n ", true},
+		{"padded_future", paddedDate(20), false},
+		{"plain_future", plainDate(20), false},
+		{"unparseable", " not-a-date ", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, srv := newAccessWindowTestServer(t)
+			ctx := context.Background()
+			// UpsertContractScope stores valid_from verbatim, which is the state a legacy row is in.
+			if err := db.UpsertContractScope(ctx, store.ContractScope{
+				ContractKey: "ct_legacy", ProductKey: "dw_credit_score", CustomerKey: "cust_bank",
+				ValidFrom: tc.validFrom, ValidTo: plainDate(3650), Status: "active",
+				AllowedFields: []string{"score"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.UpsertAPIKey(ctx, store.APIKeyRecord{
+				ID: "key_bank", Name: "Bank API", KeyHash: hashProxyKey("bank-secret"), Status: "active",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.UpsertAPIEntitlement(ctx, store.APIEntitlement{
+				ID: "ent_bank", APIKeyID: "key_bank", ProductKey: "dw_credit_score", ContractKey: "ct_legacy",
+				Scope: "data_product:query", Status: "active",
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			resp := postJSON(t, srv.URL+"/v1/data-products/dw_credit_score/query", "bank-secret", map[string]any{"fields": []string{"score"}})
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantStatus := http.StatusForbidden
+			if tc.serves {
+				wantStatus = http.StatusOK
+			}
+			if resp.StatusCode != wantStatus {
+				t.Fatalf("runtime query status = %d, want %d: %s", resp.StatusCode, wantStatus, body)
+			}
+			if !tc.serves {
+				if code := errorCodeOf(t, body); code != "contract_scope_inactive" {
+					t.Fatalf("runtime query error code = %q, want contract_scope_inactive: %s", code, body)
+				}
+			}
+
+			// Trimming decides the gate only; the stored row and the admin view keep the original.
+			saved, found, err := db.GetContractScope(ctx, "ct_legacy")
+			if err != nil || !found || saved.ValidFrom != tc.validFrom {
+				t.Fatalf("stored valid_from changed: %+v, found=%t err=%v", saved, found, err)
+			}
+			listed := listContractScopes(t, srv.URL, "dw_credit_score")
+			if len(listed) != 1 || listed[0].ValidFrom != tc.validFrom {
+				t.Fatalf("admin contract-scopes valid_from = %+v, want original %q", listed, tc.validFrom)
+			}
+		})
+	}
+}
+
+func listContractScopes(t *testing.T, baseURL, productKey string) []store.ContractScope {
+	t.Helper()
+	resp, err := http.Get(baseURL + "/admin/dataworks/products/" + productKey + "/contract-scopes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("list contract scopes status = %d: %s", resp.StatusCode, body)
+	}
+	var payload struct {
+		ContractScopes []store.ContractScope `json:"contract_scopes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload.ContractScopes
 }
 
 func errorCodeOf(t *testing.T, body []byte) string {
