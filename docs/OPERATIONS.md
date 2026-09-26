@@ -211,6 +211,12 @@ Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(
 게이트는 `valid_from` 도 같은 규칙으로 읽으므로, 앞뒤 공백이 섞인 레거시 행이라도 이미 열린 창이면 정상적으로
 서빙합니다(아직 열리지 않은 창과 해석할 수 없는 `valid_from` 은 종전대로 `403 contract_scope_inactive`).
 
+해석할 수 없는 `valid_from` 은 `valid_to` 와 같은 규칙으로 보고합니다. 런타임이 그 계약의 모든 조회를
+`403 contract_scope_inactive` 로 영구히 막으므로, `valid_to` 가 비어 있거나 조회 창 밖의 먼 미래여도
+`contract_expiring`(심각도 `high`)으로 한 번 실립니다. 두 값이 모두 해석 불가여도 계약당 항목은 하나이고
+`expiring_contracts` 도 1만 늘어납니다. 액션에는 `valid_from`·`valid_to` 가 저장 원문 그대로 실립니다.
+아직 열리지 않은(미래) `valid_from` 은 오류가 아니라 예정된 계약이므로 여기에 포함하지 않습니다.
+
 만료 예고는 `active` 인 Contract Scope 에만 붙습니다. `draft`·`suspended`·`revoked` 계약은 런타임이 서빙하지
 않으므로 갱신할 것이 없고, `valid_to` 는 시간이 갈수록 과거로 멀어지기만 해서 한 번 종료한 계약이 영구히
 `contract_expiring`(만료된 창이므로 심각도 `high`)으로 남아 정말 갱신이 필요한 계약을 덮어 버립니다.
