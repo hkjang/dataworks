@@ -259,24 +259,39 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		if !contractScopeStatusActive(scope.Status) {
 			continue
 		}
-		validTo := strings.TrimSpace(scope.ValidTo)
-		if validTo == "" {
-			continue
+		// Decide once per scope whether it needs attention and how urgently, then append a
+		// single entry: a contract whose valid_to and valid_from are both unreadable is one
+		// broken contract, not two renewal items, and it must not be counted twice either.
+		report := false
+		severity := "medium"
+		if validTo := strings.TrimSpace(scope.ValidTo); validTo != "" {
+			expiresAt, err := time.Parse(time.RFC3339Nano, validTo)
+			switch {
+			// contractScopeActive denies every query on an unparseable valid_to, so surface it
+			// with the same urgency as an already expired window instead of skipping it.
+			case err != nil || expiresAt.Before(now):
+				report, severity = true, "high"
+			case expiresAt.Before(deadline):
+				report = true
+			}
 		}
-		expiresAt, err := time.Parse(time.RFC3339Nano, validTo)
-		if err == nil && !expiresAt.Before(deadline) {
+		// contractScopeActive reads valid_from with the same rule, so a start date it cannot
+		// parse denies every query just as permanently — and with no valid_to, or one far
+		// beyond the lookahead, the checks above never see it. A window that opens later is
+		// a scheduled contract rather than a fault and stays out of this report.
+		if validFrom := strings.TrimSpace(scope.ValidFrom); validFrom != "" {
+			if _, err := time.Parse(time.RFC3339Nano, validFrom); err != nil {
+				report, severity = true, "high"
+			}
+		}
+		if !report {
 			continue
 		}
 		summary["expiring_contracts"]++
-		// contractScopeActive denies every query on an unparseable valid_to, so surface it
-		// with the same urgency as an already expired window instead of skipping it.
-		severity := "medium"
-		if err != nil || expiresAt.Before(now) {
-			severity = "high"
-		}
 		actions = append(actions, map[string]any{
 			"type": "contract_expiring", "severity": severity, "product_key": scope.ProductKey,
-			"contract_key": scope.ContractKey, "customer_key": scope.CustomerKey, "valid_to": scope.ValidTo,
+			"contract_key": scope.ContractKey, "customer_key": scope.CustomerKey,
+			"valid_from": scope.ValidFrom, "valid_to": scope.ValidTo,
 			"next_action": "renew, narrow, or retire the customer contract scope",
 		})
 	}

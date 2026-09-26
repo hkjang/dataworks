@@ -383,3 +383,110 @@ func TestDataWorksActionCenterMatchesRuntimeContractExpiry(t *testing.T) {
 		})
 	}
 }
+
+// contractScopeActive denies every query on a valid_from it cannot parse, exactly as it does on
+// an unparseable valid_to, so the contract is dead until someone fixes the row. The action center
+// only looked at valid_to, so such a contract was invisible on the operations screen and the first
+// signal was a customer reporting 403s.
+func TestDataWorksActionCenterReportsUnparseableContractStart(t *testing.T) {
+	now := time.Now().UTC()
+	plainDate := func(days int) string {
+		return now.Add(time.Duration(days) * 24 * time.Hour).Format(time.RFC3339Nano)
+	}
+	for _, tc := range []struct {
+		name, validFrom, validTo, status string
+		serves                           bool
+		wantActions                      int
+		severity                         string
+	}{
+		// A date-only valid_from parses nowhere in this platform, and with no valid_to the old
+		// loop skipped the row outright.
+		{"unparseable_from_no_end", "2026-01-01", "", "active", false, 1, "high"},
+		// The valid_to branch would have stopped at its own continue: the window closes far
+		// beyond any lookahead, yet no query gets through today.
+		{"unparseable_from_future_end", "2026-01-01", plainDate(3650), "active", false, 1, "high"},
+		// Both halves unreadable is still one broken contract, not two renewal items.
+		{"unparseable_both", "2026-01-01", "2026-12-31", "active", false, 1, "high"},
+		// Nothing binds the runtime to a closed contract, so a broken window in it is not work.
+		{"revoked", "2026-01-01", "", "revoked", false, 0, ""},
+		{"draft", "2026-01-01", plainDate(3650), "draft", false, 0, ""},
+		// A legacy row that only carries whitespace around a readable start serves queries and
+		// must stay off the screen, the same as before.
+		{"padded_readable_from", " 2020-01-01T00:00:00Z ", plainDate(3650), "active", true, 0, ""},
+		{"empty_from", "", plainDate(3650), "active", true, 0, ""},
+		{"whitespace_only_from", " \t\r\n ", plainDate(3650), "active", true, 0, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, srv := newAccessWindowTestServer(t)
+			ctx := context.Background()
+			if err := db.UpsertContractScope(ctx, store.ContractScope{
+				ContractKey: "ct_legacy", ProductKey: "dw_credit_score", CustomerKey: "cust_bank",
+				ValidFrom: tc.validFrom, ValidTo: tc.validTo, Status: tc.status,
+				AllowedFields: []string{"score"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.UpsertAPIKey(ctx, store.APIKeyRecord{
+				ID: "key_bank", Name: "Bank API", KeyHash: hashProxyKey("bank-secret"), Status: "active",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.UpsertAPIEntitlement(ctx, store.APIEntitlement{
+				ID: "ent_bank", APIKeyID: "key_bank", ProductKey: "dw_credit_score", ContractKey: "ct_legacy",
+				Scope: "data_product:query", Status: "active",
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			resp := postJSON(t, srv.URL+"/v1/data-products/dw_credit_score/query", "bank-secret", map[string]any{"fields": []string{"score"}})
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantStatus := http.StatusForbidden
+			if tc.serves {
+				wantStatus = http.StatusOK
+			}
+			if resp.StatusCode != wantStatus {
+				t.Fatalf("runtime query status = %d, want %d: %s", resp.StatusCode, wantStatus, body)
+			}
+			if !tc.serves {
+				if code := errorCodeOf(t, body); code != "contract_scope_inactive" {
+					t.Fatalf("runtime query error code = %q, want contract_scope_inactive: %s", code, body)
+				}
+			}
+
+			// The finding does not depend on the lookahead: the contract is already dead.
+			for _, query := range []string{"", "?expiring_within=7d", "?expiring_within=13w"} {
+				payload := getActionCenter(t, srv.URL, query)
+				if count := payload.Summary["expiring_contracts"]; count != tc.wantActions {
+					t.Errorf("window %q expiring_contracts = %d, want %d: %+v", query, count, tc.wantActions, payload.Actions)
+				}
+				expiring := actionsOfType(payload, "contract_expiring")
+				if len(expiring) != tc.wantActions {
+					t.Errorf("window %q contract_expiring actions = %+v, want %d", query, expiring, tc.wantActions)
+					continue
+				}
+				if len(expiring) == 1 {
+					action := expiring[0]
+					if action["severity"] != tc.severity || action["contract_key"] != "ct_legacy" ||
+						action["product_key"] != "dw_credit_score" || action["customer_key"] != "cust_bank" ||
+						action["valid_to"] != tc.validTo || action["valid_from"] != tc.validFrom {
+						t.Errorf("window %q contract_expiring = %+v, want severity %q and original contract fields", query, action, tc.severity)
+					}
+				}
+			}
+
+			// Trimming decides the report only; the stored row and the admin view keep the original.
+			saved, found, err := db.GetContractScope(ctx, "ct_legacy")
+			if err != nil || !found || saved.ValidFrom != tc.validFrom || saved.ValidTo != tc.validTo {
+				t.Fatalf("stored window changed: %+v, found=%t err=%v", saved, found, err)
+			}
+			listed := listContractScopes(t, srv.URL, "dw_credit_score")
+			if len(listed) != 1 || listed[0].ValidFrom != tc.validFrom || listed[0].ValidTo != tc.validTo {
+				t.Fatalf("admin contract-scopes window = %+v, want original %q..%q", listed, tc.validFrom, tc.validTo)
+			}
+		})
+	}
+}
