@@ -676,8 +676,12 @@ func bestApprovalStatus(step string, approvals []store.ApprovalTrace, now time.T
 		if status == "" {
 			status = "pending"
 		}
-		if trace.ExpiresAt != "" {
-			expiresAt, err := time.Parse(time.RFC3339Nano, trace.ExpiresAt)
+		// Legacy rows may carry padded timestamps because the write path did not
+		// always trim them; judge on the trimmed value like store.EntitlementActive
+		// and the runtime contract gate do, while leaving the stored text untouched.
+		// A value that stays unreadable after trimming keeps failing closed.
+		if expiresRaw := strings.TrimSpace(trace.ExpiresAt); expiresRaw != "" {
+			expiresAt, err := time.Parse(time.RFC3339Nano, expiresRaw)
 			if err != nil || !expiresAt.After(now) {
 				status = "expired"
 			}
