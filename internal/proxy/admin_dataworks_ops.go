@@ -586,6 +586,22 @@ func (s *Server) syncApprovalTracesFromRegulatoryTrace(ctx context.Context, p st
 		"legal_review":        "legal",
 		"compliance_review":   "compliance",
 	}
+	// The regulatory trace input carries no expiry, but this sync upserts the same
+	// deterministic approval row ids an admin edits through POST .../approvals, and
+	// UpsertApprovalTrace always writes expires_at. Carry the stored expiry forward so
+	// regenerating the matrix cannot turn an expired approval into a permanent one.
+	existing, err := s.db.ListApprovalTraces(ctx, p.ProductKey)
+	if err != nil {
+		// Without the stored rows we cannot tell an empty expiry from one we failed to
+		// read, and writing an empty one would silently reopen the publish gate for an
+		// expired approval. This whole function is best-effort (the caller ignores its
+		// result), so leaving the approval rows untouched is the safe direction here.
+		return
+	}
+	expiries := make(map[string]string, len(existing))
+	for _, trace := range existing {
+		expiries[trace.ID] = trace.ExpiresAt
+	}
 	for _, row := range rows {
 		step, ok := steps[strings.ToLower(strings.TrimSpace(row.RiskDomain))]
 		if !ok {
@@ -600,8 +616,9 @@ func (s *Server) syncApprovalTracesFromRegulatoryTrace(ctx context.Context, p st
 		case "rejected", "blocked", "denied":
 			status = "rejected"
 		}
+		id := "appr_" + p.ProductKey + "_" + step
 		_ = s.db.UpsertApprovalTrace(ctx, store.ApprovalTrace{
-			ID:          "appr_" + p.ProductKey + "_" + step,
+			ID:          id,
 			ProductKey:  p.ProductKey,
 			Step:        step,
 			Status:      status,
@@ -609,6 +626,7 @@ func (s *Server) syncApprovalTracesFromRegulatoryTrace(ctx context.Context, p st
 			EvidenceRef: row.ID,
 			Notes:       row.Evidence,
 			DecidedBy:   firstNonEmpty(strings.TrimSpace(row.Reviewer), actor),
+			ExpiresAt:   expiries[id],
 		})
 	}
 }

@@ -86,6 +86,10 @@ High-risk 또는 민감 데이터 상품은 다음 조건 없이는 `published`�
 공백을 떼며 저장·API 응답의 `expires_at` 은 입력한 원문 그대로 남습니다. 공백을 떼고도 읽을 수 없는 값은 `expired`
 로 닫혀 게이트를 막으므로(설정 오류를 통과시키지 않기 위함), 그런 행은 `POST …/approvals` 로 다시 등록하십시오.
 
+`POST …/products/{key}/regulatory-trace` 로 규제 추적 행렬을 재생성해도 승인 trace 의 `expires_at` 은 지워지지 않습니다.
+규제 추적 입력에는 만료일 개념이 없으므로, 재생성은 `status`·`decided_by`·`notes`·`evidence_ref` 만 새 값으로 덮고
+만료일은 `POST …/approvals` 로 등록한 값을 그대로 유지합니다. 만료일을 비우거나 바꾸려면 `POST …/approvals` 를 쓰십시오.
+
 운영 절차:
 
 ```bash
