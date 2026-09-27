@@ -73,6 +73,52 @@ func TestEvaluatePublishGateHonorsCustomRequirementForStandardProduct(t *testing
 	}
 }
 
+func TestPublishGateReadsApprovalExpiryLikeRuntimeGate(t *testing.T) {
+	now := time.Date(2026, 7, 8, 0, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name      string
+		expiresAt string
+		want      string
+	}{
+		{name: "padded_future_expiry", expiresAt: " 2030-01-01T00:00:00Z ", want: "approved"},
+		{name: "padded_past_expiry", expiresAt: " 2026-01-01T00:00:00Z ", want: "expired"},
+		{name: "unpadded_future_expiry", expiresAt: "2030-01-01T00:00:00Z", want: "approved"},
+		{name: "whitespace_only_expiry", expiresAt: "   ", want: "approved"},
+		{name: "empty_expiry", expiresAt: "", want: "approved"},
+		{name: "padded_unparseable_expiry", expiresAt: " invalid-time ", want: "expired"},
+		{name: "expiry_equal_to_now", expiresAt: " 2026-07-08T00:00:00Z ", want: "expired"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			product := store.DataProduct{ProductKey: "standard", Sensitivity: "internal", RiskScore: 10}
+			approvals := []store.ApprovalTrace{{Step: "security", Status: "approved", Required: true, ExpiresAt: tc.expiresAt}}
+
+			gate := EvaluatePublishGate(product, nil, approvals, nil, now)
+			v2 := EvaluatePublishGateV2(product, nil, approvals, nil, nil, nil, nil, false, false, now)
+			for label, res := range map[string]PublishGateResult{"EvaluatePublishGate": gate, "EvaluatePublishGateV2": v2} {
+				if got := res.ApprovalStatus["security"]; got != tc.want {
+					t.Fatalf("%s approval status = %q, want %q (expires_at=%q)", label, got, tc.want, tc.expiresAt)
+				}
+				blocked := hasString(res.MissingApprovals, "security")
+				if blocked != (tc.want != "approved") {
+					t.Fatalf("%s MissingApprovals=%v for status %q (expires_at=%q)", label, res.MissingApprovals, tc.want, tc.expiresAt)
+				}
+				if blocked == res.Allowed {
+					t.Fatalf("%s Allowed=%v with MissingApprovals=%v", label, res.Allowed, res.MissingApprovals)
+				}
+				for _, reason := range res.BlockedReasons {
+					if strings.Contains(reason, "security") != blocked {
+						t.Fatalf("%s BlockedReasons=%v does not match blocked=%v", label, res.BlockedReasons, blocked)
+					}
+				}
+			}
+			if approvals[0].ExpiresAt != tc.expiresAt {
+				t.Fatalf("gate must not rewrite the stored expires_at: %q", approvals[0].ExpiresAt)
+			}
+		})
+	}
+}
+
 func TestCustomerFitScoreAndSnapshotDiff(t *testing.T) {
 	product := store.DataProduct{
 		ProductKey: "dw_credit_score", NameEN: "Credit Score API",
