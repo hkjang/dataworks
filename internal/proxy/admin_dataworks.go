@@ -264,14 +264,16 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		// broken contract, not two renewal items, and it must not be counted twice either.
 		report := false
 		severity := "medium"
-		if validTo := strings.TrimSpace(scope.ValidTo); validTo != "" {
-			expiresAt, err := time.Parse(time.RFC3339Nano, validTo)
+		validTo, validToErr := time.Time{}, error(nil)
+		rawValidTo := strings.TrimSpace(scope.ValidTo)
+		if rawValidTo != "" {
+			validTo, validToErr = time.Parse(time.RFC3339Nano, rawValidTo)
 			switch {
 			// contractScopeActive denies every query on an unparseable valid_to, so surface it
 			// with the same urgency as an already expired window instead of skipping it.
-			case err != nil || expiresAt.Before(now):
+			case validToErr != nil || validTo.Before(now):
 				report, severity = true, "high"
-			case expiresAt.Before(deadline):
+			case validTo.Before(deadline):
 				report = true
 			}
 		}
@@ -279,8 +281,20 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		// parse denies every query just as permanently — and with no valid_to, or one far
 		// beyond the lookahead, the checks above never see it. A window that opens later is
 		// a scheduled contract rather than a fault and stays out of this report.
-		if validFrom := strings.TrimSpace(scope.ValidFrom); validFrom != "" {
-			if _, err := time.Parse(time.RFC3339Nano, validFrom); err != nil {
+		rawValidFrom := strings.TrimSpace(scope.ValidFrom)
+		if rawValidFrom != "" {
+			validFrom, err := time.Parse(time.RFC3339Nano, rawValidFrom)
+			switch {
+			case err != nil:
+				report, severity = true, "high"
+			// A window that closes before it opens can never serve: contractScopeActive holds
+			// every query until valid_from arrives, and valid_to passes first, so the contract
+			// is permanently 403. The admin write path already refuses to store one
+			// (dataWorksAccessWindowOrdered), but rows written before that check are still
+			// listed as active contracts, and an end beyond the lookahead leaves the valid_to
+			// branches above silent. Same instant on both ends is not inverted, matching the
+			// write path, which only rejects a valid_from strictly after valid_to.
+			case rawValidTo != "" && validToErr == nil && validFrom.After(validTo):
 				report, severity = true, "high"
 			}
 		}
