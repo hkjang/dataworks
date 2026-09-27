@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"dataworks/internal/store"
@@ -422,6 +423,227 @@ func TestDataWorksEncodedResourceKeys(t *testing.T) {
 	if errorBody.Error.Code != "invalid_expires_at" {
 		t.Fatalf("invalid expiry error code = %q", errorBody.Error.Code)
 	}
+}
+
+// newRegulatoryTraceFixture walks the production admin routes on a real SQLStore
+// until dw_credit_risk_api only needs its regulatory trace to clear the publish gate.
+func newRegulatoryTraceFixture(t *testing.T) *httptest.Server {
+	t.Helper()
+	db := openTestStore(t)
+	t.Cleanup(func() { db.Close() })
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "dataworks.ndjson"))
+	logger.Start()
+	t.Cleanup(func() { logger.Stop(context.Background()) })
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(server.Routes())
+	t.Cleanup(srv.Close)
+
+	for _, step := range []struct {
+		path string
+		body map[string]any
+	}{
+		{"/admin/dataworks/assets", map[string]any{
+			"id": "asset_loan", "asset_key": "loan_history", "name": "Loan History", "domain": "credit",
+			"owner": "risk-data", "columns_summary": "loan_id, overdue_days, balance",
+			"sensitivity": "personal_credit", "refresh_cycle": "daily",
+		}},
+		{"/admin/dataworks/assets/loan_history/readiness/check", map[string]any{}},
+		{"/admin/dataworks/factory/definitions", map[string]any{
+			"product_key": "dw_credit_risk_api", "title": "신용 리스크 API", "target_industry": "금융",
+			"target_customers": []string{"은행"}, "customer_need": "여신 위험 조기탐지",
+			"data_assets": []string{"loan_history"}, "delivery_method": "API",
+		}},
+		{"/admin/dataworks/products/dw_credit_risk_api/canvas/generate", map[string]any{}},
+		{"/admin/dataworks/risk/check", map[string]any{"product_key": "dw_credit_risk_api"}},
+	} {
+		resp := postJSON(t, srv.URL+step.path, "", step.body)
+		requireStatus(t, resp, http.StatusOK)
+		resp.Body.Close()
+	}
+	resp, err := http.Get(srv.URL + "/admin/dataworks/products/dw_credit_risk_api/evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusOK)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	return srv
+}
+
+// postApprovedRegulatoryTrace regenerates the regulatory trace matrix with every
+// required step decided the same way, exactly as the workbench does.
+func postRegulatoryTrace(t *testing.T, srv *httptest.Server, decision string) {
+	t.Helper()
+	rows := []map[string]any{}
+	for _, domain := range []string{"legal_review", "compliance_review", "data_owner_approval"} {
+		rows = append(rows, map[string]any{
+			"risk_domain": domain, "question": domain + " 확인", "answer": decision,
+			"decision": decision, "reviewer": domain + "-reviewer", "evidence": decision + " 근거 " + domain,
+		})
+	}
+	resp := postJSON(t, srv.URL+"/admin/dataworks/products/dw_credit_risk_api/regulatory-trace", "", map[string]any{"trace": rows})
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+}
+
+func fetchApprovalTrace(t *testing.T, srv *httptest.Server, id string) store.ApprovalTrace {
+	t.Helper()
+	resp, err := http.Get(srv.URL + "/admin/dataworks/products/dw_credit_risk_api/approvals")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusOK)
+	var body struct {
+		Approvals []store.ApprovalTrace `json:"approvals"`
+	}
+	decodeAndClose(t, resp, &body)
+	for _, trace := range body.Approvals {
+		if trace.ID == id {
+			return trace
+		}
+	}
+	t.Fatalf("approval trace %q not found in %+v", id, body.Approvals)
+	return store.ApprovalTrace{}
+}
+
+func requirePublishGateBlocksStep(t *testing.T, srv *httptest.Server, step string, wantBlocked bool, when string) {
+	t.Helper()
+	resp, err := http.Get(srv.URL + "/admin/dataworks/products/dw_credit_risk_api/publish-gate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, resp, http.StatusOK)
+	var body struct {
+		PublishGate struct {
+			Allowed          bool     `json:"allowed"`
+			MissingApprovals []string `json:"missing_approvals"`
+			BlockedReasons   []string `json:"blocked_reasons"`
+		} `json:"publish_gate"`
+	}
+	decodeAndClose(t, resp, &body)
+	missing := false
+	for _, got := range body.PublishGate.MissingApprovals {
+		if got == step {
+			missing = true
+		}
+	}
+	blocked := false
+	for _, reason := range body.PublishGate.BlockedReasons {
+		if strings.Contains(reason, step) {
+			blocked = true
+		}
+	}
+	if missing != wantBlocked || blocked != wantBlocked {
+		t.Fatalf("%s: publish gate missing_approvals=%v blocked_reasons=%v, want step %q blocked=%v",
+			when, body.PublishGate.MissingApprovals, body.PublishGate.BlockedReasons, step, wantBlocked)
+	}
+	if body.PublishGate.Allowed == wantBlocked {
+		t.Fatalf("%s: publish gate allowed = %v, want %v", when, body.PublishGate.Allowed, !wantBlocked)
+	}
+}
+
+func requirePublishStatus(t *testing.T, srv *httptest.Server, want int, when string) {
+	t.Helper()
+	resp := postJSON(t, srv.URL+"/admin/factory/products/dw_credit_risk_api/publish", "", map[string]any{})
+	if resp.StatusCode != want {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Fatalf("%s: publish status = %d want %d body=%s", when, resp.StatusCode, want, string(body))
+	}
+	if want == http.StatusConflict {
+		var body struct {
+			Error string `json:"error"`
+		}
+		decodeAndClose(t, resp, &body)
+		if body.Error != "publish gate blocked" {
+			t.Fatalf("%s: publish error = %q, want %q", when, body.Error, "publish gate blocked")
+		}
+		return
+	}
+	resp.Body.Close()
+}
+
+// Regenerating the regulatory trace must not clear an expiry an admin recorded on the
+// same approval row: the regulatory trace input has no expiry concept, so wiping it
+// would silently reopen the publish gate for an approval that has already expired.
+func TestRegulatoryTraceRegenerationKeepsApprovalExpiry(t *testing.T) {
+	const legalID = "appr_dw_credit_risk_api_legal"
+	for _, tc := range []struct {
+		name        string
+		expiresAt   string
+		wantPublish int
+	}{
+		{"expired approval stays blocked", "2020-01-01T00:00:00Z", http.StatusConflict},
+		{"live approval stays publishable", "2030-01-01T00:00:00Z", http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newRegulatoryTraceFixture(t)
+			postRegulatoryTrace(t, srv, "approved")
+
+			// The workbench approval editor sends back the id the sync created,
+			// so the admin expiry lands on the very row the next sync will upsert.
+			resp := postJSON(t, srv.URL+"/admin/dataworks/products/dw_credit_risk_api/approvals", "", map[string]any{
+				"id": legalID, "step": "legal", "status": "approved",
+				"required": true, "expires_at": tc.expiresAt,
+			})
+			requireStatus(t, resp, http.StatusOK)
+			resp.Body.Close()
+
+			wantBlocked := tc.wantPublish == http.StatusConflict
+			if got := fetchApprovalTrace(t, srv, legalID).ExpiresAt; got != tc.expiresAt {
+				t.Fatalf("before regeneration: expires_at = %q, want %q", got, tc.expiresAt)
+			}
+			requirePublishGateBlocksStep(t, srv, "legal", wantBlocked, "before regeneration")
+			requirePublishStatus(t, srv, tc.wantPublish, "before regeneration")
+
+			postRegulatoryTrace(t, srv, "approved")
+
+			requirePublishGateBlocksStep(t, srv, "legal", wantBlocked, "after regeneration")
+			requirePublishStatus(t, srv, tc.wantPublish, "after regeneration")
+			if got := fetchApprovalTrace(t, srv, legalID).ExpiresAt; got != tc.expiresAt {
+				t.Fatalf("after regeneration: expires_at = %q, want %q (stored verbatim)", got, tc.expiresAt)
+			}
+		})
+	}
+}
+
+// expires_at is the only field the regulatory trace leaves alone; every field the
+// trace actually carries must still be refreshed on regeneration.
+func TestRegulatoryTraceRegenerationStillUpdatesDecidedFields(t *testing.T) {
+	const legalID = "appr_dw_credit_risk_api_legal"
+	srv := newRegulatoryTraceFixture(t)
+	postRegulatoryTrace(t, srv, "approved")
+
+	resp := postJSON(t, srv.URL+"/admin/dataworks/products/dw_credit_risk_api/approvals", "", map[string]any{
+		"id": legalID, "step": "legal", "status": "approved",
+		"required": true, "expires_at": "2030-01-01T00:00:00Z",
+	})
+	requireStatus(t, resp, http.StatusOK)
+	resp.Body.Close()
+	before := fetchApprovalTrace(t, srv, legalID)
+
+	postRegulatoryTrace(t, srv, "rejected")
+
+	after := fetchApprovalTrace(t, srv, legalID)
+	if after.Status != "rejected" {
+		t.Fatalf("status = %q, want %q", after.Status, "rejected")
+	}
+	if after.DecidedBy != "legal_review-reviewer" {
+		t.Fatalf("decided_by = %q, want %q", after.DecidedBy, "legal_review-reviewer")
+	}
+	if after.Notes != "rejected 근거 legal_review" {
+		t.Fatalf("notes = %q, want the regenerated evidence", after.Notes)
+	}
+	if after.EvidenceRef == "" || after.EvidenceRef == before.EvidenceRef {
+		t.Fatalf("evidence_ref = %q, want a new regulatory trace row id (was %q)", after.EvidenceRef, before.EvidenceRef)
+	}
+	if after.ExpiresAt != "2030-01-01T00:00:00Z" {
+		t.Fatalf("expires_at = %q, want the admin value preserved", after.ExpiresAt)
+	}
+	requirePublishGateBlocksStep(t, srv, "legal", true, "after rejecting in the regenerated trace")
 }
 
 func requireStatus(t *testing.T, resp *http.Response, want int) {
