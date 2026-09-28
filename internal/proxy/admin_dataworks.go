@@ -197,12 +197,36 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "products_failed")
 		return
 	}
-	fitScores, _ := s.db.ListProductFitScores(r.Context(), "", "")
-	contractScopes, _ := s.db.ListContractScopes(r.Context(), "", "")
-	entitlements, _ := s.db.ListAPIEntitlements(r.Context(), "", "")
-	watermarks, _ := s.db.ListDataWatermarks(r.Context(), "", "")
-	costs, _ := s.db.ListProductCosts(r.Context(), "")
-	retirements, _ := s.db.ListRetirementCandidates(r.Context(), "")
+	fitScores, err := s.db.ListProductFitScores(r.Context(), "", "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "fit_scores_failed")
+		return
+	}
+	contractScopes, err := s.db.ListContractScopes(r.Context(), "", "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "contract_scopes_failed")
+		return
+	}
+	entitlements, err := s.db.ListAPIEntitlements(r.Context(), "", "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "entitlements_failed")
+		return
+	}
+	watermarks, err := s.db.ListDataWatermarks(r.Context(), "", "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "watermarks_failed")
+		return
+	}
+	costs, err := s.db.ListProductCosts(r.Context(), "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "costs_failed")
+		return
+	}
+	retirements, err := s.db.ListRetirementCandidates(r.Context(), "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "retirement_candidates_failed")
+		return
+	}
 
 	actions := []map[string]any{}
 	summary := map[string]int{

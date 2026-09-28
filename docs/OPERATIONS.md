@@ -210,6 +210,10 @@ Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(
 `contract_expiring`)와 API Entitlement(`expiring_access`, `entitlement_expiring`)를 함께 보고합니다. 이미 만료
 되었거나 `active` 가 아닌 권한은 종전대로 `inactive_access` 로 집계됩니다.
 
+액션 센터의 적합도·계약·권한·Watermark·비용·폐기 후보 목록 조회가 실패하면 HTTP `500`과 해당 오류 코드를
+반환합니다. 조회 실패를 경고 0건으로 표시하지 않으며, 저장소 복구 후 다시 조회해야 합니다. 정상적으로
+조회된 빈 목록은 기존처럼 HTTP `200`과 0건 집계를 반환합니다.
+
 권한의 활성 판정은 런타임 조회 게이트와 같은 규칙(`status` 는 대소문자·앞뒤 공백 무시, `expires_at` 은 앞뒤 공백을
 무시하고 해석 불가하면 만료 취급)을 씁니다. 쓰기 경로가 `status` 를 정규화하기 전에 저장된 `"Active"` 같은 행은
 런타임이 정상적으로 서빙하므로, 운영 화면이 이를 `inactive_access` 로 보고해 멀쩡한 접근권을 회수하게 만들지

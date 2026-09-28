@@ -2,12 +2,16 @@ package proxy
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"dataworks/internal/config"
 	"dataworks/internal/store"
 )
 
@@ -596,6 +600,98 @@ func TestDataWorksActionCenterReportsInvertedContractWindow(t *testing.T) {
 			listed := listContractScopes(t, srv.URL, "dw_credit_score")
 			if len(listed) != 1 || listed[0].ValidFrom != tc.validFrom || listed[0].ValidTo != tc.validTo {
 				t.Fatalf("admin contract-scopes window = %+v, want original %q..%q", listed, tc.validFrom, tc.validTo)
+			}
+		})
+	}
+}
+
+// A failed inventory read is not evidence that no operational work remains. Exercise
+// real SQLite failures through the production store and router, then restore each
+// table to distinguish an unavailable inventory from a successfully empty one.
+func TestDataWorksActionCenterRejectsUnavailableInventories(t *testing.T) {
+	ctx := context.Background()
+	dsn := filepath.Join(t.TempDir(), "action-center.db")
+	db, err := store.Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "audit.ndjson"))
+	logger.Start()
+	t.Cleanup(func() { logger.Stop(ctx) })
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(server.Routes())
+	t.Cleanup(srv.Close)
+	schema, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { schema.Close() })
+
+	assertEmptyInventory := func(t *testing.T) {
+		t.Helper()
+		payload := getActionCenter(t, srv.URL, "")
+		if len(payload.Actions) != 0 {
+			t.Fatalf("empty inventory actions = %+v", payload.Actions)
+		}
+		if len(payload.Summary) != 9 {
+			t.Fatalf("summary = %+v, want all 9 counters", payload.Summary)
+		}
+		for key, count := range payload.Summary {
+			if count != 0 {
+				t.Errorf("empty inventory %s = %d, want 0", key, count)
+			}
+		}
+	}
+	assertEmptyInventory(t)
+	for _, tc := range []struct{ table, code string }{
+		{"dw_product_fit_scores", "fit_scores_failed"},
+		{"dw_contract_scopes", "contract_scopes_failed"},
+		{"dw_api_entitlements", "entitlements_failed"},
+		{"dw_data_watermarks", "watermarks_failed"},
+		{"dw_product_costs", "costs_failed"},
+		{"dw_retirement_candidates", "retirement_candidates_failed"},
+	} {
+		t.Run(tc.table, func(t *testing.T) {
+			// Table names come exclusively from the fixed cases above.
+			if _, err := schema.ExecContext(ctx, "ALTER TABLE "+tc.table+" RENAME TO unavailable_inventory"); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if _, err := schema.ExecContext(ctx, "ALTER TABLE unavailable_inventory RENAME TO "+tc.table); err != nil {
+					t.Fatal(err)
+				}
+				assertEmptyInventory(t)
+			})
+			resp, err := http.Get(srv.URL + "/admin/dataworks/action-center")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusInternalServerError {
+				t.Fatalf("unavailable %s: status = %d, want 500: %s", tc.table, resp.StatusCode, body)
+			}
+			if code := errorCodeOf(t, body); code != tc.code {
+				t.Errorf("error code = %q, want %q", code, tc.code)
+			}
+			var payload map[string]json.RawMessage
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range []string{"summary", "actions"} {
+				if _, ok := payload[key]; ok {
+					t.Errorf("failed inventory returned a misleading %s: %s", key, body)
+				}
 			}
 		})
 	}
