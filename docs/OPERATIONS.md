@@ -44,6 +44,24 @@ go build -trimpath -ldflags "-s -w" -o dataworks ./cmd/dataworks
 ./dataworks
 ```
 
+### 웹 워크벤치 검증 (Node 요구 버전)
+
+`web/package.json` 의 `engines.node` 는 `>=22.19.0` 입니다. 테스트 환경(jsdom)이 끌어오는 undici 8 이 `worker_threads.markAsUncloneable`(Node 22.10+)을 요구하므로 그보다 낮은 런타임에서는 jsdom 환경 테스트가 기동조차 못 합니다.
+
+주의할 함정: npm 은 run-script 의 `PATH` 앞에 **상위 디렉터리의 `node_modules/.bin` 을 전부** 붙입니다(프로젝트 → … → 홈 디렉터리 → `/`). 홈 디렉터리에 `node` 패키지가 설치돼 있으면 그 구버전 `node` 가 nvm·CI 의 node 를 가려, `npm test` 가 `webidl.util.markAsUncloneable is not a function` 으로 exit 1 이 됩니다. 이를 막기 위해 `npm test` 는 `web/scripts/run-with-supported-node.mjs` 를 거쳐 npm 이 실행 중인 node(`npm_node_execpath`)로 vitest 를 띄우고, 하한 미달이면 후보 목록과 함께 즉시 멈춥니다.
+
+```bash
+cd web && npm ci && npm run lint && npm test && npm run build
+```
+
+저장소 루트에서도 같은 검증을 돌릴 수 있습니다. `.github/workflows/ci.yml` 의 web 잡은 `defaults.run.working-directory: web` 에 의존하므로, 그 명령을 그대로 뽑아 루트에서 돌리면 예전에는 npm 이 상위 디렉터리로 올라가 **저장소 밖의** `package.json` 을 집어 `Missing script: "lint"` 로 exit 1 이 됐습니다(의존성 미설치로 생기는 exit 127 `eslint: not found` 와는 다른 실패입니다). 이제 루트 `package.json` 의 `lint`·`test`·`build` 가 `scripts/web-run.mjs` 를 거쳐 `web/` 의 같은 스크립트를 부릅니다 — 위임만 하며 검증을 완화하지 않고, `web/node_modules` 가 없을 때만 `npm ci` 를 먼저 돌립니다. 루트 스크립트에 `|| true`, `--max-warnings`, `--passWithNoTests` 같은 플래그를 더하지 마십시오.
+
+```bash
+npm run lint && npm test && npm run build   # 저장소 루트에서
+```
+
+`npm run build` 뒤에는 `git status --short` 가 깨끗해야 합니다. 추적 대상인 `web/dist/.gitkeep` 은 `web/vite.config.ts` 의 `keepDistPlaceholder` 플러그인이 `emptyOutDir` 뒤에 원본 내용 그대로 되살립니다.
+
 ### Docker
 
 ```bash
