@@ -250,7 +250,16 @@ func (s *Server) handleDataWorksActionCenter(w http.ResponseWriter, r *http.Requ
 			})
 		}
 		if product.Status == "approved" || product.Status == "risk_review" || product.Status == "review" {
-			if gate, err := s.dataWorksPublishGate(r.Context(), product); err == nil && !gate.Allowed {
+			// A gate the server could not evaluate says nothing about whether the launch is
+			// clear, and dropping the error reported the product as unblocked on the one screen
+			// an operator watches while GET /publish-gate and POST /publish both answer 500 on
+			// the same read failure. Fail the whole response like the inventory reads above.
+			gate, err := s.dataWorksPublishGate(r.Context(), product)
+			if err != nil {
+				writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "publish_gate_failed")
+				return
+			}
+			if !gate.Allowed {
 				summary["blocked_launches"]++
 				actions = append(actions, map[string]any{
 					"type": "launch_blocked", "severity": "high", "product_key": product.ProductKey,

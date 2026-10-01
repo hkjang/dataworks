@@ -696,3 +696,95 @@ func TestDataWorksActionCenterRejectsUnavailableInventories(t *testing.T) {
 		})
 	}
 }
+
+// A publish gate the server could not evaluate is not evidence that a product is clear to
+// launch: GET /publish-gate and POST /publish both answer 500 on the same read failure, so
+// the action center must not be the one screen that reports the product as unblocked.
+// Exercise real SQLite failures through the production store and router, restoring each
+// table to show the same product is reported as blocked whenever the gate can be evaluated.
+func TestDataWorksActionCenterRejectsUnavailablePublishGate(t *testing.T) {
+	ctx := context.Background()
+	dsn := filepath.Join(t.TempDir(), "action-center-gate.db")
+	db, err := store.Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "audit.ndjson"))
+	logger.Start()
+	t.Cleanup(func() { logger.Stop(ctx) })
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(server.Routes())
+	t.Cleanup(srv.Close)
+	if err := db.UpsertDataProduct(ctx, store.DataProduct{
+		// restricted sensitivity puts the product on the strict gate, which is the path that
+		// reads asset readiness, approval traces, and the evidence pack.
+		ID: "dprod_gate", ProductKey: "dw_gate_blocked", NameKO: "Gate Blocked API",
+		SourceType: "api", SourceRef: "loan_history", Sensitivity: "restricted", Status: "approved",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { schema.Close() })
+
+	// The product has no approvals or evidence pack, so an evaluated gate always blocks it.
+	assertBlockedLaunchReported := func(t *testing.T) {
+		t.Helper()
+		payload := getActionCenter(t, srv.URL, "")
+		if payload.Summary["blocked_launches"] != 1 {
+			t.Fatalf("blocked_launches = %d, want 1: %+v", payload.Summary["blocked_launches"], payload.Actions)
+		}
+		blocked := actionsOfType(payload, "launch_blocked")
+		if len(blocked) != 1 || blocked[0]["product_key"] != "dw_gate_blocked" {
+			t.Fatalf("launch_blocked actions = %+v, want 1 for dw_gate_blocked", blocked)
+		}
+	}
+	assertBlockedLaunchReported(t)
+	for _, table := range []string{"dw_asset_readiness_scores", "dw_approval_traces", "dw_evidence_packs"} {
+		t.Run(table, func(t *testing.T) {
+			// Table names come exclusively from the fixed list above.
+			if _, err := schema.ExecContext(ctx, "ALTER TABLE "+table+" RENAME TO unavailable_gate_input"); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if _, err := schema.ExecContext(ctx, "ALTER TABLE unavailable_gate_input RENAME TO "+table); err != nil {
+					t.Fatal(err)
+				}
+				assertBlockedLaunchReported(t)
+			})
+			resp, err := http.Get(srv.URL + "/admin/dataworks/action-center")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusInternalServerError {
+				t.Fatalf("unavailable %s: status = %d, want 500: %s", table, resp.StatusCode, body)
+			}
+			if code := errorCodeOf(t, body); code != "publish_gate_failed" {
+				t.Errorf("error code = %q, want %q", code, "publish_gate_failed")
+			}
+			var payload map[string]json.RawMessage
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range []string{"summary", "actions"} {
+				if _, ok := payload[key]; ok {
+					t.Errorf("unevaluated publish gate returned a misleading %s: %s", key, body)
+				}
+			}
+		})
+	}
+}
