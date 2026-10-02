@@ -140,7 +140,12 @@ func (s *Server) handleDataWorksProductByKey(w http.ResponseWriter, r *http.Requ
 		persisted := true
 		if len(evidence) == 0 {
 			persisted = false
-			evidence = s.buildProductEvidencePack(r.Context(), product, adminID(r))
+			built, err := s.buildProductEvidencePack(r.Context(), product, adminID(r))
+			if err != nil {
+				writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "evidence_failed")
+				return
+			}
+			evidence = built
 			_ = s.db.ReplaceProductEvidencePack(r.Context(), product.ProductKey, evidence)
 		}
 		_ = s.ensureDataWorksEvidencePack(r.Context(), product, adminID(r))
@@ -541,13 +546,32 @@ func (s *Server) upsertGeneratedProductCanvas(ctx context.Context, p store.DataP
 }
 
 func (s *Server) refreshProductEvidencePack(ctx context.Context, p store.DataProduct, actor string) error {
-	return s.db.ReplaceProductEvidencePack(ctx, p.ProductKey, s.buildProductEvidencePack(ctx, p, actor))
+	evidence, err := s.buildProductEvidencePack(ctx, p, actor)
+	if err != nil {
+		return err
+	}
+	return s.db.ReplaceProductEvidencePack(ctx, p.ProductKey, evidence)
 }
 
-func (s *Server) buildProductEvidencePack(ctx context.Context, p store.DataProduct, actor string) []store.ProductEvidence {
-	def, defOK, _ := s.db.LatestProductDefinition(ctx, p.ProductKey)
-	risk, riskOK, _ := s.db.LatestProductRiskReview(ctx, p.ProductKey)
-	poc, pocOK, _ := s.db.LatestProductPOCPlan(ctx, p.ProductKey)
+// buildProductEvidencePack assembles the evidence rows for a product. A read that fails is
+// reported rather than treated as a missing source: ReplaceProductEvidencePack deletes the
+// stored pack before inserting this one, so carrying on would drop the definition version,
+// risk basis, or PoC success metric from the governance record a launch decision rests on
+// and still answer the operator with a successful refresh. buildEvidencePackJSON reads the
+// same three sources and already surfaces their errors, so both paths now agree.
+func (s *Server) buildProductEvidencePack(ctx context.Context, p store.DataProduct, actor string) ([]store.ProductEvidence, error) {
+	def, defOK, err := s.db.LatestProductDefinition(ctx, p.ProductKey)
+	if err != nil {
+		return nil, err
+	}
+	risk, riskOK, err := s.db.LatestProductRiskReview(ctx, p.ProductKey)
+	if err != nil {
+		return nil, err
+	}
+	poc, pocOK, err := s.db.LatestProductPOCPlan(ctx, p.ProductKey)
+	if err != nil {
+		return nil, err
+	}
 	evidence := []store.ProductEvidence{
 		{ID: newID("evid"), ProductKey: p.ProductKey, EvidenceType: "data_assets", SourceRef: p.SourceRef, Summary: "상품 정의에 사용되는 데이터 자산: " + strings.Join(productSourceAssets(p), ", "), ConfidenceScore: 82, CreatedBy: actor},
 		{ID: newID("evid"), ProductKey: p.ProductKey, EvidenceType: "customer_need", SourceRef: p.ProductKey, Summary: firstNonEmpty(p.Description, p.ExecutiveSummary), ConfidenceScore: 74, CreatedBy: actor},
@@ -562,7 +586,7 @@ func (s *Server) buildProductEvidencePack(ctx context.Context, p store.DataProdu
 	if pocOK {
 		evidence = append(evidence, store.ProductEvidence{ID: newID("evid"), ProductKey: p.ProductKey, EvidenceType: "poc_success_metric", SourceRef: poc.ID, Summary: firstNonEmpty(poc.SuccessMetric, "PoC 성공지표 미정"), ConfidenceScore: 72, CreatedBy: actor})
 	}
-	return evidence
+	return evidence, nil
 }
 
 func (s *Server) ensureDataWorksEvidencePack(ctx context.Context, p store.DataProduct, actor string) error {

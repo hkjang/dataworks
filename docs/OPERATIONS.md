@@ -143,6 +143,16 @@ curl "$BASE/admin/dataworks/products/dw_credit_score/publish-gate" \
 
 차단 시 `409 Conflict`와 함께 `publish_gate.blocked_reasons`가 내려옵니다.
 
+### 증거 목록 새로고침 실패(`evidence_refresh_failed`)
+
+`POST /admin/dataworks/products/{key}/evidence` 는 상품 정의서(`product_definitions`), 리스크 점검
+(`product_risk_reviews`), PoC 계획(`product_poc_plans`)을 읽어 증거 목록을 다시 만들고, 기존 행을
+지운 뒤 새로 넣습니다. 세 조회 중 하나라도 실패하면 `500` + `evidence_refresh_failed` 로 끊고 저장된
+증거 목록은 그대로 둡니다 — 읽지 못한 출처를 "출처 없음" 으로 취급하면 `definition_version`,
+`risk_basis`, `poc_success_metric` 행이 조용히 사라진 채로 새로고침이 성공한 것처럼 보이기 때문입니다.
+`GET` 도 저장된 행이 없어 즉석에서 만들어야 할 때 같은 이유로 `500` + `evidence_failed` 를 돌려줍니다.
+이 코드를 받으면 DB 연결과 위 세 테이블을 먼저 확인하고, 복구한 다음 다시 새로고침하세요.
+
 ## 5. Contract Scope와 API Entitlement
 
 런타임 API 상품은 다음 조건을 모두 통과해야 `POST /v1/data-products/{key}/query`를 사용할 수 있습니다.
