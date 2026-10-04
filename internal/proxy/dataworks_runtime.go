@@ -68,7 +68,18 @@ func (s *Server) handleV1DataProductQuery(w http.ResponseWriter, r *http.Request
 	// while another entitlement on the same key points at a live one. When nothing is usable
 	// the store's first choice still runs the checks below so the denial names the real reason.
 	ent := candidates[0]
-	if usable, ok := s.usableEntitlement(r.Context(), product, candidates, now); ok {
+	usable, ok, err := s.usableEntitlement(r.Context(), product, candidates, now)
+	if err != nil {
+		// Nothing was usable and at least one candidate's contract scope could not be read, so
+		// the real reason is a server fault. Reuse the code the single-candidate lookup below
+		// returns for the same failure. The usage metering defer is not installed yet and
+		// contractKey is still empty, so no billing row is owed for this response. No audit row
+		// either, matching the other lookup failures above: they record a fault, not a denial,
+		// and the candidate that failed to read is not necessarily the one named by ent.
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "contract_lookup_failed")
+		return
+	}
+	if ok {
 		ent = usable
 	}
 	if !entitlementActive(ent, now) {
@@ -243,14 +254,27 @@ func retryAfterSeconds(resetAt time.Time, now time.Time) int {
 // product, each naming its own contract, so stopping at the first one hands 403s to callers
 // whose other grant is perfectly valid. Checks that depend on the request body (allowed
 // fields) or that consume quota (rate limit) stay out, so selection never burns a window.
-func (s *Server) usableEntitlement(ctx context.Context, product store.DataProduct, candidates []store.APIEntitlement, now time.Time) (store.APIEntitlement, bool) {
+//
+// A contract scope that fails to read is not a scope that is absent: skipping it like the
+// checks below would hand the caller whichever denial the store's first choice happens to
+// carry, hiding a server fault behind a 403 the operator cannot act on. The failure is kept
+// until the walk ends, so a candidate that does clear every check still serves and the error
+// is dropped — it only decides the answer when nothing is usable.
+func (s *Server) usableEntitlement(ctx context.Context, product store.DataProduct, candidates []store.APIEntitlement, now time.Time) (store.APIEntitlement, bool, error) {
 	sensitive := sensitiveProduct(product)
+	var lookupErr error
 	for _, ent := range candidates {
 		if !entitlementActive(ent, now) || !entitlementAllowsQuery(ent.Scope) {
 			continue
 		}
 		contract, found, err := s.db.GetContractScope(ctx, ent.ContractKey)
-		if err != nil || !found || contract.ProductKey != product.ProductKey {
+		if err != nil {
+			if lookupErr == nil {
+				lookupErr = err
+			}
+			continue
+		}
+		if !found || contract.ProductKey != product.ProductKey {
 			continue
 		}
 		if !contractScopeActive(contract, now) {
@@ -259,9 +283,9 @@ func (s *Server) usableEntitlement(ctx context.Context, product store.DataProduc
 		if sensitive && strings.TrimSpace(contract.Purpose) == "" {
 			continue
 		}
-		return ent, true
+		return ent, true, nil
 	}
-	return store.APIEntitlement{}, false
+	return store.APIEntitlement{}, false, lookupErr
 }
 
 // contractScopeCanServe reports whether a contract scope is able to answer product queries
