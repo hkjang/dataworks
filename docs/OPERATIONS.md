@@ -143,6 +143,16 @@ curl "$BASE/admin/dataworks/products/dw_credit_score/publish-gate" \
 
 차단 시 `409 Conflict`와 함께 `publish_gate.blocked_reasons`가 내려옵니다.
 
+### 증거 목록 새로고침 실패(`evidence_refresh_failed`)
+
+`POST /admin/dataworks/products/{key}/evidence` 는 상품 정의서(`product_definitions`), 리스크 점검
+(`product_risk_reviews`), PoC 계획(`product_poc_plans`)을 읽어 증거 목록을 다시 만들고, 기존 행을
+지운 뒤 새로 넣습니다. 세 조회 중 하나라도 실패하면 `500` + `evidence_refresh_failed` 로 끊고 저장된
+증거 목록은 그대로 둡니다 — 읽지 못한 출처를 "출처 없음" 으로 취급하면 `definition_version`,
+`risk_basis`, `poc_success_metric` 행이 조용히 사라진 채로 새로고침이 성공한 것처럼 보이기 때문입니다.
+`GET` 도 저장된 행이 없어 즉석에서 만들어야 할 때 같은 이유로 `500` + `evidence_failed` 를 돌려줍니다.
+이 코드를 받으면 DB 연결과 위 세 테이블을 먼저 확인하고, 복구한 다음 다시 새로고침하세요.
+
 ## 5. Contract Scope와 API Entitlement
 
 런타임 API 상품은 다음 조건을 모두 통과해야 `POST /v1/data-products/{key}/query`를 사용할 수 있습니다.
@@ -217,6 +227,13 @@ Entitlement 는 `id` 단위로 저장되므로 같은 API 키가 한 상품에 �
 본문에 따라 달라지는 `allowed_fields` 검사와 호출량을 소모하는 `rate_limit` 은 선택 기준에서 제외되므로, 후보를
 훑는 과정이 분당 한도를 앞당겨 소진하지 않습니다.
 
+후보를 훑다가 어떤 후보의 `contract_key` 를 **읽는 데 실패**하면(DB 장애, 손상된 행 등) 그것은 "그 계약이 없다" 와
+다릅니다. 이 경우 런타임은 남은 후보를 끝까지 확인해 **사용 가능한 후보가 있으면 그 후보로 정상 서빙(200)** 하고,
+사용 가능한 후보가 하나도 없을 때만 `500 contract_lookup_failed` 를 반환합니다. 즉 후보가 여럿인 상황에서도 이
+코드가 나올 수 있으며, 그 응답은 접근권 설정 문제가 아니라 **서버·DB 쪽 장애 신호**이므로 계약을 수정하지 말고 DB
+상태와 서버 로그를 먼저 확인해야 합니다(종전에는 이 실패가 1순위 후보의 `403 contract_scope_inactive` 등으로
+보고돼 운영자가 틀린 사유를 봤습니다).
+
 ### 마스킹 정책과 Publish Gate
 
 Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(기본), `redact`, `hash` 만 허용하며 그 외 값은
@@ -238,6 +255,12 @@ Contract Scope 의 `masking_policy` 는 런타임이 실제로 구현한 `none`(
 액션 센터의 적합도·계약·권한·Watermark·비용·폐기 후보 목록 조회가 실패하면 HTTP `500`과 해당 오류 코드를
 반환합니다. 조회 실패를 경고 0건으로 표시하지 않으며, 저장소 복구 후 다시 조회해야 합니다. 정상적으로
 조회된 빈 목록은 기존처럼 HTTP `200`과 0건 집계를 반환합니다.
+
+`approved`·`review`·`risk_review` 상품의 퍼블리시 게이트 평가(자산 준비도·승인 이력·Evidence Pack 조회)가
+실패하면 같은 방식으로 HTTP `500`과 `publish_gate_failed` 를 반환합니다. `GET …/publish-gate` 와
+`POST …/publish` 가 같은 조회 실패에 `500`을 돌려주는데 액션 센터만 그 상품을 `blocked_launches` 에서
+빼고 출시 가능한 것처럼 보여 주지 않도록 한 것입니다. 평가가 성공해 차단 사유가 없는 상품은 종전대로
+집계되지 않습니다.
 
 권한의 활성 판정은 런타임 조회 게이트와 같은 규칙(`status` 는 대소문자·앞뒤 공백 무시, `expires_at` 은 앞뒤 공백을
 무시하고 해석 불가하면 만료 취급)을 씁니다. 쓰기 경로가 `status` 를 정규화하기 전에 저장된 `"Active"` 같은 행은
