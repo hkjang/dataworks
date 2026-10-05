@@ -21,6 +21,16 @@ const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
 // 출력이 빈 문자열이 되어 "eslint 가 실제로 돌았다" 는 단정이 깨졌다(= 러너가 보던
 // `cd web && npm test --silent` exit 1). 단정을 약하게 만드는 대신, 관찰 대상인 자식의
 // 로그 수준을 테스트가 직접 고정한다 — 바깥에서 어떻게 불렸든 같은 것을 본다.
+
+// 자식 npm 에 주는 상한. 이 스위트의 두 사례는 vitest 의 기본 테스트 제한시간(5초)
+// 안에 끝나지 않는다 — `npm run lint` 은 npm → npm → eslint 를 전부 새로 띄워
+// 프로젝트 전체를 린트하므로, 이 저장소의 CI Lint 스텝만으로도 5초가 걸린다(실측:
+// 코어를 넉넉히 준 개발 머신에서 4.0초, 코어 하나로 묶으면 5.4초 → 기본값으로는
+// `Test timed out in 5000ms` 로 CI 의 Test 스텝이 깨졌다). 그래서 벽시계 상한은
+// spawnSync 쪽 하나로 모으고, 테스트 제한시간은 그보다 넉넉히 둔다 — 자식이 멈추면
+// 아래 단정이 그 사실을 보고하게 하는 것이 vitest 타임아웃보다 진단에 쓸모 있다.
+const NPM_TIMEOUT_MS = 180_000
+
 function runNpm(args: string[]) {
   const execpath = process.env.npm_execpath
   const env = { ...process.env }
@@ -31,14 +41,14 @@ function runNpm(args: string[]) {
         cwd: repoRoot,
         encoding: 'utf8',
         env,
-        timeout: 180_000,
+        timeout: NPM_TIMEOUT_MS,
       })
     : spawnSync('npm', argv, {
         cwd: repoRoot,
         encoding: 'utf8',
         env,
         shell: true,
-        timeout: 180_000,
+        timeout: NPM_TIMEOUT_MS,
       })
   return {
     status: result.status,
@@ -47,21 +57,29 @@ function runNpm(args: string[]) {
 }
 
 describe('repository root npm scripts', () => {
-  it('resolves the project root to this repository instead of escaping to an ancestor', () => {
-    const { status, output } = runNpm(['prefix'])
+  it(
+    'resolves the project root to this repository instead of escaping to an ancestor',
+    () => {
+      const { status, output } = runNpm(['prefix'])
 
-    expect(status).toBe(0)
-    expect(fs.realpathSync(output.trim())).toBe(fs.realpathSync(repoRoot))
-  })
+      expect(status).toBe(0)
+      expect(fs.realpathSync(output.trim())).toBe(fs.realpathSync(repoRoot))
+    },
+    NPM_TIMEOUT_MS,
+  )
 
-  it('runs the web eslint from the repository root', () => {
-    const { status, output } = runNpm(['run', 'lint'])
+  it(
+    'runs the web eslint from the repository root',
+    () => {
+      const { status, output } = runNpm(['run', 'lint'])
 
-    expect(output).not.toContain('Missing script')
-    expect(status).toBe(0)
-    // web 의 lint 스크립트가 실제로 돌았다는 증거 — 루트가 자체 린터를 흉내내면 안 된다.
-    expect(output).toContain('eslint')
-  })
+      expect(output).not.toContain('Missing script')
+      expect(status).toBe(0)
+      // web 의 lint 스크립트가 실제로 돌았다는 증거 — 루트가 자체 린터를 흉내내면 안 된다.
+      expect(output).toContain('eslint')
+    },
+    NPM_TIMEOUT_MS,
+  )
 
   it('delegates lint to web without loosening it', () => {
     const rootPkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'))

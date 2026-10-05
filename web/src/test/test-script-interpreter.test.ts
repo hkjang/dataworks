@@ -79,6 +79,11 @@ it(
 describe('run-with-supported-node launcher', () => {
   const launcher = path.join(webRoot, 'scripts', 'run-with-supported-node.mjs')
   const currentMajor = Number(process.versions.node.split('.')[0])
+  // 아래 사례들은 실제로 프로세스를 띄운다. 벽시계 상한은 spawnSync 쪽 하나로 모으고
+  // 테스트 제한시간은 그보다 넉넉히 둔다 — vitest 의 기본값 5초는 느린 CI 러너에서
+  // 프로세스 기동만으로도 넘길 수 있고(같은 원인으로 root-npm-scripts 가 깨졌다),
+  // 그때 vitest 타임아웃은 아래 단정보다 진단에 쓸모가 없다.
+  const LAUNCHER_TIMEOUT_MS = 120_000
 
   function makeWebRoot(engines: string) {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dataworks-launcher-'))
@@ -136,102 +141,127 @@ describe('run-with-supported-node launcher', () => {
     return spawnSync(
       process.execPath,
       [path.join(fakeWeb, 'scripts', 'run-with-supported-node.mjs'), 'fakebin'],
-      { cwd: fakeWeb, encoding: 'utf8', env: { ...process.env, ...env }, timeout: 120_000 },
+      {
+        cwd: fakeWeb,
+        encoding: 'utf8',
+        env: { ...process.env, ...env },
+        timeout: LAUNCHER_TIMEOUT_MS,
+      },
     )
   }
 
-  it('installs dependencies instead of crashing when the local bin is missing', () => {
-    const fakeWeb = makeWebRoot(`>=${currentMajor}.0.0`)
-    const stubNpm = path.join(tmpDir, 'stub-npm.mjs')
-    const log = path.join(tmpDir, 'npm.log')
-    fs.writeFileSync(log, '')
-    writeStubNpm(stubNpm, 0)
+  it(
+    'installs dependencies instead of crashing when the local bin is missing',
+    () => {
+      const fakeWeb = makeWebRoot(`>=${currentMajor}.0.0`)
+      const stubNpm = path.join(tmpDir, 'stub-npm.mjs')
+      const log = path.join(tmpDir, 'npm.log')
+      fs.writeFileSync(log, '')
+      writeStubNpm(stubNpm, 0)
 
-    const run = runLauncher(fakeWeb, { npm_execpath: stubNpm, STUB_NPM_LOG: log })
+      const run = runLauncher(fakeWeb, { npm_execpath: stubNpm, STUB_NPM_LOG: log })
 
-    expect(run.stderr).not.toContain('ENOENT')
-    expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(0)
-    expect(fs.readFileSync(log, 'utf8').trim().split('\n')).toEqual(['ci'])
-    expect(run.stdout).toContain('fakebin ran on')
-  })
+      expect(run.stderr).not.toContain('ENOENT')
+      expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(0)
+      expect(fs.readFileSync(log, 'utf8').trim().split('\n')).toEqual(['ci'])
+      expect(run.stdout).toContain('fakebin ran on')
+    },
+    LAUNCHER_TIMEOUT_MS,
+  )
 
-  it('exits with the install status when the dependency install fails', () => {
-    const fakeWeb = makeWebRoot(`>=${currentMajor}.0.0`)
-    const stubNpm = path.join(tmpDir, 'stub-npm.mjs')
-    const log = path.join(tmpDir, 'npm.log')
-    fs.writeFileSync(log, '')
-    writeStubNpm(stubNpm, 7)
+  it(
+    'exits with the install status when the dependency install fails',
+    () => {
+      const fakeWeb = makeWebRoot(`>=${currentMajor}.0.0`)
+      const stubNpm = path.join(tmpDir, 'stub-npm.mjs')
+      const log = path.join(tmpDir, 'npm.log')
+      fs.writeFileSync(log, '')
+      writeStubNpm(stubNpm, 7)
 
-    const run = runLauncher(fakeWeb, { npm_execpath: stubNpm, STUB_NPM_LOG: log })
+      const run = runLauncher(fakeWeb, { npm_execpath: stubNpm, STUB_NPM_LOG: log })
 
-    // 설치 실패를 삼켜 통과시키지도, 1 로 뭉개지도 않는다.
-    expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(7)
-    expect(run.stdout).not.toContain('fakebin ran on')
-  })
+      // 설치 실패를 삼켜 통과시키지도, 1 로 뭉개지도 않는다.
+      expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(7)
+      expect(run.stdout).not.toContain('fakebin ran on')
+    },
+    LAUNCHER_TIMEOUT_MS,
+  )
 
-  it('does not reinstall when the local bin is already present', () => {
-    const fakeWeb = makeWebRoot(`>=${currentMajor}.0.0`)
-    const stubNpm = path.join(tmpDir, 'stub-npm.mjs')
-    const log = path.join(tmpDir, 'npm.log')
-    fs.writeFileSync(log, '')
-    writeStubNpm(stubNpm, 0)
-    installFakeBin(fakeWeb)
+  it(
+    'does not reinstall when the local bin is already present',
+    () => {
+      const fakeWeb = makeWebRoot(`>=${currentMajor}.0.0`)
+      const stubNpm = path.join(tmpDir, 'stub-npm.mjs')
+      const log = path.join(tmpDir, 'npm.log')
+      fs.writeFileSync(log, '')
+      writeStubNpm(stubNpm, 0)
+      installFakeBin(fakeWeb)
 
-    const run = runLauncher(fakeWeb, { npm_execpath: stubNpm, STUB_NPM_LOG: log })
+      const run = runLauncher(fakeWeb, { npm_execpath: stubNpm, STUB_NPM_LOG: log })
 
-    expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(0)
-    expect(fs.readFileSync(log, 'utf8')).toBe('')
-    expect(run.stdout).toContain('fakebin ran on')
-  })
+      expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(0)
+      expect(fs.readFileSync(log, 'utf8')).toBe('')
+      expect(run.stdout).toContain('fakebin ran on')
+    },
+    LAUNCHER_TIMEOUT_MS,
+  )
 
-  it('falls back to an installed node when npm itself runs on an unsupported one', () => {
-    // 하한을 현재 node 보다 높게 잡아 npm_node_execpath·process.execPath 두 후보를 모두
-    // 떨어뜨린다 = 러너의 npm 까지 구버전 node 에 가로채인 상태.
-    const fakeWeb = makeWebRoot(`>=${currentMajor + 1}.0.0`)
-    installFakeBin(fakeWeb)
-    const shimLog = path.join(tmpDir, 'shims.log')
-    fs.writeFileSync(shimLog, '')
-    const nvmDir = path.join(tmpDir, 'nvm')
-    const nodeDir = path.join(nvmDir, 'versions', 'node')
-    writeNodeShim(
-      path.join(nodeDir, `v${currentMajor + 1}.0.0`, 'bin', 'node'),
-      `v${currentMajor + 1}.0.0`,
-      shimLog,
-    )
-    writeNodeShim(
-      path.join(nodeDir, `v${currentMajor + 2}.0.0`, 'bin', 'node'),
-      `v${currentMajor + 2}.0.0`,
-      shimLog,
-    )
-    const oldNode = path.join(tmpDir, 'old-node')
-    writeNodeShim(oldNode, 'v20.19.2', shimLog)
+  it(
+    'falls back to an installed node when npm itself runs on an unsupported one',
+    () => {
+      // 하한을 현재 node 보다 높게 잡아 npm_node_execpath·process.execPath 두 후보를 모두
+      // 떨어뜨린다 = 러너의 npm 까지 구버전 node 에 가로채인 상태.
+      const fakeWeb = makeWebRoot(`>=${currentMajor + 1}.0.0`)
+      installFakeBin(fakeWeb)
+      const shimLog = path.join(tmpDir, 'shims.log')
+      fs.writeFileSync(shimLog, '')
+      const nvmDir = path.join(tmpDir, 'nvm')
+      const nodeDir = path.join(nvmDir, 'versions', 'node')
+      writeNodeShim(
+        path.join(nodeDir, `v${currentMajor + 1}.0.0`, 'bin', 'node'),
+        `v${currentMajor + 1}.0.0`,
+        shimLog,
+      )
+      writeNodeShim(
+        path.join(nodeDir, `v${currentMajor + 2}.0.0`, 'bin', 'node'),
+        `v${currentMajor + 2}.0.0`,
+        shimLog,
+      )
+      const oldNode = path.join(tmpDir, 'old-node')
+      writeNodeShim(oldNode, 'v20.19.2', shimLog)
 
-    const run = runLauncher(fakeWeb, { npm_node_execpath: oldNode, NVM_DIR: nvmDir })
+      const run = runLauncher(fakeWeb, { npm_node_execpath: oldNode, NVM_DIR: nvmDir })
 
-    expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(0)
-    expect(run.stdout).toContain('fakebin ran on')
-    // 하한을 넘기는 **가장 낮은** 후보로 bin 을 띄운다. 최신을 집으면 이 저장소가
-    // 검증해 본 적 없는 런타임으로 넘어간다(실측: 이 머신의 Node 25 에서는
-    // silent-sso 테스트가 깨진다). 구버전 후보는 --version 질의만 받고 bin 은 못 돌린다.
-    expect(fs.readFileSync(shimLog, 'utf8').trim().split('\n')).toEqual([
-      `v${currentMajor + 1}.0.0`,
-    ])
-  })
+      expect(run.status, `${run.stdout}\n${run.stderr}`).toBe(0)
+      expect(run.stdout).toContain('fakebin ran on')
+      // 하한을 넘기는 **가장 낮은** 후보로 bin 을 띄운다. 최신을 집으면 이 저장소가
+      // 검증해 본 적 없는 런타임으로 넘어간다(실측: 이 머신의 Node 25 에서는
+      // silent-sso 테스트가 깨진다). 구버전 후보는 --version 질의만 받고 bin 은 못 돌린다.
+      expect(fs.readFileSync(shimLog, 'utf8').trim().split('\n')).toEqual([
+        `v${currentMajor + 1}.0.0`,
+      ])
+    },
+    LAUNCHER_TIMEOUT_MS,
+  )
 
-  it('refuses to run on an unsupported node instead of silently downgrading', () => {
-    const fakeWeb = makeWebRoot('>=999.0.0')
-    installFakeBin(fakeWeb)
-    const oldNode = path.join(tmpDir, 'old-node')
-    writeNodeShim(oldNode, 'v20.19.2', path.join(tmpDir, 'shims.log'))
+  it(
+    'refuses to run on an unsupported node instead of silently downgrading',
+    () => {
+      const fakeWeb = makeWebRoot('>=999.0.0')
+      installFakeBin(fakeWeb)
+      const oldNode = path.join(tmpDir, 'old-node')
+      writeNodeShim(oldNode, 'v20.19.2', path.join(tmpDir, 'shims.log'))
 
-    const run = runLauncher(fakeWeb, {
-      npm_node_execpath: oldNode,
-      NVM_DIR: path.join(tmpDir, 'nvm'),
-    })
+      const run = runLauncher(fakeWeb, {
+        npm_node_execpath: oldNode,
+        NVM_DIR: path.join(tmpDir, 'nvm'),
+      })
 
-    expect(run.status).toBe(1)
-    expect(run.stdout).not.toContain('fakebin ran on')
-    expect(run.stderr).toContain('>=999.0.0')
-    expect(run.stderr).toContain('node_modules/.bin')
-  })
+      expect(run.status).toBe(1)
+      expect(run.stdout).not.toContain('fakebin ran on')
+      expect(run.stderr).toContain('>=999.0.0')
+      expect(run.stderr).toContain('node_modules/.bin')
+    },
+    LAUNCHER_TIMEOUT_MS,
+  )
 })
