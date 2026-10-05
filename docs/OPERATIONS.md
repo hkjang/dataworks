@@ -50,6 +50,13 @@ go build -trimpath -ldflags "-s -w" -o dataworks ./cmd/dataworks
 
 주의할 함정: npm 은 run-script 의 `PATH` 앞에 **상위 디렉터리의 `node_modules/.bin` 을 전부** 붙입니다(프로젝트 → … → 홈 디렉터리 → `/`). 홈 디렉터리에 `node` 패키지가 설치돼 있으면 그 구버전 `node` 가 nvm·CI 의 node 를 가려, `npm test` 가 `webidl.util.markAsUncloneable is not a function` 으로 exit 1 이 됩니다. 이를 막기 위해 `npm test` 는 `web/scripts/run-with-supported-node.mjs` 를 거쳐 npm 이 실행 중인 node(`npm_node_execpath`)로 vitest 를 띄우고, 하한 미달이면 후보 목록과 함께 즉시 멈춥니다.
 
+런처는 다음 두 상태까지 견딥니다.
+
+- **`web/node_modules` 가 없는 새 워크트리** — 요청한 로컬 bin 이 없으면 고른 node 로 `npm ci` 를 **한 번만** 돌린 뒤 이어서 실행합니다. 이미 설치돼 있으면 아무 것도 설치하지 않습니다(검증 시간 보호). 설치가 실패하면 그 종료 코드를 그대로 돌려주고 멈추므로, 네트워크·npm 캐시가 없는 환경에서는 `npm ci` 의 실패 원인이 그대로 드러납니다 — 조용히 통과하지 않습니다.
+- **npm 자신이 가로채인 구버전 node 로 떠 있는 경우** — `npm_node_execpath` 와 `process.execPath` 가 둘 다 하한 미달이면, 시스템에 설치된 node(`$NVM_DIR/versions/node/*/bin/node`, `/usr/local/bin/node`, `/usr/bin/node`)에서 **하한을 넘기는 가장 낮은 버전**을 고릅니다. 상위 `node_modules/.bin` 은 후보에서 제외합니다(그게 문제의 근원입니다). 최신이 아니라 가장 낮은 버전을 고르는 이유는 `engines.node` 가 하한 선언일 뿐이고, 검증해 본 적 없는 최신 런타임으로 넘어가면 오히려 깨지기 때문입니다 — 실측으로 Node 25 에서는 `src/features/auth/silent-sso.test.ts` 가 실패하고 22.23.1·23.11.1 에서는 통과합니다.
+
+릴리즈 검증을 `npm test --silent` 로 돌릴 때 주의할 점: `--silent` 는 `npm_config_loglevel=silent` 를 자식 프로세스까지 물려줍니다. 그래서 테스트가 띄운 중첩 npm 의 `> eslint .` 배너까지 사라집니다. 중첩 npm 의 출력을 검사하는 테스트는 그 환경 변수를 지우고 로그 수준을 직접 지정해야 합니다(`web/src/test/root-npm-scripts.test.ts` 참고) — 단정을 약하게 만들어 우회하지 마십시오.
+
 ```bash
 cd web && npm ci && npm run lint && npm test && npm run build
 ```

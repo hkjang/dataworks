@@ -14,17 +14,29 @@ const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
 // npm 이 PATH 앞에 상위 node_modules/.bin 을 붙이므로(web/scripts/run-with-supported-node.mjs
 // 의 주석 참고) PATH 의 npm 을 믿지 않고 npm 자신이 알려 준 경로를 쓴다.
+//
+// 릴리즈 게이트는 이 스위트를 `npm test --silent` 로 돌린다. 그러면 바깥 npm 이
+// npm_config_loglevel=silent 를 환경에 넣고, 여기서 띄우는 자식 npm 이 그것을 물려받아
+// `> dataworks-web@0.1.0 lint` / `> eslint .` 배너를 통째로 삼킨다 — eslint 가 깨끗하면
+// 출력이 빈 문자열이 되어 "eslint 가 실제로 돌았다" 는 단정이 깨졌다(= 러너가 보던
+// `cd web && npm test --silent` exit 1). 단정을 약하게 만드는 대신, 관찰 대상인 자식의
+// 로그 수준을 테스트가 직접 고정한다 — 바깥에서 어떻게 불렸든 같은 것을 본다.
 function runNpm(args: string[]) {
   const execpath = process.env.npm_execpath
+  const env = { ...process.env }
+  delete env.npm_config_loglevel
+  const argv = [...args, '--loglevel=notice']
   const result = execpath
-    ? spawnSync(process.execPath, [execpath, ...args], {
+    ? spawnSync(process.execPath, [execpath, ...argv], {
         cwd: repoRoot,
         encoding: 'utf8',
+        env,
         timeout: 180_000,
       })
-    : spawnSync('npm', args, {
+    : spawnSync('npm', argv, {
         cwd: repoRoot,
         encoding: 'utf8',
+        env,
         shell: true,
         timeout: 180_000,
       })
