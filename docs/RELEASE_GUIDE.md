@@ -4,7 +4,7 @@ Data Works는 Go API와 React Workbench를 하나의 Docker 이미지로 빌드�
 
 ## 1. 릴리즈 전 체크리스트
 
-- [ ] `web/`에서 `npm ci`, `npm run lint`, `npm test`, `npm run build` 통과
+- [ ] `web/`에서 `npm ci`, `npm run lint`, `npm test`, `npm run build` 통과 (저장소 루트에서 `npm run lint`, `npm test`, `npm run build` 로 돌려도 같은 검증입니다 — 루트 스크립트는 `scripts/web-run.mjs` 로 `web/` 의 같은 스크립트에 위임만 하며 완화하지 않습니다)
 - [ ] `go test ./...` 통과
 - [ ] `go build ./cmd/dataworks` 통과
 - [ ] `internal/proxy/server.go`의 `AppVersion`, `scripts/changelog.txt` 최상단, `docs/K8S_OPERATIONS_HUB.md` 버전 일치

@@ -11,6 +11,7 @@ coverage.out
 .playwright-mcp/
 .gocache/
 scratch/
+node_modules/
 web/node_modules/
 web/dist/*
 !web/dist/.gitkeep

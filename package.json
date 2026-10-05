@@ -1,0 +1,9 @@
+{
+  "name": "dataworks",
+  "private": true,
+  "scripts": {
+    "lint": "node scripts/web-run.mjs lint",
+    "test": "node scripts/web-run.mjs test",
+    "build": "node scripts/web-run.mjs build"
+  }
+}
