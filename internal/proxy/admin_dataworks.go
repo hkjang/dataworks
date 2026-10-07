@@ -25,10 +25,26 @@ func (s *Server) handleDataWorksHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Aggregate dashboard KPIs from existing factory dashboard + dw tables
-	dash, _ := s.db.FactoryDashboard(r.Context())
-	assets, _ := s.db.ListDataAssets(r.Context())
-	products, _ := s.db.ListDataProducts(r.Context(), "")
+	// Aggregate dashboard KPIs from existing factory dashboard + dw tables.
+	// A read the server could not complete is not an empty catalog: dropping these errors
+	// published zeroes for every KPI below as a successful dashboard, so an unreachable table
+	// looked the same as a factory with nothing in it. /assets and /funnel already answer 500
+	// on the same reads.
+	dash, err := s.db.FactoryDashboard(r.Context())
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "dashboard_failed")
+		return
+	}
+	assets, err := s.db.ListDataAssets(r.Context())
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "dashboard_failed")
+		return
+	}
+	products, err := s.db.ListDataProducts(r.Context(), "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "dashboard_failed")
+		return
+	}
 
 	// Count products by status
 	var published, review, riskHigh int
@@ -675,7 +691,14 @@ func (s *Server) handleDataWorksReviews(w http.ResponseWriter, r *http.Request) 
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "reviews_failed")
 		return
 	}
-	riskProducts, _ := s.db.ListDataProducts(r.Context(), "risk_review")
+	// The risk review queue is the half of this response that governance acts on. Dropping its
+	// error served an empty queue next to a populated review queue, which reads as "nothing is
+	// waiting on risk" — report it the same way as the read above.
+	riskProducts, err := s.db.ListDataProducts(r.Context(), "risk_review")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "reviews_failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"review_pending":      products,
 		"risk_review_pending": riskProducts,
@@ -757,8 +780,18 @@ func (s *Server) handleDataWorksAnalytics(w http.ResponseWriter, r *http.Request
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
 		return
 	}
-	dash, _ := s.db.FactoryDashboard(r.Context())
-	products, _ := s.db.ListDataProducts(r.Context(), "")
+	// Same contract as /home: a failed read must not be reported as an empty portfolio with
+	// zero averages.
+	dash, err := s.db.FactoryDashboard(r.Context())
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "analytics_failed")
+		return
+	}
+	products, err := s.db.ListDataProducts(r.Context(), "")
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "analytics_failed")
+		return
+	}
 
 	var totalRevenue, totalRisk int
 	statusCount := map[string]int{}

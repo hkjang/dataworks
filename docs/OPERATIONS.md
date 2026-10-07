@@ -132,6 +132,16 @@ docker run -d --name dataworks --restart=always \
 
 관리 API는 `Authorization: Bearer <ADMIN_TOKEN>` 또는 Admin UI 토큰 입력을 사용합니다.
 
+### KPI·분석·검토 큐 조회 실패(`dashboard_failed`·`analytics_failed`·`reviews_failed`)
+
+`GET /admin/dataworks/home` 과 `GET /admin/dataworks/analytics` 의 자산·상품·Factory 집계 조회가 실패하면
+HTTP `500`과 각각 `dashboard_failed`·`analytics_failed` 를 반환합니다. 조회 실패를 `total_assets`·
+`total_products`·`published_products`·`high_risk`·`ideas_total` 이 0인 "빈 팩토리" 로 표시하지 않습니다.
+`GET /admin/dataworks/reviews` 는 `risk_review` 큐 조회가 실패하면 `reviews_failed` 로 끊습니다 — 같은
+응답의 `review_pending` 은 채워진 채 `risk_review_pending` 만 비어 "리스크 검토 대기 없음" 으로 읽히는
+상황을 막기 위함입니다. 정상적으로 조회된 빈 카탈로그·빈 큐는 종전처럼 HTTP `200`과 0건을 반환하므로,
+`500`을 보면 저장소를 먼저 확인하고 복구 후 다시 조회하십시오.
+
 ## 4. Publish Gate 운영
 
 High-risk 또는 민감 데이터 상품은 다음 조건 없이는 `published`로 전환되지 않습니다.
