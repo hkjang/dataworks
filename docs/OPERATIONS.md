@@ -69,6 +69,41 @@ npm run lint && npm test && npm run build   # 저장소 루트에서
 
 `npm run build` 뒤에는 `git status --short` 가 깨끗해야 합니다. 추적 대상인 `web/dist/.gitkeep` 은 `web/vite.config.ts` 의 `keepDistPlaceholder` 플러그인이 `emptyOutDir` 뒤에 원본 내용 그대로 되살립니다.
 
+### 문서 사이트 배포 실패 진단 (`pages build and deployment`)
+
+`docs/` 는 GitHub Pages 의 소스 폴더(`main` / `/docs`)입니다. 이 저장소에는 `_config.yml` 도 `.nojekyll` 도 없으므로 GitHub 이 **직접 관리하는** `pages build and deployment` 워크플로가 `docs/` 를 Jekyll(github-pages 젬)로 빌드해 배포합니다. 이 워크플로는 `.github/workflows/` 에 없고 저장소가 설정을 소유하지 않습니다 — 즉 실패했을 때 저장소 쪽에서 고칠 수 있는 것과 고칠 수 없는 것을 먼저 갈라야 합니다.
+
+**1) 내용 때문인지 확인** — CI 가 쓰는 것과 같은 이미지로 로컬에서 같은 빌드를 돌립니다. `jekyll-optional-front-matter` 때문에 front matter 가 없는 `docs/*.md` 도 전부 페이지로 렌더되므로, 마크다운에 들어간 Liquid 구문(이중 중괄호, 중괄호+퍼센트)이나 깨진 인코딩이 여기서 exit 1 로 드러납니다. 코드 블록 안이라도 Liquid 가 먼저 해석되므로 백틱은 보호막이 아닙니다.
+
+```bash
+rm -rf /tmp/pages-ws && mkdir -p /tmp/pages-ws        # 이전 추출물을 지우고 새로 만든다
+git archive HEAD | tar -x -C /tmp/pages-ws            # 작업 트리를 더럽히지 않는다
+docker run --rm --user "$(id -u):$(id -g)" -v /tmp/pages-ws:/github/workspace \
+  -e GITHUB_WORKSPACE=/github/workspace -e INPUT_SOURCE=docs \
+  -e INPUT_DESTINATION=./_site -e INPUT_VERBOSE=true -e INPUT_FUTURE=false \
+  -e GITHUB_REPOSITORY=hkjang/dataworks -e INPUT_TOKEN="$GITHUB_TOKEN" \
+  ghcr.io/actions/jekyll-build-pages:v1.0.13
+```
+
+첫 줄의 `rm -rf … && mkdir -p` 를 빼지 마십시오. 디렉터리가 없으면 `tar` 가 `Cannot open: No such file or directory` 로 exit 2 를 내고, 디렉터리를 재활용하면 `git archive | tar -x` 가 HEAD 에 더 이상 없는 파일을 지우지 않아 이전 추출물이 남습니다. 이 절차의 표준 사용법이 **문서 수정 전·후로 두 번 빌드**하는 것이라 그 경로를 실제로 밟게 되는데, 남은 구 파일(예: 이미 삭제한 `docs/*.md`)이 Liquid 로 깨지면 CI 에는 없는 실패가 로컬에서만 재현되어 유령 원인을 쫓게 됩니다 — 오류 메시지가 없는 조용한 오진이라 알아채기 어렵습니다.
+
+`--user` 도 빼지 마십시오. 이것이 없으면 컨테이너가 `_site/` 를 **root 소유로** 써 놓고, 다음 회차의 `rm -rf /tmp/pages-ws` 가 `Permission denied` + exit 1 로 막혀 `&&` 사슬이 거기서 멈춥니다 — 두 번째 빌드를 아예 돌릴 수 없게 되고, 풀려면 `sudo rm -rf /tmp/pages-ws` 가 필요합니다. 실측으로 `--user` 를 준 빌드도 exit 0 이고 `_site/` 가 호출자 소유로 남아 다음 회차가 그냥 돕니다.
+
+이미지 태그는 실제 실행의 `Pull ghcr.io/actions/jekyll-build-pages:…` 단계에서 읽어 맞추십시오. 토큰이 없으면 `jekyll-github-metadata` 가 `The GitHub API credentials you provided aren't valid.` 로 멈춥니다 — 이것은 로컬 환경의 한계이고 저장소 결함이 아닙니다. 공개 저장소이므로 `GITHUB_TOKEN` 은 **스코프를 하나도 주지 않은** 토큰이면 충분합니다. 이 진단에 권한 있는 PAT 를 쓰지 마십시오.
+
+**2) 러너를 못 받은 것인지 확인** — 공개 저장소이므로 인증 없이 잡 목록을 읽을 수 있습니다.
+
+```bash
+curl -s "https://api.github.com/repos/hkjang/dataworks/actions/runs/<RUN_ID>/jobs" \
+  | python3 -c 'import json,sys; [print(j["name"], j["conclusion"], repr(j["runner_name"]), len(j.get("steps") or [])) for j in json.load(sys.stdin)["jobs"]]'
+```
+
+정상 실행의 `build` 잡은 `runner_name` 이 `GitHub Actions …` 이고 단계가 7개(`Pull …`, `Checkout`, `Build with Jekyll`, `Upload artifact` …)이며 20초 남짓에 끝납니다. `runner_name` 이 빈 문자열이고 **단계가 0개**인데 `cancelled` 로 끝났다면 그 잡은 호스티드 러너를 배정받지 못한 채 큐에서 대기하다 취소된 것입니다 — 저장소 내용을 한 줄도 읽지 않았으므로 코드·문서를 고쳐도 달라지지 않습니다. 이때 `build` 가 `cancelled`, `deploy` 가 `skipped` 가 되어 실행 전체는 `failure` 로 보입니다.
+
+단, **concurrency 로 취소된 선행 실행도 모양이 똑같습니다**(`runner_name` 빈 문자열·단계 0개·`cancelled`). 둘을 가르려면 같은 브랜치에 그 뒤로 더 새로운 Pages 실행이 있는지 먼저 보십시오 — `curl -s "https://api.github.com/repos/hkjang/dataworks/actions/runs?branch=main&per_page=10"`. 더 새로운 실행이 있으면 이 취소는 정상이고 조치할 것이 없습니다(그 뒤 실행만 보면 됩니다). 가장 마지막 실행이 이 모양이면 러너 미배정입니다.
+
+**조치**: 같은 커밋으로 워크플로를 **재실행**하거나 다음 push 를 기다리는 것뿐입니다. 재배포 전까지 사이트는 직전에 성공한 배포(= 이전 릴리즈의 `docs/index.html`)를 계속 서빙하므로, `curl -s https://hkjang.github.io/dataworks/ | grep -o 'v0\.9\.[0-9]*'` 로 사이트가 최신 릴리즈를 반영하는지 확인할 수 있습니다. 또한 짧은 간격으로 main 에 두 번 push 하면(머지 커밋 + 릴리즈 커밋) 앞선 실행이 뒤 실행에 의해 취소되므로, 릴리즈 뒤 Pages 실행은 **마지막 것 하나만** 보면 됩니다.
+
 ### Docker
 
 ```bash
