@@ -146,6 +146,11 @@ Factory 집계 내부의 상태별 상품 수·고위험 검토 수·대기 PoC 
 위 오류 처리가 적용됩니다. `GET /admin/factory/dashboard` 는 `dashboard_failed`,
 `GET /admin/dataworks/funnel` 은 `funnel_failed` 로 HTTP `500`을 반환하며 부분 KPI를 내보내지 않습니다.
 
+레거시 목록 `GET /admin/factory/products` 도 상품·아이디어·대시보드 조회 중 하나라도 실패하면
+HTTP `500`, `error.type=server_error`, `error.code=products_failed` 를 반환합니다.
+실패 본문에는 `error`만 포함되며 상품·아이디어 목록이나 부분 KPI를 전달하지 않습니다.
+정상 빈 DB는 종전처럼 HTTP `200`과 빈 배열·0 KPI를 반환합니다. 장애 시 저장소를 확인하고 복구 후 다시 조회하십시오.
+
 ## 4. Publish Gate 운영
 
 High-risk 또는 민감 데이터 상품은 다음 조건 없이는 `published`로 전환되지 않습니다.

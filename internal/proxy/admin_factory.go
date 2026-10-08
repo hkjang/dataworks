@@ -106,8 +106,16 @@ func (s *Server) handleFactoryProducts(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "products_failed")
 		return
 	}
-	ideas, _ := s.db.ListProductIdeas(r.Context(), "", 50)
-	dashboard, _ := s.db.FactoryDashboard(r.Context())
+	ideas, err := s.db.ListProductIdeas(r.Context(), "", 50)
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "products_failed")
+		return
+	}
+	dashboard, err := s.db.FactoryDashboard(r.Context())
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error(), "server_error", "products_failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"products": products, "ideas": ideas, "dashboard": dashboard})
 }
 
