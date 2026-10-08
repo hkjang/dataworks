@@ -479,21 +479,40 @@ func (s *SQLStore) FactoryDashboard(ctx context.Context) (FactoryDashboard, erro
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM product_ideas`).Scan(&d.IdeasTotal); err != nil {
 		return d, err
 	}
-	countStatus := func(status string) int64 {
+	countStatus := func(status string) (int64, error) {
 		var n int64
-		_ = s.db.QueryRowContext(ctx, s.bind(`SELECT COUNT(*) FROM data_products WHERE status = ?`), status).Scan(&n)
-		return n
+		err := s.db.QueryRowContext(ctx, s.bind(`SELECT COUNT(*) FROM data_products WHERE status = ?`), status).Scan(&n)
+		return n, err
 	}
-	d.DraftProducts = countStatus("draft")
-	d.ReviewProducts = countStatus("review")
-	d.RiskReviewProducts = countStatus("risk_review")
-	d.ApprovedProducts = countStatus("approved")
-	d.PublishedProducts = countStatus("published")
-	d.ArchivedProducts = countStatus("archived")
-	_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM product_risk_reviews WHERE overall_score >= 70`).Scan(&d.HighRiskReviews)
-	_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM product_poc_plans WHERE approval_status = 'pending'`).Scan(&d.PendingPOCPlans)
+	var err error
+	if d.DraftProducts, err = countStatus("draft"); err != nil {
+		return d, err
+	}
+	if d.ReviewProducts, err = countStatus("review"); err != nil {
+		return d, err
+	}
+	if d.RiskReviewProducts, err = countStatus("risk_review"); err != nil {
+		return d, err
+	}
+	if d.ApprovedProducts, err = countStatus("approved"); err != nil {
+		return d, err
+	}
+	if d.PublishedProducts, err = countStatus("published"); err != nil {
+		return d, err
+	}
+	if d.ArchivedProducts, err = countStatus("archived"); err != nil {
+		return d, err
+	}
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM product_risk_reviews WHERE overall_score >= 70`).Scan(&d.HighRiskReviews); err != nil {
+		return d, err
+	}
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM product_poc_plans WHERE approval_status = 'pending'`).Scan(&d.PendingPOCPlans); err != nil {
+		return d, err
+	}
 	var avgRevenue float64
-	_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(AVG(revenue_score), 0) FROM data_products WHERE revenue_score > 0`).Scan(&avgRevenue)
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(AVG(revenue_score), 0) FROM data_products WHERE revenue_score > 0`).Scan(&avgRevenue); err != nil {
+		return d, err
+	}
 	d.AverageRevenue = int64(avgRevenue + 0.5)
 	return d, nil
 }

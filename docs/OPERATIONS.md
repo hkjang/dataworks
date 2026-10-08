@@ -142,6 +142,10 @@ HTTP `500`과 각각 `dashboard_failed`·`analytics_failed` 를 반환합니다.
 상황을 막기 위함입니다. 정상적으로 조회된 빈 카탈로그·빈 큐는 종전처럼 HTTP `200`과 0건을 반환하므로,
 `500`을 보면 저장소를 먼저 확인하고 복구 후 다시 조회하십시오.
 
+Factory 집계 내부의 상태별 상품 수·고위험 검토 수·대기 PoC 수·평균 매출 점수 조회가 실패해도
+위 오류 처리가 적용됩니다. `GET /admin/factory/dashboard` 는 `dashboard_failed`,
+`GET /admin/dataworks/funnel` 은 `funnel_failed` 로 HTTP `500`을 반환하며 부분 KPI를 내보내지 않습니다.
+
 ## 4. Publish Gate 운영
 
 High-risk 또는 민감 데이터 상품은 다음 조건 없이는 `published`로 전환되지 않습니다.

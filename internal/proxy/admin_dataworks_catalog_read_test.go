@@ -248,3 +248,156 @@ func TestDataWorksCatalogReadsRejectUnavailableTables(t *testing.T) {
 		}
 	})
 }
+
+// Exercise aggregate failures through the production store and routes. In particular,
+// keep product_ideas readable: its error was already propagated before this regression.
+func TestFactoryDashboardRejectsUnavailableAggregates(t *testing.T) {
+	ctx := context.Background()
+	dsn := filepath.Join(t.TempDir(), "factory-aggregates.db")
+	db, err := store.Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "audit.ndjson"))
+	logger.Start()
+	t.Cleanup(func() { logger.Stop(ctx) })
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(server.Routes())
+	t.Cleanup(srv.Close)
+	schema, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { schema.Close() })
+
+	endpoints := []struct {
+		path, code, section string
+		fields              []string
+	}{
+		{"/admin/factory/dashboard", "dashboard_failed", "dashboard", []string{
+			"ideas_total", "draft_products", "review_products", "risk_review_products", "approved_products",
+			"published_products", "archived_products", "high_risk_reviews", "pending_poc_plans", "average_revenue_score",
+		}},
+		{"/admin/dataworks/funnel", "funnel_failed", "funnel", nil},
+		{"/admin/dataworks/home", "dashboard_failed", "dashboard", []string{
+			"total_assets", "total_products", "published_products", "review_pending", "high_risk", "poc_pending", "ideas_total", "avg_revenue_score",
+		}},
+		{"/admin/dataworks/analytics", "analytics_failed", "analytics", []string{
+			"total_products", "total_ideas", "avg_revenue", "avg_risk", "published", "archived",
+		}},
+	}
+	assertBaseline := func(t *testing.T) {
+		t.Helper()
+		for _, endpoint := range endpoints {
+			status, body := getAdminJSON(t, srv.URL+endpoint.path)
+			if status != http.StatusOK {
+				t.Fatalf("baseline %s: status = %d, want 200: %s", endpoint.path, status, body)
+			}
+			for _, field := range endpoint.fields {
+				if got := dashboardCountOf(t, body, endpoint.section, field); got != 0 {
+					t.Errorf("baseline %s: %s = %d, want 0", endpoint.path, field, got)
+				}
+			}
+			if endpoint.section == "funnel" {
+				var parsed struct {
+					Funnel []struct {
+						Count *int `json:"count"`
+					} `json:"funnel"`
+				}
+				if err := json.Unmarshal(body, &parsed); err != nil {
+					t.Fatal(err)
+				}
+				if len(parsed.Funnel) != 5 {
+					t.Fatalf("baseline funnel: want five stages: %s", body)
+				}
+				for _, stage := range parsed.Funnel {
+					if stage.Count == nil || *stage.Count != 0 {
+						t.Errorf("baseline funnel: want zero count: %s", body)
+					}
+				}
+			}
+		}
+	}
+	assertBaseline(t)
+
+	for _, tc := range []struct {
+		name, table string
+		averageOnly bool
+		allRoutes   bool
+	}{
+		{"ideas", "product_ideas", false, true},
+		{"products", "data_products", false, false},
+		{"risk_reviews", "product_risk_reviews", false, true},
+		{"poc_plans", "product_poc_plans", false, true},
+		{"average_revenue", "data_products", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Identifiers are fixed test cases; each subtest restores the same isolated DB.
+			if _, err := schema.ExecContext(ctx, "ALTER TABLE "+tc.table+" RENAME TO unavailable_aggregate"); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if tc.averageOnly {
+					if _, err := schema.ExecContext(ctx, "DROP VIEW IF EXISTS data_products"); err != nil {
+						t.Error(err)
+					}
+				}
+				if _, err := schema.ExecContext(ctx, "ALTER TABLE unavailable_aggregate RENAME TO "+tc.table); err != nil {
+					t.Fatal(err)
+				}
+				assertBaseline(t)
+			})
+			if tc.table != "product_ideas" {
+				var n int64
+				if err := schema.QueryRowContext(ctx, "SELECT COUNT(*) FROM product_ideas").Scan(&n); err != nil {
+					t.Fatalf("ideas must remain readable: %v", err)
+				}
+			}
+			if tc.averageOnly {
+				if _, err := schema.ExecContext(ctx, "CREATE VIEW data_products AS SELECT status FROM unavailable_aggregate"); err != nil {
+					t.Fatal(err)
+				}
+				// Guard the lever using the aggregate SQL: every status count still works,
+				// and only the last query needs the deliberately absent revenue_score.
+				for _, status := range []string{"draft", "review", "risk_review", "approved", "published", "archived"} {
+					var n int64
+					if err := schema.QueryRowContext(ctx, "SELECT COUNT(*) FROM data_products WHERE status = ?", status).Scan(&n); err != nil || n != 0 {
+						t.Fatalf("status count %s: count = %d, err = %v", status, n, err)
+					}
+				}
+				var avg float64
+				if err := schema.QueryRowContext(ctx, "SELECT COALESCE(AVG(revenue_score), 0) FROM data_products WHERE revenue_score > 0").Scan(&avg); err == nil {
+					t.Fatal("lever did not break the average query")
+				}
+			}
+			for i, endpoint := range endpoints {
+				if i >= 2 && !tc.allRoutes {
+					continue
+				}
+				t.Run(endpoint.path, func(t *testing.T) {
+					status, body := getAdminJSON(t, srv.URL+endpoint.path)
+					if status != http.StatusInternalServerError {
+						t.Fatalf("unavailable %s: status = %d, want 500: %s", tc.name, status, body)
+					}
+					if code := errorCodeOf(t, body); code != endpoint.code {
+						t.Errorf("error code = %q, want %q: %s", code, endpoint.code, body)
+					}
+					var parsed map[string]json.RawMessage
+					if err := json.Unmarshal(body, &parsed); err != nil {
+						t.Fatal(err)
+					}
+					if len(parsed) != 1 || parsed["error"] == nil {
+						t.Errorf("failed response must contain only the error, without KPI data: %s", body)
+					}
+				})
+			}
+		})
+	}
+}
