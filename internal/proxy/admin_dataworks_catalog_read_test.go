@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"dataworks/internal/config"
 	"dataworks/internal/store"
@@ -399,5 +402,226 @@ func TestFactoryDashboardRejectsUnavailableAggregates(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+// The legacy factory screen consumes all three sources in one response. Break the
+// idea SELECT independently of its COUNT so a missing idea-error check cannot hide
+// behind the dashboard-error check.
+func TestFactoryProductsRejectsUnavailableSources(t *testing.T) {
+	ctx := context.Background()
+	dsn := filepath.Join(t.TempDir(), "factory-products.db")
+	db, err := store.Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	logger := store.NewAsyncLogger(db, 8, filepath.Join(t.TempDir(), "audit.ndjson"))
+	logger.Start()
+	t.Cleanup(func() { logger.Stop(ctx) })
+	server, err := NewServer(testConfig("http://upstream.invalid", "secret"), db, logger, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(server.Routes())
+	t.Cleanup(srv.Close)
+	schema, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { schema.Close() })
+
+	type productsResponse struct {
+		Products  []store.DataProduct `json:"products"`
+		Ideas     []store.ProductIdea `json:"ideas"`
+		Dashboard map[string]int      `json:"dashboard"`
+	}
+	readProducts := func(t *testing.T, query string) productsResponse {
+		t.Helper()
+		status, body := getAdminJSON(t, srv.URL+"/admin/factory/products"+query)
+		if status != http.StatusOK {
+			t.Fatalf("products%s: status = %d, want 200: %s", query, status, body)
+		}
+		var parsed productsResponse
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			t.Fatal(err)
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(body, &fields); err != nil {
+			t.Fatal(err)
+		}
+		if len(fields) != 3 || parsed.Products == nil || parsed.Ideas == nil || parsed.Dashboard == nil {
+			t.Fatalf("want products/ideas arrays and dashboard only: %s", body)
+		}
+		return parsed
+	}
+	wantDashboard := map[string]int{
+		"ideas_total": 0, "draft_products": 0, "review_products": 0,
+		"risk_review_products": 0, "approved_products": 0, "published_products": 0,
+		"archived_products": 0, "high_risk_reviews": 0, "pending_poc_plans": 0,
+		"average_revenue_score": 0,
+	}
+	empty := readProducts(t, "")
+	if len(empty.Products) != 0 || len(empty.Ideas) != 0 || !reflect.DeepEqual(empty.Dashboard, wantDashboard) {
+		t.Fatalf("empty database response = %+v", empty)
+	}
+
+	for i, status := range []string{"draft", "review"} {
+		resp := postJSON(t, srv.URL+"/admin/dataworks/products", "", map[string]any{
+			"product_key": "factory_" + status, "name_ko": "Factory " + status,
+			"source_type": "api", "owner": "data-business", "status": status,
+		})
+		requireStatus(t, resp, http.StatusOK)
+		resp.Body.Close()
+		// Make newest-first ordering deterministic without sleeping.
+		if _, err := schema.ExecContext(ctx, "UPDATE data_products SET created_at = ? WHERE product_key = ?",
+			fmt.Sprintf("2026-01-0%dT00:00:00Z", i+1), "factory_"+status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var generated []store.ProductIdea
+	generateIdeas := func(count int) {
+		t.Helper()
+		resp := postJSON(t, srv.URL+"/admin/factory/ideas/generate", "", map[string]any{
+			"industry": "금융", "market_need": "리스크 조기탐지", "data_assets": []string{"loan_history"}, "count": count,
+		})
+		requireStatus(t, resp, http.StatusOK)
+		var parsed struct {
+			Ideas []store.ProductIdea `json:"ideas"`
+		}
+		err := json.NewDecoder(resp.Body).Decode(&parsed)
+		resp.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(parsed.Ideas) == 0 {
+			t.Fatal("generation returned no ideas")
+		}
+		for _, idea := range parsed.Ideas {
+			stamp := time.Date(2026, 1, 1, 0, len(generated), 0, 0, time.UTC).Format(time.RFC3339)
+			if _, err := schema.ExecContext(ctx, "UPDATE product_ideas SET created_at = ?, updated_at = ? WHERE id = ?", stamp, stamp, idea.ID); err != nil {
+				t.Fatal(err)
+			}
+			idea.CreatedAt, idea.UpdatedAt = stamp, stamp
+			generated = append(generated, idea)
+		}
+	}
+	generateIdeas(1) // Use the actual returned count; the generator may impose a minimum.
+	wantIdeas := func() []store.ProductIdea {
+		out := []store.ProductIdea{}
+		for i := len(generated) - 1; i >= 0 && len(out) < 50; i-- {
+			out = append(out, generated[i])
+		}
+		return out
+	}
+	baseline := readProducts(t, "")
+	wantDashboard["ideas_total"] = len(generated)
+	wantDashboard["draft_products"], wantDashboard["review_products"] = 1, 1
+	if len(baseline.Products) != 2 || baseline.Products[0].ProductKey != "factory_review" || baseline.Products[1].ProductKey != "factory_draft" {
+		t.Fatalf("products not returned newest first: %+v", baseline.Products)
+	}
+	if !reflect.DeepEqual(baseline.Ideas, wantIdeas()) || !reflect.DeepEqual(baseline.Dashboard, wantDashboard) {
+		t.Fatalf("populated response = %+v, want ideas %+v and dashboard %+v", baseline, wantIdeas(), wantDashboard)
+	}
+	status, body := getAdminJSON(t, srv.URL+"/admin/dataworks/products")
+	var catalog productsResponse
+	if err := json.Unmarshal(body, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	if status != http.StatusOK || !reflect.DeepEqual(baseline.Products, catalog.Products) {
+		t.Fatalf("legacy product content differs from catalog: status = %d: %s", status, body)
+	}
+	filtered := baseline
+	filtered.Products = baseline.Products[:1]
+	assertBaseline := func(t *testing.T) {
+		t.Helper()
+		for query, want := range map[string]productsResponse{"": baseline, "?status=%20review%20": filtered} {
+			if got := readProducts(t, query); !reflect.DeepEqual(got, want) {
+				t.Errorf("products%s differs from complete baseline: got %+v, want %+v", query, got, want)
+			}
+		}
+	}
+	assertBaseline(t)
+
+	for _, tc := range []struct {
+		name, table string
+		ideasOnly   bool
+	}{
+		{"ideas_only", "product_ideas", true},
+		{"risk_reviews", "product_risk_reviews", false},
+		{"poc_plans", "product_poc_plans", false},
+		{"products", "data_products", false}, // Preserve the existing first-read error contract too.
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := schema.ExecContext(ctx, "ALTER TABLE "+tc.table+" RENAME TO unavailable_factory_source"); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if tc.ideasOnly {
+					if _, err := schema.ExecContext(ctx, "DROP VIEW IF EXISTS product_ideas"); err != nil {
+						t.Error(err)
+					}
+				}
+				if _, err := schema.ExecContext(ctx, "ALTER TABLE unavailable_factory_source RENAME TO "+tc.table); err != nil {
+					t.Fatal(err)
+				}
+				assertBaseline(t)
+			})
+			if tc.ideasOnly {
+				if _, err := schema.ExecContext(ctx, "CREATE VIEW product_ideas AS SELECT id FROM unavailable_factory_source"); err != nil {
+					t.Fatal(err)
+				}
+				status, body := getAdminJSON(t, srv.URL+"/admin/factory/dashboard")
+				if status != http.StatusOK || dashboardCountOf(t, body, "dashboard", "ideas_total") != len(generated) {
+					t.Fatalf("idea SELECT failure must leave dashboard counts readable: status = %d: %s", status, body)
+				}
+			} else if tc.table != "data_products" {
+				// Guard that the dashboard, not either earlier list read, is broken.
+				products, err := db.ListDataProducts(ctx, "")
+				if err != nil || !reflect.DeepEqual(products, baseline.Products) {
+					t.Fatalf("products unexpectedly unreadable: %v", err)
+				}
+				ideas, err := db.ListProductIdeas(ctx, "", 50)
+				if err != nil || !reflect.DeepEqual(ideas, baseline.Ideas) {
+					t.Fatalf("ideas unexpectedly unreadable: %v", err)
+				}
+				status, body := getAdminJSON(t, srv.URL+"/admin/factory/dashboard")
+				if status != http.StatusInternalServerError || errorCodeOf(t, body) != "dashboard_failed" {
+					t.Fatalf("lever did not break dashboard: status = %d: %s", status, body)
+				}
+			}
+			status, body := getAdminJSON(t, srv.URL+"/admin/factory/products")
+			if status != http.StatusInternalServerError {
+				t.Fatalf("unavailable %s: status = %d, want 500: %s", tc.name, status, body)
+			}
+			var parsed map[string]json.RawMessage
+			if err := json.Unmarshal(body, &parsed); err != nil {
+				t.Fatal(err)
+			}
+			if len(parsed) != 1 || parsed["error"] == nil {
+				t.Fatalf("failed response must contain only error: %s", body)
+			}
+			var apiError struct{ Type, Code string }
+			if err := json.Unmarshal(parsed["error"], &apiError); err != nil {
+				t.Fatal(err)
+			}
+			if apiError.Type != "server_error" || apiError.Code != "products_failed" {
+				t.Errorf("wrong failure contract: %s", body)
+			}
+		})
+	}
+
+	// Keep the legacy 50-idea cap while the KPI still counts the entire catalog.
+	generateIdeas(20)
+	generateIdeas(20)
+	generateIdeas(20)
+	limited := readProducts(t, "?status=%20review%20")
+	wantDashboard["ideas_total"] = len(generated)
+	if len(limited.Ideas) != 50 || !reflect.DeepEqual(limited.Ideas, wantIdeas()) ||
+		!reflect.DeepEqual(limited.Products, filtered.Products) || !reflect.DeepEqual(limited.Dashboard, wantDashboard) {
+		t.Fatalf("limited response lost content, order, or global counts: %+v", limited)
 	}
 }
