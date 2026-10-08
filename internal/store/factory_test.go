@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -161,6 +162,91 @@ func TestFactoryRoundtrip(t *testing.T) {
 	}
 	if dash.IdeasTotal != 1 || dash.HighRiskReviews != 0 || dash.PendingPOCPlans != 1 {
 		t.Fatalf("dashboard mismatch: %+v", dash)
+	}
+}
+
+func TestFactoryDashboardEmpty(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: filepath.Join(t.TempDir(), "dashboard.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.FactoryDashboard(ctx)
+	if err != nil || got != (FactoryDashboard{}) {
+		t.Fatalf("empty dashboard = %+v, err = %v", got, err)
+	}
+}
+
+func TestFactoryDashboardAggregates(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		scores []int
+		want   int64
+	}{
+		{"round_half_up", []int{80, 81}, 81},
+		{"round_down", []int{80, 80, 81}, 80},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db, err := Open(ctx, config.DatabaseConfig{Driver: "sqlite", DSN: filepath.Join(t.TempDir(), "dashboard.db")})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { db.Close() })
+			if err := db.Migrate(ctx); err != nil {
+				t.Fatal(err)
+			}
+			for _, id := range []string{"idea_1", "idea_2"} {
+				if err := db.InsertProductIdea(ctx, ProductIdea{ID: id, Title: id}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// Distinct counts catch status/field mixups. Only positive scores enter the
+			// average; the remaining products alternate between zero and negative scores.
+			productIndex := 0
+			for i, status := range []string{"draft", "review", "risk_review", "approved", "published", "archived"} {
+				for j := 0; j <= i; j++ {
+					id := fmt.Sprintf("product_%s_%d", status, j)
+					score := -(productIndex % 2) * 10
+					if productIndex < len(tc.scores) {
+						score = tc.scores[productIndex]
+					}
+					if err := db.UpsertDataProduct(ctx, DataProduct{
+						ID: id, ProductKey: id, NameKO: id, Status: status, RevenueScore: score,
+					}); err != nil {
+						t.Fatal(err)
+					}
+					productIndex++
+				}
+			}
+			for _, score := range []int{69, 70, 71} {
+				if err := db.InsertProductRiskReview(ctx, ProductRiskReview{
+					ID: fmt.Sprintf("risk_%d", score), ProductKey: "product_draft_0", OverallScore: score,
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for i, status := range []string{"pending", "pending", "approved", "rejected"} {
+				if err := db.InsertProductPOCPlan(ctx, ProductPOCPlan{
+					ID: fmt.Sprintf("poc_%d", i), ProductKey: "product_draft_0", ApprovalStatus: status,
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			want := FactoryDashboard{
+				IdeasTotal: 2, DraftProducts: 1, ReviewProducts: 2, RiskReviewProducts: 3,
+				ApprovedProducts: 4, PublishedProducts: 5, ArchivedProducts: 6,
+				HighRiskReviews: 2, PendingPOCPlans: 2, AverageRevenue: tc.want,
+			}
+			got, err := db.FactoryDashboard(ctx)
+			if err != nil || got != want {
+				t.Fatalf("dashboard = %+v, err = %v; want %+v", got, err, want)
+			}
+		})
 	}
 }
 
